@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, FlatList, StyleSheet, View } from 'react-native';
+import { FlatList, StyleSheet, View } from 'react-native';
 
 import { DayStrip } from '@/components/habit/day-strip';
 import { HabitCard } from '@/components/habit/habit-card';
@@ -12,7 +12,8 @@ import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { spacing } from '@/constants/design-tokens';
 import type { HabitRow } from '@/db/types';
-import { parseDateKey, shiftDateKey, todayKey, weekDates, weekStartKey } from '@/lib/date';
+import { useTodayKey } from '@/hooks/use-today-key';
+import { parseDateKey, shiftDateKey, weekDates, weekStartKey } from '@/lib/date';
 import { haptics } from '@/lib/haptics';
 import { isScheduledOn } from '@/lib/schedule';
 import { useEntriesStore } from '@/store/entries-store';
@@ -192,42 +193,6 @@ export default function TodayScreen() {
       )}
     </Screen>
   );
-}
-
-/**
- * Local-date key that stays correct across midnight: recomputed on a timer aimed at
- * the next local midnight, and again whenever the app returns to the foreground
- * (covers the case where the device slept through the timer).
- */
-function useTodayKey(): string {
-  const [today, setToday] = useState(todayKey());
-
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
-
-    const scheduleNextTick = () => {
-      const now = new Date();
-      const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 5);
-      timer = setTimeout(() => {
-        setToday(todayKey());
-        scheduleNextTick();
-      }, nextMidnight.getTime() - now.getTime());
-    };
-    scheduleNextTick();
-
-    const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') {
-        setToday(todayKey());
-      }
-    });
-
-    return () => {
-      clearTimeout(timer);
-      subscription.remove();
-    };
-  }, []);
-
-  return today;
 }
 
 const styles = StyleSheet.create({
