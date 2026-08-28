@@ -86,9 +86,14 @@ export default function TodayScreen() {
     loadWeek(db, week[0], week[6]);
   }, [db, loadWeek, week]);
 
+  // Settings loads this same store with archived habits included (needed so editing
+  // one finds it) — filter them back out here, since that scope persists globally.
+  const activeHabits = useMemo(() => habits.filter((habit) => !habit.archived_at), [habits]);
+
   const scheduledHabits = useMemo(
-    () => habits.filter((habit) => isScheduledOn(habit.schedule_mask, parseDateKey(selectedDate))),
-    [habits, selectedDate]
+    () =>
+      activeHabits.filter((habit) => isScheduledOn(habit.schedule_mask, parseDateKey(selectedDate))),
+    [activeHabits, selectedDate]
   );
 
   const dayCounts = counts[selectedDate] ?? {};
@@ -167,9 +172,9 @@ export default function TodayScreen() {
       {scheduledHabits.length === 0 ? (
         <EmptyState
           icon="checkmark.circle"
-          title={habits.length === 0 ? 'Привычек пока нет' : 'На этот день ничего не запланировано'}
+          title={activeHabits.length === 0 ? 'Привычек пока нет' : 'На этот день ничего не запланировано'}
           subtitle={
-            habits.length === 0
+            activeHabits.length === 0
               ? 'Нажмите «+», чтобы добавить первую привычку'
               : 'Выберите другой день или измените расписание привычки'
           }

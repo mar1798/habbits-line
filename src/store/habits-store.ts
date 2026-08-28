@@ -17,6 +17,7 @@ interface HabitsState {
   archive: (db: SQLiteDatabase, id: string) => Promise<void>;
   unarchive: (db: SQLiteDatabase, id: string) => Promise<void>;
   remove: (db: SQLiteDatabase, id: string) => Promise<void>;
+  reorder: (db: SQLiteDatabase, orderedIds: string[]) => Promise<void>;
 }
 
 /**
@@ -88,5 +89,35 @@ export const useHabitsStore = create<HabitsState>((set, get) => ({
     await habitsRepo.deleteHabit(db, id);
     await get().reload(db);
     await syncReminders(db);
+  },
+
+  /**
+   * Order carries no reminder data — no notification recompute needed.
+   *
+   * The new order is applied to the store synchronously, before the write is awaited,
+   * for the same reason `entries-store.cycle` does it: a second arrow tap landing
+   * inside the pending write would recompute its move from the pre-tap order and just
+   * repeat the first one, losing a tap. Rolls back if the write fails.
+   */
+  reorder: async (db, orderedIds) => {
+    const previous = get().habits;
+    const rank = new Map(orderedIds.map((id, index) => [id, index]));
+    // sort() is stable, so habits outside `orderedIds` — archived ones, which the
+    // settings list keeps in a group of their own — hold their relative position.
+    const optimistic = previous
+      .map((habit) => {
+        const index = rank.get(habit.id);
+        return index === undefined ? habit : { ...habit, sort_order: index };
+      })
+      .sort((a, b) => a.sort_order - b.sort_order);
+    set({ habits: optimistic });
+
+    try {
+      await habitsRepo.reorderHabits(db, orderedIds);
+      await get().reload(db);
+    } catch (error) {
+      set({ habits: previous });
+      console.warn('Failed to reorder habits', error);
+    }
   },
 }));

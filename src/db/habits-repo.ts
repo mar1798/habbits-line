@@ -99,3 +99,22 @@ export async function unarchiveHabit(db: SQLiteDatabase, id: string): Promise<vo
 export async function deleteHabit(db: SQLiteDatabase, id: string): Promise<void> {
   await db.runAsync('DELETE FROM habits WHERE id = ?', id);
 }
+
+/**
+ * Rewrites `sort_order` for exactly the given ids, in one transaction, to their
+ * position in `orderedIds`. Ids not included (e.g. archived habits sitting between
+ * active ones) keep their old value — callers only ever reorder within one group.
+ */
+export async function reorderHabits(db: SQLiteDatabase, orderedIds: string[]): Promise<void> {
+  const now = new Date().toISOString();
+  await db.withTransactionAsync(async () => {
+    for (let index = 0; index < orderedIds.length; index++) {
+      await db.runAsync(
+        'UPDATE habits SET sort_order = ?, updated_at = ? WHERE id = ?',
+        index,
+        now,
+        orderedIds[index]
+      );
+    }
+  });
+}
