@@ -11,7 +11,9 @@ import { IconButton } from '@/components/ui/icon-button';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { spacing } from '@/constants/design-tokens';
+import type { HabitRow } from '@/db/types';
 import { parseDateKey, shiftDateKey, todayKey, weekDates, weekStartKey } from '@/lib/date';
+import { haptics } from '@/lib/haptics';
 import { isScheduledOn } from '@/lib/schedule';
 import { useEntriesStore } from '@/store/entries-store';
 import { useHabitsStore } from '@/store/habits-store';
@@ -101,6 +103,37 @@ export default function TodayScreen() {
   // Floor, not round: 99.6% of the day rounds to a "100%" the user hasn't earned yet.
   const dayPercent = Math.floor(dayProgress * 100);
 
+  const isDayComplete = (dayEntries: Record<string, number> | undefined) =>
+    scheduledHabits.length > 0 &&
+    scheduledHabits.every((habit) => (dayEntries?.[habit.id] ?? 0) >= habit.target_per_day);
+
+  /**
+   * One tap on a habit's check button, and the single place that decides its haptic:
+   * closing the day upgrades the light tick to a success pattern, so firing one inside
+   * the button as well would run two overlapping patterns on the same tap.
+   *
+   * Both readings come from the store rather than from render props. `cycle` patches
+   * its cell synchronously and only then awaits the write, so the state read right
+   * after the call is already the post-tap one — while props inside a fast series of
+   * taps still show the pre-tap count and would mislabel a wrap-to-0 as a step forward.
+   * Watching `dayProgress` across renders instead is what fails on load: entries arrive
+   * after the first render, so an already-closed day would congratulate the user for
+   * opening the app or for paging onto it.
+   */
+  const handleToggle = (habit: HabitRow) => {
+    const before = useEntriesStore.getState().counts[selectedDate];
+    void cycleCount(db, habit.id, selectedDate, habit.target_per_day);
+    const after = useEntriesStore.getState().counts[selectedDate];
+
+    if (!isDayComplete(before) && isDayComplete(after)) {
+      haptics.success();
+    } else if ((after?.[habit.id] ?? 0) === 0) {
+      haptics.reset();
+    } else {
+      haptics.tick();
+    }
+  };
+
   return (
     <Screen>
       <View style={styles.header}>
@@ -150,7 +183,7 @@ export default function TodayScreen() {
               habit={item}
               count={dayCounts[item.id] ?? 0}
               disabled={!isEditable}
-              onToggle={() => cycleCount(db, item.id, selectedDate, item.target_per_day)}
+              onToggle={() => handleToggle(item)}
               onEdit={() => router.push({ pathname: '/habit/[id]', params: { id: item.id } })}
               onArchive={() => archiveHabit(db, item.id)}
             />

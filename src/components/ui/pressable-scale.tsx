@@ -1,9 +1,15 @@
 import { Pressable, PressableProps, StyleProp, ViewStyle } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, {
+  ReduceMotion,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 
 import { motion } from '@/constants/design-tokens';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const pressSpring = { ...motion.spring.press, reduceMotion: ReduceMotion.System };
 
 export type PressableScaleProps = Omit<PressableProps, 'style'> & {
   style?: StyleProp<ViewStyle>;
@@ -30,12 +36,12 @@ export function PressableScale({
         // Reanimated shared values are mutated via `.value` by design; the compiler's
         // purity check doesn't know that and flags it as a false positive.
         // eslint-disable-next-line react-hooks/immutability
-        scale.value = withSpring(scaleTo, motion.spring.press);
+        scale.value = withSpring(scaleTo, pressSpring);
         onPressIn?.(event);
       }}
       onPressOut={(event) => {
         // eslint-disable-next-line react-hooks/immutability
-        scale.value = withSpring(1, motion.spring.press);
+        scale.value = withSpring(1, pressSpring);
         onPressOut?.(event);
       }}
       {...rest}
