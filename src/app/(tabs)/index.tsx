@@ -12,7 +12,11 @@ export default function TodayScreen() {
     <Screen>
       <View style={styles.header}>
         <Text variant="title1">Сегодня</Text>
-        <IconButton name="plus" onPress={() => router.push('/habit/new')} />
+        <IconButton
+          name="plus"
+          accessibilityLabel="Добавить привычку"
+          onPress={() => router.push('/habit/new')}
+        />
       </View>
       <EmptyState
         icon="checkmark.circle"

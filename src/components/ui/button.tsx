@@ -18,16 +18,22 @@ export function Button({ title, onPress, variant = 'primary', disabled, style }:
   const { colors } = useTheme();
   const isPrimary = variant === 'primary';
 
+  const backgroundColor = disabled
+    ? colors.disabled
+    : isPrimary
+      ? colors.accent
+      : colors.surfaceAlt;
+  // onAccent on the disabled fill lands at ~1.4:1, so disabled text drops to tertiary.
+  const textColor = disabled ? colors.textTertiary : isPrimary ? colors.onAccent : colors.textPrimary;
+
   return (
     <PressableScale
       onPress={onPress}
       disabled={disabled}
-      style={[
-        styles.base,
-        { backgroundColor: disabled ? colors.disabled : isPrimary ? colors.accent : colors.surfaceAlt },
-        style,
-      ]}>
-      <Text variant="callout" color={isPrimary ? colors.onAccent : colors.textPrimary}>
+      accessibilityRole="button"
+      accessibilityState={{ disabled: Boolean(disabled) }}
+      style={[styles.base, { backgroundColor }, style]}>
+      <Text variant="callout" color={textColor}>
         {title}
       </Text>
     </PressableScale>

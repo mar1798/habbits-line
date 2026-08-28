@@ -59,10 +59,18 @@ export const habitColors: Record<ColorKey, { light: string; dark: string }> = {
 
 export const DEFAULT_HABIT_COLOR: ColorKey = 'violet';
 
-/** Unknown color_key (foreign or future import file) falls back to violet. */
+const habitColorKeys = new Set<string>(Object.keys(habitColors));
+
+/**
+ * Unknown color_key (foreign or future import file) falls back to violet.
+ *
+ * The lookup goes through the key set rather than `habitColors[key] ?? default`:
+ * an inherited name such as 'constructor' or 'toString' resolves to a prototype
+ * member, slips past `??` and yields `undefined` instead of a color.
+ */
 export function resolveHabitColor(key: string, scheme: 'light' | 'dark'): string {
-  const entry = habitColors[key as ColorKey] ?? habitColors[DEFAULT_HABIT_COLOR];
-  return entry[scheme];
+  const resolved: ColorKey = habitColorKeys.has(key) ? (key as ColorKey) : DEFAULT_HABIT_COLOR;
+  return habitColors[resolved][scheme];
 }
 
 export const fontFamily = Platform.select({ ios: 'ui-rounded', default: undefined });

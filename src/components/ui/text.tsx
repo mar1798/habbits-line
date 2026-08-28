@@ -5,7 +5,8 @@ import { useTheme } from '@/hooks/use-theme';
 
 type Variant = keyof typeof typography;
 
-export type TextProps = RNTextProps & {
+/** `allowFontScaling` is omitted on purpose: sizes are fixed by the design system. */
+export type TextProps = Omit<RNTextProps, 'allowFontScaling'> & {
   variant?: Variant;
   color?: string;
 };
@@ -14,9 +15,9 @@ export function Text({ variant = 'body', color, style, ...rest }: TextProps) {
   const { colors } = useTheme();
   return (
     <RNText
-      allowFontScaling={false}
       style={[typography[variant], { color: color ?? colors.textPrimary }, style]}
       {...rest}
+      allowFontScaling={false}
     />
   );
 }

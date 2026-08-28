@@ -7,8 +7,9 @@ import { spacing } from '@/constants/design-tokens';
 
 export default function EditHabitScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  // edges: the native header already covers the top inset.
   return (
-    <Screen style={styles.container}>
+    <Screen edges={['bottom']} style={styles.container}>
       <Text variant="body">Форма редактирования привычки (id: {id}) появится на этапе 4.</Text>
     </Screen>
   );
