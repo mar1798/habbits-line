@@ -40,6 +40,19 @@ export async function listEntriesForDate(db: SQLiteDatabase, date: string): Prom
   return db.getAllAsync<EntryRow>('SELECT * FROM entries WHERE date = ?', date);
 }
 
+/** All habits' entries across a date range — used to prime a week of the "Today" screen. */
+export async function listEntriesInRange(
+  db: SQLiteDatabase,
+  from: string,
+  to: string
+): Promise<EntryRow[]> {
+  return db.getAllAsync<EntryRow>(
+    'SELECT * FROM entries WHERE date BETWEEN ? AND ? ORDER BY date ASC',
+    from,
+    to
+  );
+}
+
 /**
  * Upserts the row for (habitId, date); a count of 0 or less deletes it instead,
  * per the schema rule that a day with no progress has no row.
