@@ -2,9 +2,10 @@ import { Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 
 import { fontFamily } from '@/constants/design-tokens';
+import { DatabaseProvider } from '@/db/provider';
 import { useNavigationTheme, useTheme } from '@/hooks/use-theme';
 
 /**
@@ -32,7 +33,11 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={navigationTheme}>
       <StatusBar style="auto" />
-      <RootStack />
+      <Suspense fallback={null}>
+        <DatabaseProvider>
+          <RootStack />
+        </DatabaseProvider>
+      </Suspense>
     </ThemeProvider>
   );
 }
