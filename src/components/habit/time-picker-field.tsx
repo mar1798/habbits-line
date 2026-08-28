@@ -12,6 +12,9 @@ import { useNotificationPermissionStatus } from '@/lib/notifications';
 /** Turning the reminder on lands on a sane morning slot, not on the current minute. */
 const DEFAULT_REMINDER_TIME = '09:00';
 
+/** The link's text alone is well under 44pt; hitSlop tops the target up to size. */
+const SETTINGS_LINK_HIT_SLOP = { top: 14, bottom: 14, left: 12, right: 12 };
+
 type TimePickerFieldProps = {
   /** 'HH:mm' local time, or null for no reminder. */
   value: string | null;
@@ -75,7 +78,9 @@ export function TimePickerField({ value, onChange }: TimePickerFieldProps) {
           <Text variant="caption" color={colors.danger} style={styles.warningText}>
             Уведомления запрещены в настройках iOS — время сохранится, но напоминание не придёт
           </Text>
-          <PressableScale onPress={() => Linking.openSettings()}>
+          <PressableScale
+            onPress={() => Linking.openSettings()}
+            hitSlop={SETTINGS_LINK_HIT_SLOP}>
             <Text variant="caption" color={colors.accent}>
               Настройки
             </Text>
