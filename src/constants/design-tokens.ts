@@ -68,9 +68,12 @@ const habitColorKeys = new Set<string>(Object.keys(habitColors));
  * an inherited name such as 'constructor' or 'toString' resolves to a prototype
  * member, slips past `??` and yields `undefined` instead of a color.
  */
+export function resolveColorKey(key: string): ColorKey {
+  return habitColorKeys.has(key) ? (key as ColorKey) : DEFAULT_HABIT_COLOR;
+}
+
 export function resolveHabitColor(key: string, scheme: 'light' | 'dark'): string {
-  const resolved: ColorKey = habitColorKeys.has(key) ? (key as ColorKey) : DEFAULT_HABIT_COLOR;
-  return habitColors[resolved][scheme];
+  return habitColors[resolveColorKey(key)][scheme];
 }
 
 export const fontFamily = Platform.select({ ios: 'ui-rounded', default: undefined });
