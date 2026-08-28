@@ -23,6 +23,7 @@ export default function TodayScreen() {
   const db = useSQLiteContext();
 
   const habits = useHabitsStore((state) => state.habits);
+  const habitsLoaded = useHabitsStore((state) => state.loaded);
   const loadHabits = useHabitsStore((state) => state.load);
   const archiveHabit = useHabitsStore((state) => state.archive);
 
@@ -140,6 +141,15 @@ export default function TodayScreen() {
     }
   };
 
+  /**
+   * Archiving from the card's context menu. The rejection is swallowed rather than
+   * left floating: unhandled, it shows up as a Metro warning for a failure the user
+   * can only retry anyway.
+   */
+  const handleArchive = (habit: HabitRow) => {
+    archiveHabit(db, habit.id).catch((error) => console.warn('Failed to archive habit', error));
+  };
+
   return (
     <Screen>
       <View style={styles.header}>
@@ -169,17 +179,7 @@ export default function TodayScreen() {
         </View>
       ) : null}
 
-      {scheduledHabits.length === 0 ? (
-        <EmptyState
-          icon="checkmark.circle"
-          title={activeHabits.length === 0 ? 'Привычек пока нет' : 'На этот день ничего не запланировано'}
-          subtitle={
-            activeHabits.length === 0
-              ? 'Нажмите «+», чтобы добавить первую привычку'
-              : 'Выберите другой день или измените расписание привычки'
-          }
-        />
-      ) : (
+      {scheduledHabits.length > 0 ? (
         <FlatList
           data={scheduledHabits}
           keyExtractor={(habit) => habit.id}
@@ -191,11 +191,25 @@ export default function TodayScreen() {
               disabled={!isEditable}
               onToggle={() => handleToggle(item)}
               onEdit={() => router.push({ pathname: '/habit/[id]', params: { id: item.id } })}
-              onArchive={() => archiveHabit(db, item.id)}
+              onArchive={() => handleArchive(item)}
             />
           )}
         />
-      )}
+      ) : habitsLoaded ? (
+        // Gated on the load: the store is empty for a frame on a cold start, and an
+        // ungated empty state greets every launch with "no habits yet".
+        <EmptyState
+          icon="checkmark.circle"
+          title={
+            activeHabits.length === 0 ? 'Привычек пока нет' : 'На этот день ничего не запланировано'
+          }
+          subtitle={
+            activeHabits.length === 0
+              ? 'Нажмите «+», чтобы добавить первую привычку'
+              : 'Выберите другой день или измените расписание привычки'
+          }
+        />
+      ) : null}
     </Screen>
   );
 }

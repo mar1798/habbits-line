@@ -226,7 +226,9 @@ export default function SettingsScreen() {
       <FlatList
         data={rows}
         keyExtractor={(row) => row.key}
-        contentContainerStyle={styles.list}
+        // The empty state fills its remaining height, and `flex: 1` inside a scroll
+        // view's content container collapses to nothing without flexGrow to grow into.
+        contentContainerStyle={[styles.list, rows.length === 0 && styles.listEmpty]}
         ListHeaderComponent={
           <View style={styles.header}>
             <Text variant="title1">Настройки</Text>
@@ -407,6 +409,9 @@ const styles = StyleSheet.create({
   },
   list: {
     paddingBottom: spacing.xl,
+  },
+  listEmpty: {
+    flexGrow: 1,
   },
   sectionTitle: {
     paddingHorizontal: spacing.lg,

@@ -7,8 +7,12 @@ import { useTheme } from '@/hooks/use-theme';
 
 const COLOR_KEYS = Object.keys(habitColors) as ColorKey[];
 
-/** Swatches share the row width, so each lands near 40pt — hitSlop tops the target up to 44. */
-const SWATCH_HIT_SLOP = { top: 4, bottom: 4, left: 2, right: 2 };
+/**
+ * Eight swatches share the row width, so each circle is only ~36–38pt across. The slop
+ * takes exactly half the 8pt gap on each side, which brings the target to 44pt without
+ * letting neighbouring targets overlap.
+ */
+const SWATCH_HIT_SLOP = { top: 4, bottom: 4, left: spacing.xs, right: spacing.xs };
 
 type ColorPickerProps = {
   value: string;

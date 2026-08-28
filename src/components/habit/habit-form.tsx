@@ -9,7 +9,15 @@ import { Button } from '@/components/ui/button';
 import { IconButton } from '@/components/ui/icon-button';
 import { Section } from '@/components/ui/section';
 import { Text } from '@/components/ui/text';
-import { DEFAULT_HABIT_COLOR, radius, resolveColorKey, spacing } from '@/constants/design-tokens';
+import {
+  DEFAULT_HABIT_COLOR,
+  fontFamily,
+  minHitSlop,
+  radius,
+  resolveColorKey,
+  spacing,
+  typography,
+} from '@/constants/design-tokens';
 import { HABIT_EMOJIS } from '@/constants/emoji';
 import type { HabitInput } from '@/db/habits-repo';
 import { useTheme } from '@/hooks/use-theme';
@@ -80,6 +88,9 @@ export function HabitForm({ initialValues, submitLabel, isEditing, onSubmit }: H
           placeholder="Например, Пить воду"
           placeholderTextColor={colors.textTertiary}
           returnKeyType="done"
+          // Same rule as components/ui/text.tsx: sizes are fixed by the design system,
+          // so the field must not grow with Dynamic Type while everything around it stays.
+          allowFontScaling={false}
           style={[
             styles.input,
             { backgroundColor: colors.surfaceAlt, color: colors.textPrimary, borderColor: colors.border },
@@ -152,11 +163,15 @@ const styles = StyleSheet.create({
     gap: spacing.xl,
   },
   input: {
-    minHeight: 44,
+    minHeight: minHitSlop,
     borderRadius: radius.md,
     borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: spacing.md,
-    fontSize: 16,
+    // Body type from the tokens, minus its lineHeight: on iOS a TextInput with an
+    // explicit lineHeight clips its own text vertically.
+    fontFamily,
+    fontSize: typography.body.fontSize,
+    fontWeight: typography.body.fontWeight,
   },
   stepper: {
     flexDirection: 'row',
