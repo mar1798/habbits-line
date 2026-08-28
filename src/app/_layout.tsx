@@ -2,14 +2,15 @@ import * as Notifications from 'expo-notifications';
 import { router, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import { useSQLiteContext } from 'expo-sqlite';
 import * as SystemUI from 'expo-system-ui';
 import { Suspense, useEffect } from 'react';
 
 import { fontFamily } from '@/constants/design-tokens';
 import { DatabaseProvider } from '@/db/provider';
 import { useNavigationTheme, useTheme } from '@/hooks/use-theme';
-// Side effect: registers the foreground notification handler on import.
-import '@/lib/notifications';
+// Importing this module also registers the foreground notification handler.
+import { useReminderSync } from '@/lib/notifications';
 
 /**
  * Without an anchor a route opened directly — a deep link, or a notification tap —
@@ -47,6 +48,7 @@ export default function RootLayout() {
 
 function RootStack() {
   const { colors } = useTheme();
+  const db = useSQLiteContext();
 
   // Hidden from here, not from RootLayout: stage 2 wraps this component in
   // <Suspense><SQLiteProvider useSuspense>, so the effect then runs only once the
@@ -57,17 +59,24 @@ function RootStack() {
 
   // A tap opens "Today" from both cold start and background: getLastNotificationResponse
   // covers the cold-start case, which the response listener alone would miss entirely.
+  // It keeps returning that same response on every later launch, so it is cleared once
+  // handled — otherwise a single tap would redirect every cold start from then on.
   useEffect(() => {
     const goToToday = () => router.navigate('/');
 
-    const lastResponse = Notifications.getLastNotificationResponse();
-    if (lastResponse) {
+    if (Notifications.getLastNotificationResponse()) {
       goToToday();
+      Notifications.clearLastNotificationResponse();
     }
 
     const subscription = Notifications.addNotificationResponseReceivedListener(goToToday);
     return () => subscription.remove();
   }, []);
+
+  // Repairs a schedule that iOS refused while the permission was denied, once it is
+  // granted (and re-asserts it at launch). Lives here because the root stack is the one
+  // place mounted for the whole app lifetime.
+  useReminderSync(db);
 
   return (
     <Stack

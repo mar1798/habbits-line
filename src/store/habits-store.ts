@@ -26,7 +26,9 @@ interface HabitsState {
  */
 async function syncReminders(db: SQLiteDatabase): Promise<void> {
   try {
-    await notifications.scheduleAllReminders(db);
+    // requestPermission: a mutation is the user's own action, so this is where the OS
+    // prompt belongs — the launch resync in useReminderSync never asks.
+    await notifications.scheduleAllReminders(db, { requestPermission: true });
   } catch (error) {
     console.error('Failed to reschedule reminders', error);
   }

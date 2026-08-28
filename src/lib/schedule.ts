@@ -20,8 +20,8 @@ export function daysToMask(days: number[]): number {
 /**
  * date-fns getDay() returns 0 = Sunday … 6 = Saturday; schedule_mask uses bit 0 =
  * Monday … bit 6 = Sunday. This is the one place in the app that converts between
- * the two weekday numberings (a third, WeeklyTriggerInput's 1 = Sunday, joins this
- * file in stage 7).
+ * the two weekday numberings — the third, iOS's 1 = Sunday, is bitToAppleWeekday
+ * below.
  */
 function bitForNativeWeekday(nativeWeekday: number): number {
   return (nativeWeekday + 6) % 7;

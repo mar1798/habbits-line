@@ -55,6 +55,19 @@ async function requestPermissionsAsync(): Promise<PermissionStatus> {
 }
 
 /**
+ * Current status, prompting only when asked to and only while the user has not answered
+ * yet — iOS shows its dialog once per install, so a repeat request after a denial
+ * returns `denied` without showing anything.
+ */
+async function ensurePermissionAsync(request: boolean): Promise<PermissionStatus> {
+  const current = await getPermissionStatusAsync();
+  if (current === 'granted' || !request) {
+    return current;
+  }
+  return requestPermissionsAsync();
+}
+
+/**
  * Permission status that re-checks itself whenever the app returns to the foreground —
  * covers a user who denied at the prompt, went to iOS Settings to flip it, and came
  * back. A one-shot read at mount would keep showing the stale "denied" state.
@@ -137,11 +150,14 @@ let schedulingChain: Promise<unknown> = Promise.resolve();
  * updates are the source of drift, and every notification in the app is ours, so
  * cancelling all of them is safe.
  *
- * Requests permission here, not at habit-creation time specifically, so the first
- * habit that ends up with a reminder — created or edited into one — is what triggers
- * the OS prompt.
+ * `requestPermission` belongs to a save, not to a background resync: the OS prompt
+ * should appear on the first habit that ends up with a reminder — created or edited
+ * into one — and never on its own during launch.
  */
-export function scheduleAllReminders(db: SQLiteDatabase): Promise<number> {
+export function scheduleAllReminders(
+  db: SQLiteDatabase,
+  options: { requestPermission?: boolean } = {}
+): Promise<number> {
   const run = async () => {
     const habits = await listHabits(db, { includeArchived: false });
     const withReminders = habits.filter((habit) => habit.reminder_time !== null);
@@ -151,7 +167,13 @@ export function scheduleAllReminders(db: SQLiteDatabase): Promise<number> {
       return 0;
     }
 
-    await requestPermissionsAsync();
+    // iOS rejects every request scheduled without authorization, so going ahead while
+    // denied would only produce errors; the habit keeps its time and the banner in the
+    // form and in settings explains why nothing arrives.
+    const status = await ensurePermissionAsync(options.requestPermission ?? false);
+    if (status !== 'granted') {
+      return 0;
+    }
 
     let scheduledCount = 0;
     for (const habit of withReminders) {
@@ -170,4 +192,45 @@ export function scheduleAllReminders(db: SQLiteDatabase): Promise<number> {
 
 export async function getScheduledCountAsync(): Promise<number> {
   return (await Notifications.getAllScheduledNotificationsAsync()).length;
+}
+
+/**
+ * Keeps the OS schedule in step with the database at launch and on the foreground that
+ * follows a permission change. Without it, scheduling only ever runs on a habit
+ * mutation: a user who denied the prompt, flipped the switch in iOS Settings and came
+ * back would have no reminders at all until the next time they edited a habit, because
+ * everything scheduled while denied was rejected by iOS.
+ *
+ * Recomputes only when the status just became `granted` (the mount check counts as a
+ * change), so an ordinary foreground costs one permission read.
+ */
+export function useReminderSync(db: SQLiteDatabase): void {
+  useEffect(() => {
+    let cancelled = false;
+    let lastStatus: PermissionStatus | null = null;
+
+    const sync = async () => {
+      const status = await getPermissionStatusAsync();
+      const becameGranted = status === 'granted' && status !== lastStatus;
+      lastStatus = status;
+      if (cancelled || !becameGranted) return;
+
+      try {
+        await scheduleAllReminders(db);
+      } catch (error) {
+        console.error('Failed to sync reminders', error);
+      }
+    };
+
+    sync();
+
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') sync();
+    });
+
+    return () => {
+      cancelled = true;
+      subscription.remove();
+    };
+  }, [db]);
 }
