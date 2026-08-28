@@ -56,12 +56,14 @@
 | `@expo/ui` | 4 | **уже установлен** — `DatePicker` для выбора времени напоминания |
 | `expo-symbols` | 1 | **уже установлен** — SF Symbols для табов и иконок |
 | `expo-haptics` | 5 | тактильный отклик |
-| `jest-expo` (dev) | 6 | тесты чистой логики |
+| `jest-expo` (dev) | 6 | **уже установлен** — тесты чистой логики |
 | `expo-notifications` | 7 | локальные напоминания |
 | `expo-file-system`, `expo-sharing`, `expo-document-picker` | 9 | экспорт/импорт |
 
-Удаляются на этапе 1: `react-native-web`, `react-dom`, секция `web` в `app.json`,
-все `*.web.tsx`.
+Удаляются на этапе 1: `react-native-web`, `react-dom`, все `*.web.tsx`, а также
+неиспользуемые пакеты шаблона `expo-image`, `expo-web-browser`, `expo-font`,
+`expo-device`, `expo-glass-effect` (последние два остаются в дереве транзитивно).
+Из `app.json` уходят секции `web` и `android`, добавляется `"platforms": ["ios"]`.
 
 Новые зависимости сверх этой таблицы — только после отдельного согласования.
 
@@ -230,7 +232,7 @@ src/
 `components/ui/collapsible.tsx`, `hooks/use-color-scheme.ts`,
 `hooks/use-color-scheme.web.ts`, `src/global.css`,
 `assets/images/tabIcons/*`, `react-logo*`, `expo-badge*`, `expo-logo.png`,
-`logo-glow.png`, `tutorial-web.png`.
+`logo-glow.png`, `tutorial-web.png`, `favicon.png`, `android-icon-*.png`.
 `constants/theme.ts` заменяется на `constants/design-tokens.ts` — учесть, что он
 импортирует `@/global.css`, а `use-theme.ts` и `app-tabs.tsx` импортируют из него
 `Colors`: порядок удаления имеет значение.
@@ -364,8 +366,9 @@ motion:  spring.press  { damping 18, stiffness 320 }
 ### Этап 1 — Фундамент: токены, темы, скелет навигации
 
 Ставим: `expo-sqlite`, `zustand`, `date-fns`. Удаляем: `react-native-web`,
-`react-dom`, секцию `web` в `app.json`, все `*.web.tsx` и демо-файлы шаблона
-(полный список в разделе 3).
+`react-dom`, неиспользуемые пакеты шаблона (список в разделе 1), секции `web` и
+`android` в `app.json`, все `*.web.tsx` и демо-файлы шаблона (полный список в
+разделе 3). В `app.json` появляется `"platforms": ["ios"]`.
 
 Файлы: `constants/design-tokens.ts`, `hooks/use-theme.ts`, `components/ui/*`,
 `app/_layout.tsx` (корневой Stack), `app/(tabs)/_layout.tsx`,
@@ -376,8 +379,10 @@ motion:  spring.press  { damping 18, stiffness 320 }
 «Сегодня / Статистика / Настройки» с иконками SF Symbols; кнопка «+» на «Сегодня»
 открывает пустую модалку `habit/new` и закрывается свайпом; русские подписи;
 переключение системной темы в настройках iOS меняет фон и текст без перезапуска;
-ни одного хардкода цвета вне `design-tokens.ts`; `npx expo start --web` больше не
-предлагается, лишних пакетов в `package.json` нет.
+ни одного хардкода цвета вне `design-tokens.ts` (включая тему React Navigation:
+её `DefaultTheme` / `DarkTheme` несут `rgb(255,255,255)` и `rgb(1,1,1)`, поэтому
+`Theme` собирается из токенов в `hooks/use-theme.ts`); `npx expo start --web` больше
+не предлагается, лишних пакетов в `package.json` нет.
 
 Коммит: `feat: design tokens, theming and navigation skeleton`.
 
@@ -455,7 +460,8 @@ write-through (репозиторий → обновление среза сто
 
 ### Этап 6 — Статистика
 
-Ставим: `jest-expo` (devDependency).
+Ставить нечего: `jest`, `jest-expo` и `@types/jest` пришли с шаблоном и уже стоят
+(`npm test` = `jest --passWithNoTests`).
 
 Файлы: `lib/streaks.ts`, `lib/__tests__/*`, `(tabs)/stats.tsx`,
 `components/stats/heatmap.tsx`, `streak-card.tsx`, `rate-card.tsx`.
@@ -541,9 +547,10 @@ JSON); после импорта стор перезагружен целико�
 
 Файлы: пустые состояния, обработка ошибок БД (error boundary вокруг
 `SQLiteProvider` — падение миграции не должно давать белый экран), иконка
-приложения и splash в `app.json` под палитру (сейчас там дефолтные эксповские
-`#208AEF` и `#E6F4FE`), настройка eslint (`npx expo lint` — конфига в проекте нет),
-финальный проход по тач-таргетам и обеим темам.
+приложения и splash в `app.json` под палитру (сейчас там дефолтный эксповский
+`#208AEF`), `ios.bundleIdentifier`, финальный проход по тач-таргетам и обеим темам.
+Eslint настраивать не нужно: `eslint.config.js` уже лежит в корне и `npm run lint`
+проходит.
 
 **Готово, когда:** нет ни одного экрана без осмысленного пустого состояния, ни
 одного тач-таргета меньше 44pt, обе темы выглядят законченно, splash и иконка — свои,
