@@ -16,11 +16,14 @@ import { Text } from '@/components/ui/text';
 import { minHitSlop, radius, resolveHabitColor, spacing } from '@/constants/design-tokens';
 import type { HabitRow } from '@/db/types';
 import { useTheme } from '@/hooks/use-theme';
+import { exportBackupAsync, importBackupAsync, pickBackupFileAsync } from '@/lib/backup';
 import {
   getScheduledCountAsync,
   NOTIFICATION_WARNING_THRESHOLD,
+  scheduleAllReminders,
   useNotificationPermissionStatus,
 } from '@/lib/notifications';
+import { useEntriesStore } from '@/store/entries-store';
 import { useHabitsStore } from '@/store/habits-store';
 
 type Row =
@@ -32,6 +35,7 @@ export default function SettingsScreen() {
   const isFocused = useIsFocused();
   const permission = useNotificationPermissionStatus();
   const [scheduledCount, setScheduledCount] = useState(0);
+  const [busy, setBusy] = useState<'export' | 'import' | null>(null);
 
   const db = useSQLiteContext();
   const habits = useHabitsStore((state) => state.habits);
@@ -41,6 +45,7 @@ export default function SettingsScreen() {
   const unarchiveHabit = useHabitsStore((state) => state.unarchive);
   const removeHabit = useHabitsStore((state) => state.remove);
   const reorderHabits = useHabitsStore((state) => state.reorder);
+  const reloadEntries = useEntriesStore((state) => state.reload);
 
   // Includes archived habits — the only screen that needs the full list, so the
   // scope lives on the shared store rather than a local query. That also fixes
@@ -132,6 +137,73 @@ export default function SettingsScreen() {
     );
   };
 
+  const handleExport = async () => {
+    setBusy('export');
+    try {
+      await exportBackupAsync(db);
+    } catch (error) {
+      console.warn('Export failed', error);
+      Alert.alert(
+        'Не удалось экспортировать',
+        error instanceof Error ? error.message : 'Попробуйте ещё раз.'
+      );
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  /**
+   * Both stores are reloaded by hand, and so is the schedule: an import writes straight
+   * to SQL, bypassing the repo mutations that the store actions wrap, so none of the
+   * write-through reloads or the reminder recompute that normally follow a mutation
+   * happen on their own. The entries store matters as much as the habits one — the
+   * "Today" tab stays mounted and would keep displaying the marks of the replaced data
+   * until its week changed.
+   */
+  const performImport = async (uri: string) => {
+    setBusy('import');
+    try {
+      await importBackupAsync(db, uri);
+      await loadHabits(db, { includeArchived: true });
+      await reloadEntries(db);
+      await scheduleAllReminders(db, { requestPermission: true }).catch((error) => {
+        console.error('Failed to reschedule reminders after import', error);
+      });
+      setScheduledCount(await getScheduledCountAsync());
+      Alert.alert('Импорт завершён', 'Данные восстановлены из файла.');
+    } catch (error) {
+      console.warn('Import failed', error);
+      Alert.alert(
+        'Не удалось импортировать',
+        error instanceof Error ? error.message : 'Файл повреждён.'
+      );
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleImport = async () => {
+    let uri: string | null;
+    try {
+      uri = await pickBackupFileAsync();
+    } catch (error) {
+      // The picker rejects on its own (a second sheet already open, a file the system
+      // could not copy). Without this it would surface as an unhandled rejection.
+      console.warn('Document picker failed', error);
+      Alert.alert('Не удалось открыть файл', 'Попробуйте ещё раз.');
+      return;
+    }
+    if (!uri) return;
+    Alert.alert(
+      'Импорт данных',
+      'Текущие привычки и записи будут удалены и заменены содержимым файла. Это необратимо.',
+      [
+        { text: 'Отмена', style: 'cancel' },
+        { text: 'Импортировать', style: 'destructive', onPress: () => void performImport(uri) },
+      ]
+    );
+  };
+
   const handleMenuAction = (habit: HabitRow) => ({ nativeEvent }: NativeActionEvent) => {
     switch (nativeEvent.event) {
       case 'edit':
@@ -180,6 +252,26 @@ export default function SettingsScreen() {
                 </Text>
               </Card>
             ) : null}
+
+            <View style={styles.dataSection}>
+              <Text variant="title2">Данные</Text>
+              <View style={styles.dataButtons}>
+                <Button
+                  title="Экспорт"
+                  variant="secondary"
+                  disabled={busy !== null}
+                  onPress={() => void handleExport()}
+                  style={styles.dataButton}
+                />
+                <Button
+                  title="Импорт"
+                  variant="secondary"
+                  disabled={busy !== null}
+                  onPress={() => void handleImport()}
+                  style={styles.dataButton}
+                />
+              </View>
+            </View>
           </View>
         }
         ListEmptyComponent={
@@ -302,6 +394,16 @@ const styles = StyleSheet.create({
   },
   banner: {
     gap: spacing.md,
+  },
+  dataSection: {
+    gap: spacing.sm,
+  },
+  dataButtons: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  dataButton: {
+    flex: 1,
   },
   list: {
     paddingBottom: spacing.xl,

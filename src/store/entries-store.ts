@@ -7,7 +7,10 @@ interface EntriesState {
   /** date -> habitId -> count, for the currently loaded week only. */
   counts: Record<string, Record<string, number>>;
   loaded: boolean;
+  /** Range of the last loadWeek(), replayed by reload(). */
+  range: { from: string; to: string } | null;
   loadWeek: (db: SQLiteDatabase, from: string, to: string) => Promise<void>;
+  reload: (db: SQLiteDatabase) => Promise<void>;
   setCount: (db: SQLiteDatabase, habitId: string, date: string, count: number) => Promise<void>;
   cycle: (db: SQLiteDatabase, habitId: string, date: string, target: number) => Promise<void>;
 }
@@ -34,6 +37,7 @@ function patch(counts: Counts, date: string, habitId: string, count: number): Co
 export const useEntriesStore = create<EntriesState>((set, get) => ({
   counts: {},
   loaded: false,
+  range: null,
 
   loadWeek: async (db, from, to) => {
     const rows = await entriesRepo.listEntriesInRange(db, from, to);
@@ -41,7 +45,19 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
     for (const row of rows) {
       (counts[row.date] ??= {})[row.habit_id] = row.count;
     }
-    set({ counts, loaded: true });
+    set({ counts, loaded: true, range: { from, to } });
+  },
+
+  /**
+   * Re-reads the currently visible range from the database. Needed after a write that
+   * bypassed this store — an import replaces every row in `entries`, and the "Today"
+   * tab stays mounted, so its effect on `week` would not re-fire: without this the
+   * screen would keep showing the marks of the data that was just thrown away.
+   */
+  reload: async (db) => {
+    const range = get().range;
+    if (!range) return;
+    await get().loadWeek(db, range.from, range.to);
   },
 
   setCount: async (db, habitId, date, count) => {
