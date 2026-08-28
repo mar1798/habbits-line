@@ -31,3 +31,12 @@ export function isScheduledOn(mask: number, date: Date): boolean {
   const bit = bitForNativeWeekday(weekday(date));
   return (mask & (1 << bit)) !== 0;
 }
+
+/**
+ * The third weekday numbering in the app: iOS's `CalendarTriggerInput.weekday`
+ * (also `WeeklyTriggerInput` on Android) is 1 = Sunday … 7 = Saturday. Bit 0 (Monday)
+ * maps to 2, bit 6 (Sunday) wraps to 1.
+ */
+export function bitToAppleWeekday(bit: number): number {
+  return ((bit + 1) % DAYS_IN_WEEK) + 1;
+}

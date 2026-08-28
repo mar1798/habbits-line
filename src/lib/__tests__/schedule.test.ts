@@ -1,4 +1,4 @@
-import { daysToMask, isScheduledOn, maskToDays } from '../schedule';
+import { bitToAppleWeekday, daysToMask, isScheduledOn, maskToDays } from '../schedule';
 
 describe('maskToDays / daysToMask', () => {
   it('round-trips an arbitrary set of days', () => {
@@ -36,5 +36,21 @@ describe('isScheduledOn', () => {
   it('a full week mask matches every day', () => {
     expect(isScheduledOn(127, monday)).toBe(true);
     expect(isScheduledOn(127, sunday)).toBe(true);
+  });
+});
+
+describe('bitToAppleWeekday', () => {
+  // CalendarTriggerInput/WeeklyTriggerInput's weekday: 1 = Sunday … 7 = Saturday —
+  // the third weekday numbering in the app, alongside date-fns's getDay() and our mask.
+  it('maps bit 0 (Monday) to 2', () => {
+    expect(bitToAppleWeekday(0)).toBe(2);
+  });
+
+  it('wraps bit 6 (Sunday) to 1', () => {
+    expect(bitToAppleWeekday(6)).toBe(1);
+  });
+
+  it('maps bit 5 (Saturday) to 7', () => {
+    expect(bitToAppleWeekday(5)).toBe(7);
   });
 });

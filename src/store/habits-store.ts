@@ -3,6 +3,7 @@ import { create } from 'zustand';
 
 import * as habitsRepo from '@/db/habits-repo';
 import type { HabitRow } from '@/db/types';
+import * as notifications from '@/lib/notifications';
 
 interface HabitsState {
   habits: HabitRow[];
@@ -16,6 +17,19 @@ interface HabitsState {
   archive: (db: SQLiteDatabase, id: string) => Promise<void>;
   unarchive: (db: SQLiteDatabase, id: string) => Promise<void>;
   remove: (db: SQLiteDatabase, id: string) => Promise<void>;
+}
+
+/**
+ * Full notification recompute after any mutation that could affect reminders — a
+ * failure here (permission dialog dismissed oddly, scheduling error) must not surface
+ * as a failed save, so it's caught and logged rather than rejecting the caller.
+ */
+async function syncReminders(db: SQLiteDatabase): Promise<void> {
+  try {
+    await notifications.scheduleAllReminders(db);
+  } catch (error) {
+    console.error('Failed to reschedule reminders', error);
+  }
 }
 
 /**
@@ -46,26 +60,31 @@ export const useHabitsStore = create<HabitsState>((set, get) => ({
   create: async (db, input) => {
     const created = await habitsRepo.createHabit(db, input);
     await get().reload(db);
+    await syncReminders(db);
     return created;
   },
 
   update: async (db, id, input) => {
     await habitsRepo.updateHabit(db, id, input);
     await get().reload(db);
+    await syncReminders(db);
   },
 
   archive: async (db, id) => {
     await habitsRepo.archiveHabit(db, id);
     await get().reload(db);
+    await syncReminders(db);
   },
 
   unarchive: async (db, id) => {
     await habitsRepo.unarchiveHabit(db, id);
     await get().reload(db);
+    await syncReminders(db);
   },
 
   remove: async (db, id) => {
     await habitsRepo.deleteHabit(db, id);
     await get().reload(db);
+    await syncReminders(db);
   },
 }));
