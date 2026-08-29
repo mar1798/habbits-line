@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { radius, spacing } from '@/constants/design-tokens';
+import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 
 type RateRowProps = {
@@ -40,10 +41,12 @@ type RateCardProps = {
 };
 
 export function RateCard({ rate7, rate30, color }: RateCardProps) {
+  const { t } = useI18n();
+
   return (
     <Card style={styles.card}>
-      <RateRow label="За 7 дней" ratio={rate7} color={color} />
-      <RateRow label="За 30 дней" ratio={rate30} color={color} />
+      <RateRow label={t('rate_7_days')} ratio={rate7} color={color} />
+      <RateRow label={t('rate_30_days')} ratio={rate30} color={color} />
     </Card>
   );
 }

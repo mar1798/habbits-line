@@ -6,11 +6,13 @@ SQLite и в локальных уведомлениях. Личный прое�
 ## Стек
 
 Expo SDK 57 + expo-router, TypeScript, expo-sqlite, zustand, expo-notifications
-(только локальные), react-native-reanimated, react-native-svg, date-fns.
+(только локальные), react-native-reanimated, date-fns.
 Стилизация — `StyleSheet` поверх `src/constants/design-tokens.ts`.
 
-Тема только системная, шрифт не масштабируется системным Dynamic Type, весь UI на
-русском. Android и веб намеренно не поддерживаются (`"platforms": ["ios"]`).
+Тема переключается в настройках (системная / светлая / тёмная), шрифт не масштабируется
+системным Dynamic Type. UI на русском и английском: по умолчанию русский, английский
+включается там же, в настройках. Android и веб намеренно не поддерживаются
+(`"platforms": ["ios"]`).
 
 ## Запуск
 
@@ -33,7 +35,7 @@ npm run ios        # expo run:ios — собирает нативный прое
 ```bash
 npm run typecheck  # tsc --noEmit — должен проходить чисто
 npm run lint
-npm test           # jest: чистая логика дат, расписаний и стриков
+npm test           # jest: чистая логика дат, расписаний, стриков и плюрализации
 ```
 
 ## Структура
@@ -44,14 +46,15 @@ src/
   components/     ui/* — базовые примитивы, habit/* и stats/* — доменные
   constants/      design-tokens.ts — единственный источник цветов, отступов, радиусов
   db/             миграции, провайдер и репозитории поверх expo-sqlite
-  store/          zustand: habits-store (привычки + CRUD), entries-store (отметки)
+  i18n/           ru.ts — источник ключей, en.ts типизирован по нему, plural.ts + тесты
+  store/          zustand: habits-store (привычки + CRUD), entries-store, settings-store
   lib/            date, schedule, streaks, notifications, backup, haptics, id + тесты
-  hooks/          use-theme, use-today-key
+  hooks/          use-theme, use-i18n, use-today-key
 ```
 
 ## Документы
 
 - [PLAN.md](PLAN.md) — принятые решения, схема БД, дизайн-система, этапы и риски.
-  Живой документ: после каждого этапа приводится в соответствие с кодом. Все 10 этапов
-  v1 выполнены.
+  Живой документ: после каждого этапа приводится в соответствие с кодом. Все 11 этапов
+  выполнены.
 - [AGENTS.md](AGENTS.md) — правила работы над проектом.

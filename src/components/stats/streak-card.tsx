@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { spacing } from '@/constants/design-tokens';
+import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 
 type StreakCardProps = {
@@ -11,17 +12,9 @@ type StreakCardProps = {
   best: number;
 };
 
-/** Russian plural for "N days": 1 день, 2–4 дня, 5+ (and 11–14) дней. */
-function daysWord(n: number): string {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return 'день';
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return 'дня';
-  return 'дней';
-}
-
 export function StreakCard({ current, best }: StreakCardProps) {
   const { colors } = useTheme();
+  const { t, plural } = useI18n();
 
   return (
     <Card style={styles.card}>
@@ -29,24 +22,24 @@ export function StreakCard({ current, best }: StreakCardProps) {
         <View style={styles.label}>
           <SymbolView name="flame.fill" size={16} tintColor={colors.accent} />
           <Text variant="caption" color={colors.textSecondary}>
-            Текущий стрик
+            {t('streak_current')}
           </Text>
         </View>
         <Text variant="display">{current}</Text>
         <Text variant="caption" color={colors.textSecondary}>
-          {daysWord(current)}
+          {plural('days', current)}
         </Text>
       </View>
       <View style={[styles.stat, styles.divider, { borderLeftColor: colors.border }]}>
         <View style={styles.label}>
           <SymbolView name="trophy.fill" size={16} tintColor={colors.textTertiary} />
           <Text variant="caption" color={colors.textSecondary}>
-            Лучший
+            {t('streak_best')}
           </Text>
         </View>
         <Text variant="title1">{best}</Text>
         <Text variant="caption" color={colors.textSecondary}>
-          {daysWord(best)}
+          {plural('days', best)}
         </Text>
       </View>
     </Card>

@@ -1,0 +1,149 @@
+import type { ru, ruPlurals, WeekdayLabels } from './ru';
+
+/**
+ * Typed against `ru`, so a key added there and forgotten here is a compile error rather
+ * than a blank label on an English device. Placeholders must match the Russian string's.
+ */
+export const en: Record<keyof typeof ru, string> = {
+  cancel: 'Cancel',
+  delete: 'Delete',
+  close: 'Close',
+  try_again: 'Please try again.',
+  empty_no_habits: 'No habits yet',
+
+  tab_habits: 'Habits',
+  tab_stats: 'Statistics',
+  tab_settings: 'Settings',
+
+  habit_new_title: 'New habit',
+  habit_edit_title: 'Edit habit',
+
+  not_found_title: 'Not found',
+  not_found_heading: 'Screen not found',
+  not_found_subtitle: 'The link may be out of date',
+  not_found_action: 'Go to the start',
+
+  today_title: 'Habits',
+  today_add_habit: 'Add a habit',
+  today_day_progress: 'Progress for the day',
+  today_empty_subtitle: 'Tap “+” to add your first habit',
+  today_nothing_title: 'Nothing is scheduled for this day',
+  today_nothing_subtitle: 'Pick another day or change the habit’s schedule',
+
+  day_strip_prev_week: 'Previous week',
+  day_strip_next_week: 'Next week',
+
+  check_progress: '{count} of {target}',
+  check_mark_done: 'Mark as done',
+  check_mark_undone: 'Mark as not done',
+
+  habit_card_target: 'Goal: {count} {times} a day',
+  menu_edit: 'Edit',
+  menu_archive: 'Archive',
+  menu_unarchive: 'Unarchive',
+
+  habit_form_create: 'Create',
+  habit_form_save: 'Save',
+  habit_form_save_failed: 'Could not save',
+  habit_form_name: 'Name',
+  habit_form_name_placeholder: 'For example, Drink water',
+  habit_form_name_required: 'Enter a name — the habit cannot be saved without one',
+  habit_form_emoji: 'Emoji',
+  habit_form_color: 'Colour',
+  habit_form_weekdays: 'Days of the week',
+  habit_form_weekdays_required:
+    'Pick at least one day — otherwise the habit will not show up anywhere',
+  habit_form_editing_note: 'Changing the days or the goal now also rewrites past statistics',
+  habit_form_target: 'Goal per day',
+  habit_form_target_decrease: 'Decrease the goal',
+  habit_form_target_increase: 'Increase the goal',
+  habit_not_found: 'Habit not found',
+
+  reminder: 'Reminder',
+  reminder_hint: 'Arrives on the selected days of the week',
+  reminder_denied:
+    'Notifications are turned off in iOS Settings — the time will be saved, but no reminder will arrive',
+  notification_body: 'Don’t forget to mark this habit today',
+
+  stats_title: 'Statistics',
+  stats_show_archived: 'Show archived habits',
+  stats_archived: 'Archived',
+  stats_empty_title: 'No data yet',
+  stats_empty_subtitle: 'Statistics appear once you start marking habits',
+  stats_all: 'All',
+  stats_last_3_months: 'Last 3 months',
+  streak_current: 'Current streak',
+  streak_best: 'Best',
+  rate_7_days: 'Last 7 days',
+  rate_30_days: 'Last 30 days',
+
+  settings_title: 'Settings',
+  settings_appearance: 'Appearance',
+  theme_system: 'System',
+  theme_light: 'Light',
+  theme_dark: 'Dark',
+  settings_language: 'Language',
+  language_ru: 'Русский',
+  language_en: 'English',
+  settings_data: 'Data',
+  settings_export: 'Export',
+  settings_import: 'Import',
+  settings_active: 'Active',
+  settings_archive: 'Archive',
+  settings_archived_badge: 'Archived',
+  settings_move_up: 'Move up',
+  settings_move_down: 'Move down',
+  settings_edit_habit: 'Edit “{name}”',
+  settings_delete_title: 'Delete “{name}”?',
+  settings_delete_message: 'The habit and its whole history will be deleted permanently.',
+  settings_empty_subtitle: 'Add your first habit on the “Habits” tab',
+  settings_notifications_denied:
+    'Notifications are turned off in iOS Settings — reminders will not arrive.',
+  settings_open_ios_settings: 'Open Settings',
+  settings_notification_limit:
+    '{count} {reminders} scheduled — iOS caps how many it keeps, so some new ones may not be scheduled',
+  settings_export_failed: 'Could not export',
+  settings_import_failed: 'Could not import',
+  settings_import_done_title: 'Import finished',
+  settings_import_done_message: 'Your data has been restored from the file.',
+  settings_import_confirm_title: 'Import data',
+  settings_import_confirm_message:
+    'The current habits and marks will be deleted and replaced with the contents of the file. This cannot be undone.',
+  settings_import_confirm_action: 'Import',
+  settings_picker_failed: 'Could not open the file',
+
+  backup_error_sharing_unavailable: 'Sharing files is not available on this device',
+  backup_error_malformed_file: 'The file is damaged and cannot be read',
+  backup_error_unrecognized_format: 'The file format was not recognised',
+  backup_error_unsupported_version:
+    'The file is saved in format version {version}; this app reads up to {supported}',
+  backup_error_orphan_entries: 'The file is damaged: it has marks for a habit that does not exist',
+
+  db_render_error_title: 'Something went wrong',
+  db_render_error_subtitle: 'Restart the app — your saved data stays where it is.',
+  db_open_failed_title: 'Could not open the database',
+  db_open_failed_subtitle:
+    'Try restarting the app. If this happens again, the data may be damaged — the database can be reset and restored from a backup.',
+  db_reset_action: 'Reset the database',
+  db_reset_confirm_title: 'Reset the database?',
+  db_reset_confirm_message:
+    'Every habit and mark on this device will be deleted permanently. If you have a backup file, you can import it in settings after the reset.',
+  db_reset_confirm_action: 'Reset',
+  db_reset_done_title: 'The database has been reset',
+  db_reset_done_subtitle:
+    'Start the app again. If you have a backup file, you can import it in settings.',
+  db_reset_failed_title: 'Could not reset the database',
+  db_reset_failed_message: 'Reinstall the app to clear its data.',
+};
+
+/** English has two forms where Russian has three — `other` covers everything but 1. */
+export const enPlurals: Record<keyof typeof ruPlurals, { one: string; other: string }> = {
+  days: { one: 'day', other: 'days' },
+  times: { one: 'time', other: 'times' },
+  reminders: { one: 'reminder', other: 'reminders' },
+};
+
+export const enWeekdays: WeekdayLabels = {
+  short: ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'],
+  initial: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
+};

@@ -6,6 +6,7 @@ import { Linking, Switch, StyleSheet, View } from 'react-native';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { Text } from '@/components/ui/text';
 import { minHitSlop, spacing } from '@/constants/design-tokens';
+import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 import { useNotificationPermissionStatus } from '@/lib/notifications';
 
@@ -43,6 +44,7 @@ function dateToTime(date: Date): string {
 
 export function TimePickerField({ value, onChange }: TimePickerFieldProps) {
   const { colors } = useTheme();
+  const { t } = useI18n();
   const permission = useNotificationPermissionStatus();
   // Toggling the reminder off clears the stored time; remembering it here means
   // toggling back on returns to the time the user picked, not to the default.
@@ -64,7 +66,7 @@ export function TimePickerField({ value, onChange }: TimePickerFieldProps) {
       */}
       <View style={styles.row}>
         <Text variant="body" style={styles.title}>
-          Напоминание
+          {t('reminder')}
         </Text>
         <View style={styles.control}>
           {enabled ? (
@@ -82,24 +84,24 @@ export function TimePickerField({ value, onChange }: TimePickerFieldProps) {
             onValueChange={(next) => onChange(next ? lastTime : null)}
             // The row's label is a sibling Text, which VoiceOver does not associate with
             // the switch — without this it is announced as a bare "switch".
-            accessibilityLabel="Напоминание"
+            accessibilityLabel={t('reminder')}
             trackColor={{ false: colors.disabled, true: colors.accent }}
           />
         </View>
       </View>
       <Text variant="caption" color={colors.textSecondary}>
-        Придёт в выбранные дни недели
+        {t('reminder_hint')}
       </Text>
       {enabled && permission === 'denied' ? (
         <View style={styles.warning}>
           <Text variant="caption" color={colors.danger} style={styles.warningText}>
-            Уведомления запрещены в настройках iOS — время сохранится, но напоминание не придёт
+            {t('reminder_denied')}
           </Text>
           <PressableScale
             onPress={() => Linking.openSettings()}
             hitSlop={SETTINGS_LINK_HIT_SLOP}>
             <Text variant="caption" color={colors.accent}>
-              Настройки
+              {t('settings_title')}
             </Text>
           </PressableScale>
         </View>

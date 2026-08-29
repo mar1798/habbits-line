@@ -1,9 +1,11 @@
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 
+import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function TabsLayout() {
   const { colors } = useTheme();
+  const { t } = useI18n();
 
   return (
     <NativeTabs
@@ -15,7 +17,7 @@ export default function TabsLayout() {
         selected: { color: colors.accent },
       }}>
       <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Label>Привычки</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>{t('tab_habits')}</NativeTabs.Trigger.Label>
         {/*
           The app's own mark instead of an SF Symbol. `template` makes iOS tint it with
           the icon colors above, so one image covers both the default and selected
@@ -30,12 +32,12 @@ export default function TabsLayout() {
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="stats">
-        <NativeTabs.Trigger.Label>Статистика</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>{t('tab_stats')}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: 'chart.bar', selected: 'chart.bar.fill' }} />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="settings">
-        <NativeTabs.Trigger.Label>Настройки</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>{t('tab_settings')}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: 'gearshape', selected: 'gearshape.fill' }} />
       </NativeTabs.Trigger>
     </NativeTabs>

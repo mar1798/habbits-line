@@ -15,24 +15,16 @@ export async function getEntry(
   return row ?? null;
 }
 
-/** Entries for one habit, optionally restricted to a date range — used by stats/heatmap. */
-export async function listEntriesForHabit(
-  db: SQLiteDatabase,
-  habitId: string,
-  range?: { from: string; to: string }
-): Promise<EntryRow[]> {
-  if (range) {
-    return db.getAllAsync<EntryRow>(
-      'SELECT * FROM entries WHERE habit_id = ? AND date BETWEEN ? AND ? ORDER BY date ASC',
-      habitId,
-      range.from,
-      range.to
-    );
-  }
-  return db.getAllAsync<EntryRow>(
-    'SELECT * FROM entries WHERE habit_id = ? ORDER BY date ASC',
-    habitId
-  );
+/**
+ * Every entry in the database, oldest first.
+ *
+ * The stats screen reads the whole table in one go rather than re-querying per habit:
+ * switching between habits (and the "all habits" overview, which needs all of them at once)
+ * then costs nothing and can't flash the previous habit's history. The table holds one
+ * row per habit per marked day — a few thousand rows after years of daily use.
+ */
+export async function listAllEntries(db: SQLiteDatabase): Promise<EntryRow[]> {
+  return db.getAllAsync<EntryRow>('SELECT * FROM entries ORDER BY date ASC');
 }
 
 /** All habits' entries for one calendar date — used by the "Today" screen. */

@@ -1,18 +1,13 @@
-import { format } from 'date-fns';
-// Deep import, not `date-fns/locale`: that barrel re-exports every locale date-fns
-// ships and pulls all of them into the bundle (+522 modules when measured).
-import { ru } from 'date-fns/locale/ru';
+import { format, type Locale } from 'date-fns';
 import { StyleSheet, View } from 'react-native';
 
 import { IconButton } from '@/components/ui/icon-button';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { Text } from '@/components/ui/text';
 import { minHitSlop, radius, spacing } from '@/constants/design-tokens';
+import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 import { parseDateKey } from '@/lib/date';
-
-/** Bit 0 = Monday … bit 6 = Sunday, matching schedule_mask and lib/date's weekDates(). */
-const WEEKDAY_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
 type DayStripProps = {
   /** The 7 date keys of one week, Monday first — see lib/date's weekDates(). */
@@ -37,17 +32,18 @@ function capitalize(value: string): string {
 
 /**
  * Names the week the strip is showing: "Август", "Август — сентябрь", or
- * "Декабрь 2026 — январь 2027". Without it the strip is seven bare day numbers and,
+ * "December 2026 — January 2027". Without it the strip is seven bare day numbers and,
  * once paging exists, nothing says which week they belong to.
  *
  * The year appears only when the week falls outside the current one — on this year it
- * is noise on every single render.
+ * is noise on every single render. The locale is used for the month name only; the week
+ * itself is still Monday-first in both languages, from lib/date's weekDates().
  */
-function weekLabel(dates: string[], todayDate: string): string {
+function weekLabel(dates: string[], todayDate: string, locale: Locale): string {
   const currentYear = todayDate.slice(0, 4);
   const monthOf = (key: string) => {
     const year = key.slice(0, 4);
-    const month = format(parseDateKey(key), 'LLLL', { locale: ru });
+    const month = format(parseDateKey(key), 'LLLL', { locale });
     return year === currentYear ? month : `${month} ${year}`;
   };
 
@@ -70,6 +66,7 @@ export function DayStrip({
   canGoNext,
 }: DayStripProps) {
   const { colors } = useTheme();
+  const { t, locale, weekdays } = useI18n();
 
   return (
     <View>
@@ -77,16 +74,16 @@ export function DayStrip({
         <IconButton
           name="chevron.left"
           compact
-          accessibilityLabel="Предыдущая неделя"
+          accessibilityLabel={t('day_strip_prev_week')}
           onPress={onPreviousWeek}
         />
         <Text variant="callout" color={colors.textSecondary}>
-          {weekLabel(dates, todayDate)}
+          {weekLabel(dates, todayDate, locale)}
         </Text>
         <IconButton
           name="chevron.right"
           compact
-          accessibilityLabel="Следующая неделя"
+          accessibilityLabel={t('day_strip_next_week')}
           onPress={onNextWeek}
           disabled={!canGoNext}
         />
@@ -116,11 +113,11 @@ export function DayStrip({
               key={date}
               onPress={() => onSelect(date)}
               accessibilityRole="button"
-              accessibilityLabel={`${WEEKDAY_LABELS[index]}, ${dayNumber}`}
+              accessibilityLabel={`${weekdays.short[index]}, ${dayNumber}`}
               accessibilityState={{ selected: isSelected }}
               style={[styles.cell, { backgroundColor: isSelected ? colors.accent : 'transparent' }]}>
               <Text variant="caption" color={labelColor}>
-                {WEEKDAY_LABELS[index]}
+                {weekdays.short[index]}
               </Text>
               <Text variant="headline" color={textColor}>
                 {dayNumber}

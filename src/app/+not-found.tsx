@@ -5,18 +5,21 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Screen } from '@/components/ui/screen';
 import { spacing } from '@/constants/design-tokens';
+import { useI18n } from '@/hooks/use-i18n';
 
 export default function NotFoundScreen() {
+  const { t } = useI18n();
+
   return (
     <>
-      <Stack.Screen options={{ headerShown: true, title: 'Не найдено' }} />
+      <Stack.Screen options={{ headerShown: true, title: t('not_found_title') }} />
       <Screen edges={['bottom']} style={styles.container}>
         <EmptyState
           icon="questionmark.circle"
-          title="Экран не найден"
-          subtitle="Возможно, ссылка устарела"
+          title={t('not_found_heading')}
+          subtitle={t('not_found_subtitle')}
         />
-        <Button title="На главную" onPress={() => router.replace('/')} />
+        <Button title={t('not_found_action')} onPress={() => router.replace('/')} />
       </Screen>
     </>
   );

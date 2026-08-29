@@ -5,22 +5,33 @@ import { FlatList, StyleSheet, View } from 'react-native';
 
 import { DayStrip } from '@/components/habit/day-strip';
 import { HabitCard } from '@/components/habit/habit-card';
-import { ProgressRing } from '@/components/habit/progress-ring';
+import { ProgressBar } from '@/components/habit/progress-bar';
 import { EmptyState } from '@/components/ui/empty-state';
 import { IconButton } from '@/components/ui/icon-button';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { spacing } from '@/constants/design-tokens';
 import type { HabitRow } from '@/db/types';
+import { useI18n } from '@/hooks/use-i18n';
 import { useTodayKey } from '@/hooks/use-today-key';
-import { parseDateKey, shiftDateKey, weekDates, weekStartKey } from '@/lib/date';
+import {
+  parseDateKey,
+  shiftDateKey,
+  timestampDateKey,
+  weekDates,
+  weekStartKey,
+} from '@/lib/date';
 import { haptics } from '@/lib/haptics';
 import { isScheduledOn } from '@/lib/schedule';
 import { useEntriesStore } from '@/store/entries-store';
 import { useHabitsStore } from '@/store/habits-store';
 
+/** Stable identity for a day with no marks, so the schedule filter isn't rebuilt each render. */
+const NO_COUNTS: Record<string, number> = {};
+
 export default function TodayScreen() {
   const db = useSQLiteContext();
+  const { t } = useI18n();
 
   const habits = useHabitsStore((state) => state.habits);
   const habitsLoaded = useHabitsStore((state) => state.loaded);
@@ -91,13 +102,21 @@ export default function TodayScreen() {
   // one finds it) — filter them back out here, since that scope persists globally.
   const activeHabits = useMemo(() => habits.filter((habit) => !habit.archived_at), [habits]);
 
+  const dayCounts = counts[selectedDate] ?? NO_COUNTS;
+
   const scheduledHabits = useMemo(
     () =>
-      activeHabits.filter((habit) => isScheduledOn(habit.schedule_mask, parseDateKey(selectedDate))),
-    [activeHabits, selectedDate]
+      activeHabits.filter((habit) => {
+        if (!isScheduledOn(habit.schedule_mask, parseDateKey(selectedDate))) return false;
+        // A habit exists only from the day it was added: paging back must not list it on
+        // days it wasn't around for, where it could only ever read as missed. A day it
+        // already has progress on stays visible either way — a past day marked through
+        // the strip before, or an imported history, is still its own.
+        const created = timestampDateKey(habit.created_at);
+        return created === null || created <= selectedDate || (dayCounts[habit.id] ?? 0) > 0;
+      }),
+    [activeHabits, selectedDate, dayCounts]
   );
-
-  const dayCounts = counts[selectedDate] ?? {};
   const isEditable = selectedDate <= today;
 
   const dayProgress = scheduledHabits.length
@@ -153,11 +172,11 @@ export default function TodayScreen() {
   return (
     <Screen>
       <View style={styles.header}>
-        <Text variant="title1">Привычки</Text>
+        <Text variant="title1">{t('today_title')}</Text>
         <IconButton
           name="plus"
           compact
-          accessibilityLabel="Добавить привычку"
+          accessibilityLabel={t('today_add_habit')}
           onPress={() => router.push('/habit/new')}
         />
       </View>
@@ -173,10 +192,18 @@ export default function TodayScreen() {
       />
 
       {scheduledHabits.length > 0 ? (
-        <View style={styles.ring}>
-          <ProgressRing progress={dayProgress} size={72} strokeWidth={7}>
-            <Text variant="headline">{dayPercent}%</Text>
-          </ProgressRing>
+        <View
+          style={styles.progress}
+          accessibilityRole="progressbar"
+          accessibilityLabel={t('today_day_progress')}
+          accessibilityValue={{ min: 0, max: 100, now: dayPercent }}
+        >
+          <View style={styles.progressBar}>
+            <ProgressBar progress={dayProgress} />
+          </View>
+          <Text variant="callout" style={styles.progressPercent}>
+            {dayPercent}%
+          </Text>
         </View>
       ) : null}
 
@@ -201,14 +228,10 @@ export default function TodayScreen() {
         // ungated empty state greets every launch with "no habits yet".
         <EmptyState
           icon="checkmark.circle"
-          title={
-            activeHabits.length === 0 ? 'Привычек пока нет' : 'На этот день ничего не запланировано'
-          }
-          subtitle={
-            activeHabits.length === 0
-              ? 'Нажмите «+», чтобы добавить первую привычку'
-              : 'Выберите другой день или измените расписание привычки'
-          }
+          title={t(activeHabits.length === 0 ? 'empty_no_habits' : 'today_nothing_title')}
+          subtitle={t(
+            activeHabits.length === 0 ? 'today_empty_subtitle' : 'today_nothing_subtitle'
+          )}
         />
       ) : null}
     </Screen>
@@ -226,9 +249,20 @@ const styles = StyleSheet.create({
     // touch it and the two rows of controls read as one crowded block.
     paddingBottom: spacing.md,
   },
-  ring: {
+  progress: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
+  },
+  progressBar: {
+    flex: 1,
+  },
+  progressPercent: {
+    // Fixed width so the bar does not jump sideways as the label goes 9% → 100%.
+    width: 40,
+    textAlign: 'right',
   },
   list: {
     gap: spacing.sm,

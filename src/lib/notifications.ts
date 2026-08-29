@@ -5,8 +5,10 @@ import { AppState } from 'react-native';
 
 import { listHabits } from '@/db/habits-repo';
 import type { HabitRow } from '@/db/types';
+import { translate } from '@/i18n';
 import { isValidTimeOfDay } from '@/lib/date';
 import { bitToAppleWeekday, maskToDays } from '@/lib/schedule';
+import { useSettingsStore } from '@/store/settings-store';
 
 /** Warn in settings when the scheduled count nears iOS's ~64-request ceiling. */
 export const NOTIFICATION_WARNING_THRESHOLD = 55;
@@ -98,10 +100,17 @@ export function useNotificationPermissionStatus(): PermissionStatus {
   return status;
 }
 
+/**
+ * The body is baked into the trigger at scheduling time, so it is written in the
+ * language selected right now — which is why changing the language recomputes the whole
+ * schedule (see `setLanguage`). This module lives outside the component tree, so it
+ * reads the store directly instead of going through `useI18n`.
+ */
 function buildContent(habit: HabitRow): Notifications.NotificationContentInput {
+  const { language } = useSettingsStore.getState();
   return {
     title: `${habit.emoji} ${habit.name}`,
-    body: 'Не забудьте отметить привычку сегодня',
+    body: translate(language, 'notification_body'),
     data: { habitId: habit.id },
   };
 }

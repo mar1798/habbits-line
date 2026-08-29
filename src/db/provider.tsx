@@ -8,12 +8,18 @@ import { Alert, StyleSheet, View } from 'react-native';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { spacing } from '@/constants/design-tokens';
+import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 
 import { migrate } from './migrations';
 
 const DATABASE_NAME = 'habits.db';
 
+/**
+ * These screens are the one place the language setting cannot have been read yet — the
+ * row lives in the database that just failed to open — so they always render in the
+ * default language. Which is Russian, so nothing here is worse off than before.
+ */
 export function DatabaseProvider({ children }: PropsWithChildren) {
   return (
     <FatalErrorBoundary
@@ -29,10 +35,7 @@ export function DatabaseProvider({ children }: PropsWithChildren) {
         <FatalErrorBoundary
           logLabel="Render failed"
           fallback={() => (
-            <FatalErrorScreen
-              title="Что-то пошло не так"
-              subtitle="Перезапустите приложение — сохранённые данные останутся на месте."
-            />
+            <RenderErrorScreen />
           )}>
           {children}
         </FatalErrorBoundary>
@@ -44,13 +47,14 @@ export function DatabaseProvider({ children }: PropsWithChildren) {
 /**
  * The screen behind a database that cannot be opened at all, plus the only way out of it.
  *
- * Without a reset this is a dead end: "перезапустите приложение" cannot help, because the
+ * Without a reset this is a dead end: "restart the app" cannot help, because the
  * file that failed is still there on the next launch, and nothing below the provider ever
  * mounts, so the import in settings is unreachable. Deleting rather than repairing —
  * a file SQLite refuses to open has nothing left to read out of it — puts the user back
  * on an empty database they can then restore a backup into.
  */
 function DatabaseErrorScreen() {
+  const { t } = useI18n();
   const [didReset, setDidReset] = useState(false);
 
   if (didReset) {
@@ -58,43 +62,48 @@ function DatabaseErrorScreen() {
       <FatalErrorScreen
         // Not an error any more — the triangle would keep saying something is wrong.
         tone="done"
-        title="База данных сброшена"
-        subtitle="Запустите приложение заново. Если у вас есть файл резервной копии, его можно импортировать в настройках."
+        title={t('db_reset_done_title')}
+        subtitle={t('db_reset_done_subtitle')}
       />
     );
   }
 
   const confirm = () => {
-    Alert.alert(
-      'Сбросить базу данных?',
-      'Все привычки и отметки на этом устройстве будут удалены без возможности восстановления. Если у вас есть файл резервной копии, после сброса его можно импортировать в настройках.',
-      [
-        { text: 'Отмена', style: 'cancel' },
-        {
-          text: 'Сбросить',
-          style: 'destructive',
-          onPress: () => {
-            try {
-              deleteDatabaseFiles();
-              setDidReset(true);
-            } catch (error) {
-              console.error('Failed to reset database', error);
-              Alert.alert(
-                'Не удалось сбросить базу',
-                'Переустановите приложение, чтобы очистить данные.'
-              );
-            }
-          },
+    Alert.alert(t('db_reset_confirm_title'), t('db_reset_confirm_message'), [
+      { text: t('cancel'), style: 'cancel' },
+      {
+        text: t('db_reset_confirm_action'),
+        style: 'destructive',
+        onPress: () => {
+          try {
+            deleteDatabaseFiles();
+            setDidReset(true);
+          } catch (error) {
+            console.error('Failed to reset database', error);
+            Alert.alert(t('db_reset_failed_title'), t('db_reset_failed_message'));
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   return (
     <FatalErrorScreen
-      title="Не удалось открыть базу данных"
-      subtitle="Попробуйте перезапустить приложение. Если это повторится, данные могли повредиться — базу можно сбросить и восстановить из резервной копии."
-      action={{ label: 'Сбросить базу данных', onPress: confirm }}
+      title={t('db_open_failed_title')}
+      subtitle={t('db_open_failed_subtitle')}
+      action={{ label: t('db_reset_action'), onPress: confirm }}
+    />
+  );
+}
+
+/** A crash anywhere below the provider — the database itself is fine. */
+function RenderErrorScreen() {
+  const { t } = useI18n();
+
+  return (
+    <FatalErrorScreen
+      title={t('db_render_error_title')}
+      subtitle={t('db_render_error_subtitle')}
     />
   );
 }

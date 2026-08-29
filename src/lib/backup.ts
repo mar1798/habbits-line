@@ -5,9 +5,37 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { resolveColorKey } from '@/constants/design-tokens';
 import type { EntryRow, HabitRow } from '@/db/types';
+import type { MessageParams } from '@/i18n';
 import { isValidDateKey, isValidTimeOfDay } from '@/lib/date';
 
-const BACKUP_VERSION = 1;
+export const BACKUP_VERSION = 1;
+
+/**
+ * Why a code and not a message: this module has no language of its own. It runs outside
+ * the component tree and its failures are shown by whatever screen called it, so putting
+ * a finished sentence in `Error.message` would leave exactly one place the language
+ * never reaches — and one that is only noticed on someone else's device.
+ */
+export type BackupErrorCode =
+  | 'sharing_unavailable'
+  | 'malformed_file'
+  | 'unrecognized_format'
+  | 'unsupported_version'
+  | 'orphan_entries';
+
+export class BackupError extends Error {
+  readonly code: BackupErrorCode;
+  /** Values for the message's placeholders — `unsupported_version` carries the versions. */
+  readonly params?: MessageParams;
+
+  constructor(code: BackupErrorCode, params?: MessageParams) {
+    // The message is for the console only; the UI translates `code`.
+    super(`Backup failed: ${code}`);
+    this.name = 'BackupError';
+    this.code = code;
+    this.params = params;
+  }
+}
 
 interface BackupFile {
   version: number;
@@ -28,7 +56,7 @@ function isNullableString(value: unknown): value is string | null {
  * Values, not just types. Everything below the top level of this file is untrusted: a
  * hand-edited or foreign backup can carry a string of the right shape that no other
  * part of the app can survive — `2026-02-31` parses to an Invalid Date and makes the
- * streak walk throw, `reminder_time: "вечером"` becomes a NaN hour at scheduling time.
+ * streak walk throw, `reminder_time: "evening"` becomes a NaN hour at scheduling time.
  * The database has no CHECK for either, so this is the only place that can refuse them.
  */
 function isNullableTimeOfDay(value: unknown): value is string | null {
@@ -103,7 +131,7 @@ export async function exportBackupAsync(db: SQLiteDatabase): Promise<void> {
   // Checked before writing: there is no point leaving a file in the cache that nothing
   // can be done with.
   if (!(await Sharing.isAvailableAsync())) {
-    throw new Error('Отправка файлов недоступна на этом устройстве');
+    throw new BackupError('sharing_unavailable');
   }
 
   // Dated, not timestamped: the name is what the user sees in the share sheet, and
@@ -151,30 +179,31 @@ export async function importBackupAsync(db: SQLiteDatabase, fileUri: string): Pr
   try {
     parsed = JSON.parse(text);
   } catch {
-    throw new Error('Файл повреждён и не может быть прочитан');
+    throw new BackupError('malformed_file');
   }
 
   // Version first, structure second. A file from a later build is expected to fail the
   // v1 row checks — it may carry columns and rules this build knows nothing about — so
-  // validating shape first would report "формат не распознан" for the one case the
+  // validating shape first would report "unrecognized format" for the one case the
   // version field exists to explain.
   if (!isRecord(parsed) || typeof parsed.version !== 'number') {
-    throw new Error('Формат файла не распознан');
+    throw new BackupError('unrecognized_format');
   }
 
   if (!isReadableVersion(parsed.version)) {
-    throw new Error(
-      `Файл сохранён в формате версии ${parsed.version}, это приложение читает до ${BACKUP_VERSION}`
-    );
+    throw new BackupError('unsupported_version', {
+      version: parsed.version,
+      supported: BACKUP_VERSION,
+    });
   }
 
   if (!isBackupFile(parsed)) {
-    throw new Error('Формат файла не распознан');
+    throw new BackupError('unrecognized_format');
   }
 
   const habitIds = new Set(parsed.habits.map((habit) => habit.id));
   if (parsed.entries.some((entry) => !habitIds.has(entry.habit_id))) {
-    throw new Error('Файл повреждён: есть записи для несуществующей привычки');
+    throw new BackupError('orphan_entries');
   }
 
   await db.withExclusiveTransactionAsync(async (txn) => {

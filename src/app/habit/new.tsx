@@ -4,10 +4,12 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { DEFAULT_HABIT_FORM_VALUES, HabitForm } from '@/components/habit/habit-form';
 import { Screen } from '@/components/ui/screen';
 import type { HabitInput } from '@/db/habits-repo';
+import { useI18n } from '@/hooks/use-i18n';
 import { useHabitsStore } from '@/store/habits-store';
 
 export default function NewHabitScreen() {
   const db = useSQLiteContext();
+  const { t } = useI18n();
   const createHabit = useHabitsStore((state) => state.create);
 
   const handleSubmit = async (input: HabitInput) => {
@@ -20,7 +22,7 @@ export default function NewHabitScreen() {
     <Screen edges={['bottom']}>
       <HabitForm
         initialValues={DEFAULT_HABIT_FORM_VALUES}
-        submitLabel="Создать"
+        submitLabel={t('habit_form_create')}
         onSubmit={handleSubmit}
       />
     </Screen>

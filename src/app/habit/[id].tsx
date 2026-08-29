@@ -6,11 +6,13 @@ import { HabitForm } from '@/components/habit/habit-form';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Screen } from '@/components/ui/screen';
 import type { HabitInput } from '@/db/habits-repo';
+import { useI18n } from '@/hooks/use-i18n';
 import { useHabitsStore } from '@/store/habits-store';
 
 export default function EditHabitScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const db = useSQLiteContext();
+  const { t } = useI18n();
   const habit = useHabitsStore((state) => state.habits.find((item) => item.id === id));
   const loadHabits = useHabitsStore((state) => state.load);
   const updateHabit = useHabitsStore((state) => state.update);
@@ -52,14 +54,14 @@ export default function EditHabitScreen() {
             scheduleMask: habit.schedule_mask,
             reminderTime: habit.reminder_time,
           }}
-          submitLabel="Сохранить"
+          submitLabel={t('habit_form_save')}
           isEditing
           onSubmit={handleSubmit}
         />
       ) : lookupDone ? (
         // Only once the fallback load has come back — otherwise every open would flash
         // "not found" before the habits arrive.
-        <EmptyState icon="questionmark.circle" title="Привычка не найдена" />
+        <EmptyState icon="questionmark.circle" title={t('habit_not_found')} />
       ) : null}
     </Screen>
   );

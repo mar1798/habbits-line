@@ -117,7 +117,7 @@ describe('isValidTimeOfDay', () => {
     expect(isValidTimeOfDay('24:00')).toBe(false);
     expect(isValidTimeOfDay('09:60')).toBe(false);
     expect(isValidTimeOfDay('9:05')).toBe(false);
-    expect(isValidTimeOfDay('вечером')).toBe(false);
+    expect(isValidTimeOfDay('evening')).toBe(false);
   });
 });
 

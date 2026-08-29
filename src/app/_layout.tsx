@@ -9,6 +9,7 @@ import { Suspense, useEffect } from 'react';
 import { IconButton } from '@/components/ui/icon-button';
 import { fontFamily } from '@/constants/design-tokens';
 import { DatabaseProvider } from '@/db/provider';
+import { useI18n } from '@/hooks/use-i18n';
 import { useNavigationTheme, useTheme } from '@/hooks/use-theme';
 // Importing this module also registers the foreground notification handler.
 import { useReminderSync } from '@/lib/notifications';
@@ -51,6 +52,7 @@ export default function RootLayout() {
 
 function RootStack() {
   const { colors } = useTheme();
+  const { t } = useI18n();
   const db = useSQLiteContext();
   const loadSettings = useSettingsStore((state) => state.load);
 
@@ -58,9 +60,10 @@ function RootStack() {
   // <Suspense><SQLiteProvider useSuspense>, so the effect then runs only once the
   // database is open and the splash never uncovers an empty frame.
   //
-  // It also waits on the stored theme — until that row is read the app renders in the
-  // system scheme, and a user who chose the other one would see a frame of the wrong
-  // theme. A failed read is not worth holding the splash for: the default is 'system'.
+  // It also waits on the stored theme and language — until those rows are read the app
+  // renders in the system scheme and in Russian, and a user who chose otherwise would
+  // see a frame of the wrong one. A failed read is not worth holding the splash for:
+  // the defaults are 'system' and Russian.
   useEffect(() => {
     loadSettings(db)
       .catch((error) => console.warn('Failed to load settings', error))
@@ -105,7 +108,7 @@ function RootStack() {
         options={{
           presentation: 'modal',
           headerShown: true,
-          title: 'Новая привычка',
+          title: t('habit_new_title'),
           headerRight: ModalCloseButton,
         }}
       />
@@ -114,7 +117,7 @@ function RootStack() {
         options={{
           presentation: 'modal',
           headerShown: true,
-          title: 'Изменить привычку',
+          title: t('habit_edit_title'),
           headerRight: ModalCloseButton,
         }}
       />
@@ -128,17 +131,18 @@ function RootStack() {
  *
  * On the right, where iOS puts the dismiss control of a sheet, and as a filled glyph
  * rather than a word: it is the same close affordance on both modals and takes far less
- * of the header than "Отмена" did.
+ * of the header than a "Cancel" label did.
  */
 function ModalCloseButton() {
   const { colors } = useTheme();
+  const { t } = useI18n();
 
   return (
     <IconButton
       name="xmark"
       compact
       onPress={() => router.back()}
-      accessibilityLabel="Закрыть"
+      accessibilityLabel={t('close')}
       color={colors.textSecondary}
     />
   );

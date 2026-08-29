@@ -11,6 +11,7 @@ import Animated, {
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { Text } from '@/components/ui/text';
 import { minHitSlop, motion, opacity, radius, spacing } from '@/constants/design-tokens';
+import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 
 const checkSpring = { ...motion.spring.check, reduceMotion: ReduceMotion.System };
@@ -32,6 +33,7 @@ type CheckButtonProps = {
 
 export function CheckButton({ count, target, onPress, disabled, color }: CheckButtonProps) {
   const { colors } = useTheme();
+  const { t } = useI18n();
   const done = count >= target;
   const showsCount = target > 1;
   const bounce = useSharedValue(1);
@@ -57,7 +59,11 @@ export function CheckButton({ count, target, onPress, disabled, color }: CheckBu
       onPress={handlePress}
       disabled={disabled}
       accessibilityRole="button"
-      accessibilityLabel={showsCount ? `${count} из ${target}` : done ? 'Отметить невыполненным' : 'Отметить выполненным'}
+      accessibilityLabel={
+        showsCount
+          ? t('check_progress', { count, target })
+          : t(done ? 'check_mark_undone' : 'check_mark_done')
+      }
       accessibilityState={{ disabled: Boolean(disabled), checked: done }}
       style={[
         styles.base,

@@ -20,6 +20,7 @@ import {
 } from '@/constants/design-tokens';
 import { HABIT_EMOJIS } from '@/constants/emoji';
 import type { HabitInput } from '@/db/habits-repo';
+import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 
 const MIN_TARGET = 1;
@@ -45,6 +46,7 @@ type HabitFormProps = {
 
 export function HabitForm({ initialValues, submitLabel, isEditing, onSubmit }: HabitFormProps) {
   const { colors } = useTheme();
+  const { t } = useI18n();
   // A stored color_key outside the palette (foreign or future import file) is pulled
   // back onto violet here, so the picker always has a selected swatch and a save
   // rewrites the unknown key instead of preserving it.
@@ -70,7 +72,7 @@ export function HabitForm({ initialValues, submitLabel, isEditing, onSubmit }: H
       // sits there looking saved.
       console.error('Failed to save habit', error);
       setSubmitting(false);
-      Alert.alert('Не удалось сохранить', 'Попробуйте ещё раз.');
+      Alert.alert(t('habit_form_save_failed'), t('try_again'));
     }
   };
 
@@ -81,11 +83,11 @@ export function HabitForm({ initialValues, submitLabel, isEditing, onSubmit }: H
       keyboardDismissMode="interactive"
       // The submit button sits under the keyboard on a modal this tall otherwise.
       automaticallyAdjustKeyboardInsets>
-      <Section title="Название">
+      <Section title={t('habit_form_name')}>
         <TextInput
           value={values.name}
           onChangeText={(name) => patch({ name })}
-          placeholder="Например, Пить воду"
+          placeholder={t('habit_form_name_placeholder')}
           placeholderTextColor={colors.textTertiary}
           returnKeyType="done"
           // Same rule as components/ui/text.tsx: sizes are fixed by the design system,
@@ -98,38 +100,38 @@ export function HabitForm({ initialValues, submitLabel, isEditing, onSubmit }: H
         />
         {!nameIsValid ? (
           <Text variant="caption" color={colors.textSecondary}>
-            Введите название — без него привычку не сохранить
+            {t('habit_form_name_required')}
           </Text>
         ) : null}
       </Section>
 
-      <Section title="Эмодзи">
+      <Section title={t('habit_form_emoji')}>
         <EmojiPicker value={values.emoji} onChange={(emoji) => patch({ emoji })} />
       </Section>
 
-      <Section title="Цвет">
+      <Section title={t('habit_form_color')}>
         <ColorPicker value={values.colorKey} onChange={(colorKey) => patch({ colorKey })} />
       </Section>
 
-      <Section title="Дни недели">
+      <Section title={t('habit_form_weekdays')}>
         <WeekdayPicker value={values.scheduleMask} onChange={(scheduleMask) => patch({ scheduleMask })} />
         {!scheduleIsValid ? (
           <Text variant="caption" color={colors.danger}>
-            Выберите хотя бы один день — иначе привычка нигде не появится
+            {t('habit_form_weekdays_required')}
           </Text>
         ) : null}
         {isEditing ? (
           <Text variant="caption" color={colors.textSecondary}>
-            Изменение дней или цели задним числом меняет прошлую статистику
+            {t('habit_form_editing_note')}
           </Text>
         ) : null}
       </Section>
 
-      <Section title="Цель в день">
+      <Section title={t('habit_form_target')}>
         <View style={styles.stepper}>
           <IconButton
             name="minus"
-            accessibilityLabel="Уменьшить цель"
+            accessibilityLabel={t('habit_form_target_decrease')}
             disabled={values.targetPerDay <= MIN_TARGET}
             onPress={() => patch({ targetPerDay: Math.max(MIN_TARGET, values.targetPerDay - 1) })}
           />
@@ -138,7 +140,7 @@ export function HabitForm({ initialValues, submitLabel, isEditing, onSubmit }: H
           </Text>
           <IconButton
             name="plus"
-            accessibilityLabel="Увеличить цель"
+            accessibilityLabel={t('habit_form_target_increase')}
             disabled={values.targetPerDay >= MAX_TARGET}
             onPress={() => patch({ targetPerDay: Math.min(MAX_TARGET, values.targetPerDay + 1) })}
           />

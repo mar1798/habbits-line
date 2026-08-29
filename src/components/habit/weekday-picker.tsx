@@ -3,11 +3,9 @@ import { StyleSheet, View } from 'react-native';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { Text } from '@/components/ui/text';
 import { minHitSlop, radius, spacing } from '@/constants/design-tokens';
+import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 import { daysToMask, maskToDays } from '@/lib/schedule';
-
-/** Bit 0 = Monday … bit 6 = Sunday, matching schedule_mask and day-strip.tsx. */
-const WEEKDAY_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
 type WeekdayPickerProps = {
   value: number;
@@ -16,6 +14,9 @@ type WeekdayPickerProps = {
 
 export function WeekdayPicker({ value, onChange }: WeekdayPickerProps) {
   const { colors } = useTheme();
+  // Bit 0 = Monday … bit 6 = Sunday in every language: the labels are translated, the
+  // order is not, or the mask a tap writes would mean a different day.
+  const { weekdays } = useI18n();
   const activeDays = new Set(maskToDays(value));
 
   const toggle = (bit: number) => {
@@ -30,11 +31,11 @@ export function WeekdayPicker({ value, onChange }: WeekdayPickerProps) {
 
   return (
     <View style={styles.row}>
-      {WEEKDAY_LABELS.map((label, bit) => {
+      {weekdays.short.map((label, bit) => {
         const isSelected = activeDays.has(bit);
         return (
           <PressableScale
-            key={label}
+            key={bit}
             onPress={() => toggle(bit)}
             // See color-picker: `checkbox` is not a role iOS understands.
             accessibilityRole="button"

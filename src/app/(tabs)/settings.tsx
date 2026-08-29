@@ -15,8 +15,15 @@ import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { minHitSlop, radius, resolveHabitColor, spacing } from '@/constants/design-tokens';
 import type { HabitRow } from '@/db/types';
+import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
-import { exportBackupAsync, importBackupAsync, pickBackupFileAsync } from '@/lib/backup';
+import type { Language, MessageKey } from '@/i18n';
+import {
+  BackupError,
+  exportBackupAsync,
+  importBackupAsync,
+  pickBackupFileAsync,
+} from '@/lib/backup';
 import {
   getScheduledCountAsync,
   NOTIFICATION_WARNING_THRESHOLD,
@@ -27,11 +34,42 @@ import { useEntriesStore } from '@/store/entries-store';
 import { useHabitsStore } from '@/store/habits-store';
 import { type ThemeMode, useSettingsStore } from '@/store/settings-store';
 
-const THEME_OPTIONS: { mode: ThemeMode; label: string; icon: SFSymbol }[] = [
-  { mode: 'system', label: 'Системная', icon: 'iphone' },
-  { mode: 'light', label: 'Светлая', icon: 'sun.max' },
-  { mode: 'dark', label: 'Тёмная', icon: 'moon' },
+const THEME_OPTIONS: { mode: ThemeMode; labelKey: MessageKey; icon: SFSymbol }[] = [
+  { mode: 'system', labelKey: 'theme_system', icon: 'iphone' },
+  { mode: 'light', labelKey: 'theme_light', icon: 'sun.max' },
+  { mode: 'dark', labelKey: 'theme_dark', icon: 'moon' },
 ];
+
+/**
+ * Each language is named in itself, so the labels do not change with the setting — which
+ * is the point: someone who cannot read the current UI still finds their own language.
+ * No icons here, unlike the theme row: a language has no glyph that says it.
+ */
+const LANGUAGE_OPTIONS: { language: Language; labelKey: MessageKey }[] = [
+  { language: 'ru', labelKey: 'language_ru' },
+  { language: 'en', labelKey: 'language_en' },
+];
+
+/** Message key for a failed import or export — a BackupError carries its own code. */
+function backupErrorKey(error: unknown): MessageKey {
+  if (!(error instanceof BackupError)) return 'try_again';
+  switch (error.code) {
+    case 'sharing_unavailable':
+      return 'backup_error_sharing_unavailable';
+    case 'malformed_file':
+      return 'backup_error_malformed_file';
+    case 'unrecognized_format':
+      return 'backup_error_unrecognized_format';
+    case 'unsupported_version':
+      return 'backup_error_unsupported_version';
+    case 'orphan_entries':
+      return 'backup_error_orphan_entries';
+  }
+}
+
+function backupErrorParams(error: unknown) {
+  return error instanceof BackupError ? error.params : undefined;
+}
 
 type Row =
   | { kind: 'header'; key: string; title: string }
@@ -39,6 +77,7 @@ type Row =
 
 export default function SettingsScreen() {
   const { colors, scheme } = useTheme();
+  const { t, plural } = useI18n();
   const isFocused = useIsFocused();
   const permission = useNotificationPermissionStatus();
   const [scheduledCount, setScheduledCount] = useState(0);
@@ -55,6 +94,8 @@ export default function SettingsScreen() {
   const reloadEntries = useEntriesStore((state) => state.reload);
   const themeMode = useSettingsStore((state) => state.themeMode);
   const setThemeMode = useSettingsStore((state) => state.setThemeMode);
+  const language = useSettingsStore((state) => state.language);
+  const setLanguage = useSettingsStore((state) => state.setLanguage);
 
   // Includes archived habits — the only screen that needs the full list, so the
   // scope lives on the shared store rather than a local query. That also fixes
@@ -99,7 +140,7 @@ export default function SettingsScreen() {
 
   const rows: Row[] = [
     ...(activeHabits.length > 0
-      ? [{ kind: 'header' as const, key: 'header-active', title: 'Активные' }]
+      ? [{ kind: 'header' as const, key: 'header-active', title: t('settings_active') }]
       : []),
     ...activeHabits.map((habit, index) => ({
       kind: 'habit' as const,
@@ -109,7 +150,7 @@ export default function SettingsScreen() {
       isLast: index === activeHabits.length - 1,
     })),
     ...(archivedHabits.length > 0
-      ? [{ kind: 'header' as const, key: 'header-archived', title: 'Архив' }]
+      ? [{ kind: 'header' as const, key: 'header-archived', title: t('settings_archive') }]
       : []),
     ...archivedHabits.map((habit) => ({
       kind: 'habit' as const,
@@ -133,12 +174,12 @@ export default function SettingsScreen() {
 
   const confirmDelete = (habit: HabitRow) => {
     Alert.alert(
-      `Удалить «${habit.name}»?`,
-      'Привычка и вся её история будут удалены без возможности восстановления.',
+      t('settings_delete_title', { name: habit.name }),
+      t('settings_delete_message'),
       [
-        { text: 'Отмена', style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
         {
-          text: 'Удалить',
+          text: t('delete'),
           style: 'destructive',
           onPress: () => runMutation(removeHabit(db, habit.id)),
         },
@@ -153,8 +194,8 @@ export default function SettingsScreen() {
     } catch (error) {
       console.warn('Export failed', error);
       Alert.alert(
-        'Не удалось экспортировать',
-        error instanceof Error ? error.message : 'Попробуйте ещё раз.'
+        t('settings_export_failed'),
+        t(backupErrorKey(error), backupErrorParams(error))
       );
     } finally {
       setBusy(null);
@@ -179,12 +220,12 @@ export default function SettingsScreen() {
         console.error('Failed to reschedule reminders after import', error);
       });
       setScheduledCount(await getScheduledCountAsync());
-      Alert.alert('Импорт завершён', 'Данные восстановлены из файла.');
+      Alert.alert(t('settings_import_done_title'), t('settings_import_done_message'));
     } catch (error) {
       console.warn('Import failed', error);
       Alert.alert(
-        'Не удалось импортировать',
-        error instanceof Error ? error.message : 'Файл повреждён.'
+        t('settings_import_failed'),
+        t(backupErrorKey(error), backupErrorParams(error))
       );
     } finally {
       setBusy(null);
@@ -199,16 +240,20 @@ export default function SettingsScreen() {
       // The picker rejects on its own (a second sheet already open, a file the system
       // could not copy). Without this it would surface as an unhandled rejection.
       console.warn('Document picker failed', error);
-      Alert.alert('Не удалось открыть файл', 'Попробуйте ещё раз.');
+      Alert.alert(t('settings_picker_failed'), t('try_again'));
       return;
     }
     if (!uri) return;
     Alert.alert(
-      'Импорт данных',
-      'Текущие привычки и записи будут удалены и заменены содержимым файла. Это необратимо.',
+      t('settings_import_confirm_title'),
+      t('settings_import_confirm_message'),
       [
-        { text: 'Отмена', style: 'cancel' },
-        { text: 'Импортировать', style: 'destructive', onPress: () => void performImport(uri) },
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: t('settings_import_confirm_action'),
+          style: 'destructive',
+          onPress: () => void performImport(uri),
+        },
       ]
     );
   };
@@ -240,15 +285,13 @@ export default function SettingsScreen() {
         contentContainerStyle={[styles.list, rows.length === 0 && styles.listEmpty]}
         ListHeaderComponent={
           <View style={styles.header}>
-            <Text variant="title1">Настройки</Text>
+            <Text variant="title1">{t('settings_title')}</Text>
 
             {permission === 'denied' ? (
               <Card style={styles.banner}>
-                <Text variant="body">
-                  Уведомления запрещены в настройках iOS — напоминания не будут приходить.
-                </Text>
+                <Text variant="body">{t('settings_notifications_denied')}</Text>
                 <Button
-                  title="Открыть настройки"
+                  title={t('settings_open_ios_settings')}
                   variant="secondary"
                   onPress={() => Linking.openSettings()}
                 />
@@ -258,68 +301,68 @@ export default function SettingsScreen() {
             {scheduledCount >= NOTIFICATION_WARNING_THRESHOLD ? (
               <Card style={styles.banner}>
                 <Text variant="body" color={colors.warning}>
-                  Запланировано {scheduledCount} напоминаний — iOS ограничивает их число, часть
-                  новых может не встать в расписание
+                  {t('settings_notification_limit', {
+                    count: scheduledCount,
+                    reminders: plural('reminders', scheduledCount),
+                  })}
                 </Text>
               </Card>
             ) : null}
 
             <View style={styles.group}>
-              <Text variant="title2">Оформление</Text>
-              {/*
-                A segmented control rather than three separate rows: the three modes are
-                one exclusive choice, and the selected pill is what says which one is on.
-              */}
+              <Text variant="title2">{t('settings_appearance')}</Text>
               <View style={[styles.segmented, { backgroundColor: colors.surfaceAlt }]}>
-                {THEME_OPTIONS.map((option) => {
-                  const isSelected = option.mode === themeMode;
-                  return (
-                    <PressableScale
-                      key={option.mode}
-                      onPress={() => {
-                        // The theme flips synchronously inside the store; only the write
-                        // is awaited, and a failed one must not crash the screen.
-                        setThemeMode(db, option.mode).catch((error) =>
-                          console.warn('Failed to save theme mode', error)
-                        );
-                      }}
-                      // Same reason as the archive toggle on the stats screen: iOS has no
-                      // radio trait, and a non-button role leaves VoiceOver silent on state.
-                      accessibilityRole="button"
-                      accessibilityLabel={option.label}
-                      accessibilityState={{ selected: isSelected }}
-                      style={[
-                        styles.segment,
-                        isSelected && { backgroundColor: colors.surface },
-                      ]}>
-                      <SymbolView
-                        name={option.icon}
-                        size={15}
-                        tintColor={isSelected ? colors.accent : colors.textSecondary}
-                      />
-                      <Text
-                        variant="caption"
-                        color={isSelected ? colors.accent : colors.textSecondary}>
-                        {option.label}
-                      </Text>
-                    </PressableScale>
-                  );
-                })}
+                {THEME_OPTIONS.map((option) => (
+                  <Segment
+                    key={option.mode}
+                    label={t(option.labelKey)}
+                    icon={option.icon}
+                    isSelected={option.mode === themeMode}
+                    onPress={() => {
+                      // The theme flips synchronously inside the store; only the write
+                      // is awaited, and a failed one must not crash the screen.
+                      setThemeMode(db, option.mode).catch((error) =>
+                        console.warn('Failed to save theme mode', error)
+                      );
+                    }}
+                  />
+                ))}
               </View>
             </View>
 
             <View style={styles.group}>
-              <Text variant="title2">Данные</Text>
+              <Text variant="title2">{t('settings_language')}</Text>
+              <View style={[styles.segmented, { backgroundColor: colors.surfaceAlt }]}>
+                {LANGUAGE_OPTIONS.map((option) => (
+                  <Segment
+                    key={option.language}
+                    label={t(option.labelKey)}
+                    isSelected={option.language === language}
+                    onPress={() => {
+                      // Same as the theme: the UI switches synchronously inside the store.
+                      // The awaited part is the write plus the reminder recompute, and
+                      // neither failing may take the screen down with it.
+                      setLanguage(db, option.language).catch((error) =>
+                        console.warn('Failed to save language', error)
+                      );
+                    }}
+                  />
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.group}>
+              <Text variant="title2">{t('settings_data')}</Text>
               <View style={styles.dataButtons}>
                 <Button
-                  title="Экспорт"
+                  title={t('settings_export')}
                   variant="secondary"
                   disabled={busy !== null}
                   onPress={() => void handleExport()}
                   style={styles.dataButton}
                 />
                 <Button
-                  title="Импорт"
+                  title={t('settings_import')}
                   variant="secondary"
                   disabled={busy !== null}
                   onPress={() => void handleImport()}
@@ -333,8 +376,8 @@ export default function SettingsScreen() {
           loaded ? (
             <EmptyState
               icon="list.bullet"
-              title="Привычек пока нет"
-              subtitle="Добавьте первую привычку на вкладке «Привычки»"
+              title={t('empty_no_habits')}
+              subtitle={t('settings_empty_subtitle')}
             />
           ) : null
         }
@@ -365,7 +408,7 @@ export default function SettingsScreen() {
               <PressableScale
                 onPress={() => router.push({ pathname: '/habit/[id]', params: { id: habit.id } })}
                 accessibilityRole="button"
-                accessibilityLabel={`Изменить «${habit.name}»`}
+                accessibilityLabel={t('settings_edit_habit', { name: habit.name })}
                 style={styles.main}>
                 <View style={[styles.emoji, { backgroundColor: `${accentColor}33` }]}>
                   <Text variant="headline">{habit.emoji}</Text>
@@ -379,7 +422,7 @@ export default function SettingsScreen() {
                   </Text>
                   {isArchived ? (
                     <Text variant="caption" color={colors.textTertiary}>
-                      Архивная
+                      {t('settings_archived_badge')}
                     </Text>
                   ) : null}
                 </View>
@@ -389,14 +432,14 @@ export default function SettingsScreen() {
                 <View style={styles.arrows}>
                   <IconButton
                     name="chevron.up"
-                    accessibilityLabel="Переместить вверх"
+                    accessibilityLabel={t('settings_move_up')}
                     size={16}
                     disabled={isFirst}
                     onPress={() => moveHabit(habit.id, -1)}
                   />
                   <IconButton
                     name="chevron.down"
-                    accessibilityLabel="Переместить вниз"
+                    accessibilityLabel={t('settings_move_down')}
                     size={16}
                     disabled={isLast}
                     onPress={() => moveHabit(habit.id, 1)}
@@ -408,21 +451,25 @@ export default function SettingsScreen() {
                 actions={
                   isArchived
                     ? [
-                        { id: 'edit', title: 'Изменить', image: 'pencil' },
-                        { id: 'unarchive', title: 'Разархивировать', image: 'tray.and.arrow.up' },
+                        { id: 'edit', title: t('menu_edit'), image: 'pencil' },
+                        {
+                          id: 'unarchive',
+                          title: t('menu_unarchive'),
+                          image: 'tray.and.arrow.up',
+                        },
                         {
                           id: 'delete',
-                          title: 'Удалить',
+                          title: t('delete'),
                           image: 'trash',
                           attributes: { destructive: true },
                         },
                       ]
                     : [
-                        { id: 'edit', title: 'Изменить', image: 'pencil' },
-                        { id: 'archive', title: 'Архивировать', image: 'archivebox' },
+                        { id: 'edit', title: t('menu_edit'), image: 'pencil' },
+                        { id: 'archive', title: t('menu_archive'), image: 'archivebox' },
                         {
                           id: 'delete',
-                          title: 'Удалить',
+                          title: t('delete'),
                           image: 'trash',
                           attributes: { destructive: true },
                         },
@@ -438,6 +485,47 @@ export default function SettingsScreen() {
         }}
       />
     </Screen>
+  );
+}
+
+/**
+ * One option of a segmented control — the theme row and the language row are the same
+ * exclusive choice, and the selected pill is what says which one is on. The icon is
+ * optional: the languages are named, not pictured.
+ */
+function Segment({
+  label,
+  icon,
+  isSelected,
+  onPress,
+}: {
+  label: string;
+  icon?: SFSymbol;
+  isSelected: boolean;
+  onPress: () => void;
+}) {
+  const { colors } = useTheme();
+
+  return (
+    <PressableScale
+      onPress={onPress}
+      // Same reason as the archive toggle on the stats screen: iOS has no radio trait,
+      // and a non-button role leaves VoiceOver silent on state.
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: isSelected }}
+      style={[styles.segment, isSelected && { backgroundColor: colors.surface }]}>
+      {icon ? (
+        <SymbolView
+          name={icon}
+          size={15}
+          tintColor={isSelected ? colors.accent : colors.textSecondary}
+        />
+      ) : null}
+      <Text variant="caption" color={isSelected ? colors.accent : colors.textSecondary}>
+        {label}
+      </Text>
+    </PressableScale>
   );
 }
 

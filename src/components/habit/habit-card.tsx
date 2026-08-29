@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { radius, resolveHabitColor, spacing } from '@/constants/design-tokens';
 import type { HabitRow } from '@/db/types';
+import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 
 type HabitCardProps = {
@@ -19,17 +20,9 @@ type HabitCardProps = {
   onArchive: () => void;
 };
 
-/** Russian plural for "N times": 1 раз, 2–4 раза, 5+ (and 11–14) раз. */
-function timesWord(n: number): string {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return 'раз';
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return 'раза';
-  return 'раз';
-}
-
 export function HabitCard({ habit, count, disabled, onToggle, onEdit, onArchive }: HabitCardProps) {
   const { colors, scheme } = useTheme();
+  const { t, plural } = useI18n();
   const accentColor = resolveHabitColor(habit.color_key, scheme);
 
   return (
@@ -37,8 +30,8 @@ export function HabitCard({ habit, count, disabled, onToggle, onEdit, onArchive 
       style={styles.menu}
       shouldOpenOnLongPress
       actions={[
-        { id: 'edit', title: 'Изменить', image: 'pencil' },
-        { id: 'archive', title: 'Архивировать', image: 'archivebox' },
+        { id: 'edit', title: t('menu_edit'), image: 'pencil' },
+        { id: 'archive', title: t('menu_archive'), image: 'archivebox' },
       ]}
       onPressAction={({ nativeEvent }: NativeActionEvent) => {
         if (nativeEvent.event === 'edit') onEdit();
@@ -54,7 +47,10 @@ export function HabitCard({ habit, count, disabled, onToggle, onEdit, onArchive 
           </Text>
           {habit.target_per_day > 1 ? (
             <Text variant="caption" color={colors.textSecondary}>
-              Цель: {habit.target_per_day} {timesWord(habit.target_per_day)} в день
+              {t('habit_card_target', {
+                count: habit.target_per_day,
+                times: plural('times', habit.target_per_day),
+              })}
             </Text>
           ) : null}
         </View>

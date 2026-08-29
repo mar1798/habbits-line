@@ -114,3 +114,15 @@ export function weekStartKey(key: string): string {
 }
 
 export const DAYS_IN_WEEK = 7;
+
+/**
+ * Local date key of an ISO timestamp — the day a `created_at` was written.
+ *
+ * Null for a timestamp that can't be read: lib/backup.ts checks on import that the
+ * field is a string, not that it parses, so a hand-edited backup can carry anything.
+ * Callers treat that as "no known start" rather than throwing out of a render.
+ */
+export function timestampDateKey(iso: string): string | null {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? null : toDateKey(date);
+}
