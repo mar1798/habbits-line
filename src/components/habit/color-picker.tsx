@@ -32,9 +32,11 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
             key={key}
             onPress={() => onChange(key)}
             hitSlop={SWATCH_HIT_SLOP}
-            accessibilityRole="radio"
+            // iOS has no radio/checkbox trait: with `radio` the swatch is exported as a
+            // plain element and VoiceOver announces neither a control nor its selection.
+            accessibilityRole="button"
             accessibilityLabel={key}
-            accessibilityState={{ checked: isSelected }}
+            accessibilityState={{ selected: isSelected }}
             style={[styles.swatch, { backgroundColor: swatch }]}>
             {isSelected ? <SymbolView name="checkmark" size={18} tintColor={colors.onAccent} /> : null}
           </PressableScale>

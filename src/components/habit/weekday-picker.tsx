@@ -36,9 +36,10 @@ export function WeekdayPicker({ value, onChange }: WeekdayPickerProps) {
           <PressableScale
             key={label}
             onPress={() => toggle(bit)}
-            accessibilityRole="checkbox"
+            // See color-picker: `checkbox` is not a role iOS understands.
+            accessibilityRole="button"
             accessibilityLabel={label}
-            accessibilityState={{ checked: isSelected }}
+            accessibilityState={{ selected: isSelected }}
             style={[styles.day, { backgroundColor: isSelected ? colors.accent : colors.surfaceAlt }]}>
             <Text variant="callout" color={isSelected ? colors.onAccent : colors.textPrimary}>
               {label}

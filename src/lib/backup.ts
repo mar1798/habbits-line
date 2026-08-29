@@ -5,6 +5,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { resolveColorKey } from '@/constants/design-tokens';
 import type { EntryRow, HabitRow } from '@/db/types';
+import { isValidDateKey, isValidTimeOfDay } from '@/lib/date';
 
 const BACKUP_VERSION = 1;
 
@@ -23,7 +24,16 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === 'string';
 }
 
-const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+/**
+ * Values, not just types. Everything below the top level of this file is untrusted: a
+ * hand-edited or foreign backup can carry a string of the right shape that no other
+ * part of the app can survive — `2026-02-31` parses to an Invalid Date and makes the
+ * streak walk throw, `reminder_time: "вечером"` becomes a NaN hour at scheduling time.
+ * The database has no CHECK for either, so this is the only place that can refuse them.
+ */
+function isNullableTimeOfDay(value: unknown): value is string | null {
+  return value === null || (typeof value === 'string' && isValidTimeOfDay(value));
+}
 
 function isHabitRow(value: unknown): value is HabitRow {
   return (
@@ -37,7 +47,7 @@ function isHabitRow(value: unknown): value is HabitRow {
     Number.isInteger(value.schedule_mask) &&
     (value.schedule_mask as number) > 0 &&
     (value.schedule_mask as number) <= 127 &&
-    isNullableString(value.reminder_time) &&
+    isNullableTimeOfDay(value.reminder_time) &&
     Number.isInteger(value.sort_order) &&
     isNullableString(value.archived_at) &&
     typeof value.created_at === 'string' &&
@@ -50,7 +60,7 @@ function isEntryRow(value: unknown): value is EntryRow {
     isRecord(value) &&
     typeof value.habit_id === 'string' &&
     typeof value.date === 'string' &&
-    DATE_KEY_PATTERN.test(value.date) &&
+    isValidDateKey(value.date) &&
     Number.isInteger(value.count) &&
     (value.count as number) > 0 &&
     typeof value.updated_at === 'string'
@@ -144,7 +154,11 @@ export async function importBackupAsync(db: SQLiteDatabase, fileUri: string): Pr
     throw new Error('Файл повреждён и не может быть прочитан');
   }
 
-  if (!isBackupFile(parsed)) {
+  // Version first, structure second. A file from a later build is expected to fail the
+  // v1 row checks — it may carry columns and rules this build knows nothing about — so
+  // validating shape first would report "формат не распознан" for the one case the
+  // version field exists to explain.
+  if (!isRecord(parsed) || typeof parsed.version !== 'number') {
     throw new Error('Формат файла не распознан');
   }
 
@@ -152,6 +166,10 @@ export async function importBackupAsync(db: SQLiteDatabase, fileUri: string): Pr
     throw new Error(
       `Файл сохранён в формате версии ${parsed.version}, это приложение читает до ${BACKUP_VERSION}`
     );
+  }
+
+  if (!isBackupFile(parsed)) {
+    throw new Error('Формат файла не распознан');
   }
 
   const habitIds = new Set(parsed.habits.map((habit) => habit.id));

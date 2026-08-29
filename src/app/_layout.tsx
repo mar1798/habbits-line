@@ -6,11 +6,13 @@ import { useSQLiteContext } from 'expo-sqlite';
 import * as SystemUI from 'expo-system-ui';
 import { Suspense, useEffect } from 'react';
 
+import { IconButton } from '@/components/ui/icon-button';
 import { fontFamily } from '@/constants/design-tokens';
 import { DatabaseProvider } from '@/db/provider';
 import { useNavigationTheme, useTheme } from '@/hooks/use-theme';
 // Importing this module also registers the foreground notification handler.
 import { useReminderSync } from '@/lib/notifications';
+import { useSettingsStore } from '@/store/settings-store';
 
 /**
  * Without an anchor a route opened directly — a deep link, or a notification tap —
@@ -25,7 +27,7 @@ SplashScreen.preventAutoHideAsync().catch(() => {
 });
 
 export default function RootLayout() {
-  const { colors } = useTheme();
+  const { colors, scheme } = useTheme();
   const navigationTheme = useNavigationTheme();
 
   useEffect(() => {
@@ -36,7 +38,8 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={navigationTheme}>
-      <StatusBar style="auto" />
+      {/* Not "auto": that follows the OS scheme, which the theme setting can override. */}
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       <Suspense fallback={null}>
         <DatabaseProvider>
           <RootStack />
@@ -49,13 +52,22 @@ export default function RootLayout() {
 function RootStack() {
   const { colors } = useTheme();
   const db = useSQLiteContext();
+  const loadSettings = useSettingsStore((state) => state.load);
 
   // Hidden from here, not from RootLayout: stage 2 wraps this component in
   // <Suspense><SQLiteProvider useSuspense>, so the effect then runs only once the
   // database is open and the splash never uncovers an empty frame.
+  //
+  // It also waits on the stored theme — until that row is read the app renders in the
+  // system scheme, and a user who chose the other one would see a frame of the wrong
+  // theme. A failed read is not worth holding the splash for: the default is 'system'.
   useEffect(() => {
-    SplashScreen.hideAsync().catch(() => {});
-  }, []);
+    loadSettings(db)
+      .catch((error) => console.warn('Failed to load settings', error))
+      .finally(() => {
+        SplashScreen.hideAsync().catch(() => {});
+      });
+  }, [db, loadSettings]);
 
   // A tap opens "Today" from both cold start and background: getLastNotificationResponse
   // covers the cold-start case, which the response listener alone would miss entirely.
@@ -90,12 +102,44 @@ function RootStack() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen
         name="habit/new"
-        options={{ presentation: 'modal', headerShown: true, title: 'Новая привычка' }}
+        options={{
+          presentation: 'modal',
+          headerShown: true,
+          title: 'Новая привычка',
+          headerRight: ModalCloseButton,
+        }}
       />
       <Stack.Screen
         name="habit/[id]"
-        options={{ presentation: 'modal', headerShown: true, title: 'Изменить привычку' }}
+        options={{
+          presentation: 'modal',
+          headerShown: true,
+          title: 'Изменить привычку',
+          headerRight: ModalCloseButton,
+        }}
       />
     </Stack>
+  );
+}
+
+/**
+ * Modal routes otherwise close only by dragging the sheet down — a gesture with nothing
+ * on screen to announce it, and one VoiceOver users cannot perform at all.
+ *
+ * On the right, where iOS puts the dismiss control of a sheet, and as a filled glyph
+ * rather than a word: it is the same close affordance on both modals and takes far less
+ * of the header than "Отмена" did.
+ */
+function ModalCloseButton() {
+  const { colors } = useTheme();
+
+  return (
+    <IconButton
+      name="xmark"
+      compact
+      onPress={() => router.back()}
+      accessibilityLabel="Закрыть"
+      color={colors.textSecondary}
+    />
   );
 }

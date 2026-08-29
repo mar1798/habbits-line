@@ -1,5 +1,5 @@
-import { parseDateKey, shiftDateKey } from './date';
-import { isScheduledOn } from './schedule';
+import { forEachDateKey, shiftDateKey } from './date';
+import { isScheduledOnWeekday } from './schedule';
 
 /**
  * count / target, clamped to 0..1 — the one shared rule for how "done" a day is.
@@ -41,23 +41,21 @@ export function computeStreaks(
     return { current: 0, best: 0 };
   }
 
-  let cursor = dates.reduce((min, date) => (date < min ? date : min));
+  const from = dates.reduce((min, date) => (date < min ? date : min));
   let running = 0;
   let best = 0;
 
-  while (cursor <= today) {
-    if (isScheduledOn(scheduleMask, parseDateKey(cursor))) {
-      const closed = isDayClosed(entryCounts[cursor] ?? 0, targetPerDay);
-      if (closed) {
-        running += 1;
-        best = Math.max(best, running);
-      } else if (cursor !== today) {
-        running = 0;
-      }
-      // else: today, still open — leave the running streak as-is.
+  forEachDateKey(from, today, (date, dayOfWeek) => {
+    if (!isScheduledOnWeekday(scheduleMask, dayOfWeek)) return;
+
+    if (isDayClosed(entryCounts[date] ?? 0, targetPerDay)) {
+      running += 1;
+      best = Math.max(best, running);
+    } else if (date !== today) {
+      running = 0;
     }
-    cursor = shiftDateKey(cursor, 1);
-  }
+    // else: today, still open — leave the running streak as-is.
+  });
 
   return { current: running, best };
 }
@@ -76,17 +74,15 @@ export function computeCompletionRate(
 ): number {
   let scheduled = 0;
   let closed = 0;
-  let cursor = shiftDateKey(today, -(windowDays - 1));
 
-  for (let i = 0; i < windowDays; i++) {
-    if (isScheduledOn(scheduleMask, parseDateKey(cursor))) {
-      scheduled += 1;
-      if (isDayClosed(entryCounts[cursor] ?? 0, targetPerDay)) {
-        closed += 1;
-      }
+  forEachDateKey(shiftDateKey(today, -(windowDays - 1)), today, (date, dayOfWeek) => {
+    if (!isScheduledOnWeekday(scheduleMask, dayOfWeek)) return;
+
+    scheduled += 1;
+    if (isDayClosed(entryCounts[date] ?? 0, targetPerDay)) {
+      closed += 1;
     }
-    cursor = shiftDateKey(cursor, 1);
-  }
+  });
 
   return scheduled === 0 ? 0 : closed / scheduled;
 }

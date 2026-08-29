@@ -27,9 +27,17 @@ function bitForNativeWeekday(nativeWeekday: number): number {
   return (nativeWeekday + 6) % 7;
 }
 
+/**
+ * Same test as `isScheduledOn`, for callers that already hold the weekday and would
+ * otherwise re-derive a Date just to throw it away — `forEachDateKey` hands one to its
+ * visitor on every step of the streak scan.
+ */
+export function isScheduledOnWeekday(mask: number, nativeWeekday: number): boolean {
+  return (mask & (1 << bitForNativeWeekday(nativeWeekday))) !== 0;
+}
+
 export function isScheduledOn(mask: number, date: Date): boolean {
-  const bit = bitForNativeWeekday(weekday(date));
-  return (mask & (1 << bit)) !== 0;
+  return isScheduledOnWeekday(mask, weekday(date));
 }
 
 /**

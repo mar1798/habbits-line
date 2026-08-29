@@ -5,6 +5,7 @@ import { AppState } from 'react-native';
 
 import { listHabits } from '@/db/habits-repo';
 import type { HabitRow } from '@/db/types';
+import { isValidTimeOfDay } from '@/lib/date';
 import { bitToAppleWeekday, maskToDays } from '@/lib/schedule';
 
 /** Warn in settings when the scheduled count nears iOS's ~64-request ceiling. */
@@ -112,7 +113,16 @@ function buildContent(habit: HabitRow): Notifications.NotificationContentInput {
  * running total.
  */
 async function scheduleForHabit(habit: HabitRow): Promise<number> {
-  const [hour, minute] = habit.reminder_time!.split(':').map(Number);
+  const reminderTime = habit.reminder_time;
+  // Import validates this shape, but a row written by an older build could still hold
+  // something else, and a NaN hour aborts the whole recompute — taking every habit
+  // after this one down with it. Skipping one habit's reminders is the smaller loss.
+  if (reminderTime === null || !isValidTimeOfDay(reminderTime)) {
+    console.warn(`Skipping reminders for habit ${habit.id}: bad reminder_time`);
+    return 0;
+  }
+
+  const [hour, minute] = reminderTime.split(':').map(Number);
   const days = maskToDays(habit.schedule_mask);
   const content = buildContent(habit);
 

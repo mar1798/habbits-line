@@ -12,9 +12,12 @@ export const lightColors = {
   accentPressed: '#5B3EE0',
   accentSoft: '#EAE4FF',
   onAccent: '#FBFAFF',
-  success: '#2FAE7C',
-  danger: '#E2564D',
-  warning: '#E0A32E',
+  // Dark enough to carry their own text on `bg` at 4.5:1 — all three are used as a text
+  // color (the reminder-denied notes, the notification-limit banner), where the lighter
+  // originals sat at 2.2–3.6:1.
+  success: '#227E5A',
+  danger: '#D42D23',
+  warning: '#926716',
   overlay: '#16141FA6',
   shadowColor: '#2A2440',
   unscheduled: '#E9E7F1',
@@ -46,15 +49,24 @@ export type ThemeColors = Record<keyof typeof lightColors, string>;
 
 export type ColorKey = 'violet' | 'indigo' | 'sky' | 'teal' | 'green' | 'amber' | 'coral' | 'pink';
 
+/**
+ * Light variants are all tuned to ~4.85:1 against `onAccent`, the color the check
+ * button's `N/M` label is drawn in when a habit is done. The original hues were picked
+ * for equal lightness alone and left six of the eight between 2.8:1 and 4.4:1 — the
+ * count sat on them as pale-on-pale. Hue and saturation are unchanged; only lightness
+ * moved, so the family still reads as one scale and violet still twins the accent.
+ *
+ * Dark variants already clear 6.5:1 against their own `onAccent` and are untouched.
+ */
 export const habitColors: Record<ColorKey, { light: string; dark: string }> = {
   violet: { light: '#6C4DFF', dark: '#9C86FF' },
-  indigo: { light: '#4B63E8', dark: '#8093FF' },
-  sky: { light: '#2E90D9', dark: '#63B4F0' },
-  teal: { light: '#12A594', dark: '#4CD4C0' },
-  green: { light: '#3D9A50', dark: '#6FD186' },
-  amber: { light: '#C98A18', dark: '#F0B64A' },
-  coral: { light: '#DE5C4A', dark: '#FF8875' },
-  pink: { light: '#C2439B', dark: '#F075C4' },
+  indigo: { light: '#4961E8', dark: '#8093FF' },
+  sky: { light: '#2073B1', dark: '#63B4F0' },
+  teal: { light: '#0E7C70', dark: '#4CD4C0' },
+  green: { light: '#327D41', dark: '#6FD186' },
+  amber: { light: '#946612', dark: '#F0B64A' },
+  coral: { light: '#CB3925', dark: '#FF8875' },
+  pink: { light: '#BA3C94', dark: '#F075C4' },
 };
 
 export const DEFAULT_HABIT_COLOR: ColorKey = 'violet';
@@ -109,6 +121,16 @@ export const radius = {
 
 /** Minimum hit target on any interactive element, per design system. */
 export const minHitSlop = 44;
+
+/**
+ * A disabled control has to recede, and its fill alone cannot do that: `disabled` is
+ * darker than `surfaceAlt` in the light theme, so a disabled icon button drew *more*
+ * attention than an enabled one next to it. Fading the whole control puts the composited
+ * fill below `surfaceAlt` in both themes and dims the glyph with it.
+ */
+export const opacity = {
+  disabled: 0.4,
+} as const;
 
 export const motion = {
   spring: {

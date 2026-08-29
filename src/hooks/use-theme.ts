@@ -2,11 +2,21 @@ import { DarkTheme, DefaultTheme, type Theme } from 'expo-router';
 import { useColorScheme } from 'react-native';
 
 import { darkColors, lightColors, ThemeColors } from '@/constants/design-tokens';
+import { useSettingsStore } from '@/store/settings-store';
 
 export type ThemeScheme = 'light' | 'dark';
 
+/**
+ * The stored preference wins over the OS one; 'system' (the default, and what the app
+ * shows until the row is read at launch) falls back to `useColorScheme`, which keeps
+ * following the OS live.
+ */
 export function useTheme(): { scheme: ThemeScheme; colors: ThemeColors } {
-  const scheme: ThemeScheme = useColorScheme() === 'dark' ? 'dark' : 'light';
+  const themeMode = useSettingsStore((state) => state.themeMode);
+  const systemScheme = useColorScheme();
+  const scheme: ThemeScheme =
+    themeMode === 'system' ? (systemScheme === 'dark' ? 'dark' : 'light') : themeMode;
+
   return { scheme, colors: scheme === 'dark' ? darkColors : lightColors };
 }
 

@@ -1,6 +1,6 @@
 import { StyleProp, StyleSheet, ViewStyle } from 'react-native';
 
-import { minHitSlop, radius, spacing } from '@/constants/design-tokens';
+import { minHitSlop, opacity, radius, spacing } from '@/constants/design-tokens';
 import { useTheme } from '@/hooks/use-theme';
 
 import { PressableScale } from './pressable-scale';
@@ -32,7 +32,7 @@ export function Button({ title, onPress, variant = 'primary', disabled, style }:
       disabled={disabled}
       accessibilityRole="button"
       accessibilityState={{ disabled: Boolean(disabled) }}
-      style={[styles.base, { backgroundColor }, style]}>
+      style={[styles.base, { backgroundColor }, disabled && { opacity: opacity.disabled }, style]}>
       <Text variant="callout" color={textColor}>
         {title}
       </Text>

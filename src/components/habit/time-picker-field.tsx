@@ -1,16 +1,23 @@
 import { DatePicker, Host } from '@expo/ui/swift-ui';
-import { datePickerStyle } from '@expo/ui/swift-ui/modifiers';
+import { datePickerStyle, frame } from '@expo/ui/swift-ui/modifiers';
 import { useState } from 'react';
 import { Linking, Switch, StyleSheet, View } from 'react-native';
 
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { Text } from '@/components/ui/text';
-import { spacing } from '@/constants/design-tokens';
+import { minHitSlop, spacing } from '@/constants/design-tokens';
 import { useTheme } from '@/hooks/use-theme';
 import { useNotificationPermissionStatus } from '@/lib/notifications';
 
 /** Turning the reminder on lands on a sane morning slot, not on the current minute. */
 const DEFAULT_REMINDER_TIME = '09:00';
+
+/**
+ * Height of the compact date picker. A UISwitch is a fixed 31pt tall and cannot be
+ * resized, so the picker is pinned to match it — left to its intrinsic size it sits a
+ * few points taller than the switch and the two controls read as mismatched.
+ */
+const CONTROL_HEIGHT = 31;
 
 /** The link's text alone is well under 44pt; hitSlop tops the target up to size. */
 const SETTINGS_LINK_HIT_SLOP = { top: 14, bottom: 14, left: 12, right: 12 };
@@ -50,29 +57,39 @@ export function TimePickerField({ value, onChange }: TimePickerFieldProps) {
 
   return (
     <View style={styles.container}>
+      {/*
+        The title, the time picker and the switch form one line; the hint sits on its
+        own line below. Keeping the hint inside the row made the label column two lines
+        tall and squeezed the picker, so the three controls no longer read as one row.
+      */}
       <View style={styles.row}>
-        <View style={styles.label}>
-          <Text variant="body">Напоминание</Text>
-          <Text variant="caption" color={colors.textSecondary}>
-            Придёт в выбранные дни недели
-          </Text>
+        <Text variant="body" style={styles.title}>
+          Напоминание
+        </Text>
+        <View style={styles.control}>
+          {enabled ? (
+            <Host matchContents style={styles.picker}>
+              <DatePicker
+                selection={timeToDate(value)}
+                displayedComponents={['hourAndMinute']}
+                onDateChange={handleTimeChange}
+                modifiers={[datePickerStyle('compact'), frame({ height: CONTROL_HEIGHT })]}
+              />
+            </Host>
+          ) : null}
+          <Switch
+            value={enabled}
+            onValueChange={(next) => onChange(next ? lastTime : null)}
+            // The row's label is a sibling Text, which VoiceOver does not associate with
+            // the switch — without this it is announced as a bare "switch".
+            accessibilityLabel="Напоминание"
+            trackColor={{ false: colors.disabled, true: colors.accent }}
+          />
         </View>
-        {enabled ? (
-          <Host matchContents>
-            <DatePicker
-              selection={timeToDate(value)}
-              displayedComponents={['hourAndMinute']}
-              onDateChange={handleTimeChange}
-              modifiers={[datePickerStyle('compact')]}
-            />
-          </Host>
-        ) : null}
-        <Switch
-          value={enabled}
-          onValueChange={(next) => onChange(next ? lastTime : null)}
-          trackColor={{ false: colors.disabled, true: colors.accent }}
-        />
       </View>
+      <Text variant="caption" color={colors.textSecondary}>
+        Придёт в выбранные дни недели
+      </Text>
       {enabled && permission === 'denied' ? (
         <View style={styles.warning}>
           <Text variant="caption" color={colors.danger} style={styles.warningText}>
@@ -98,11 +115,22 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    minHeight: minHitSlop,
+  },
+  title: {
+    flexShrink: 1,
+  },
+  control: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
   },
-  label: {
-    flex: 1,
-    gap: spacing.xs,
+  // The SwiftUI host measures its own content; without a matching height the row would
+  // still be laid out around the picker's intrinsic one.
+  picker: {
+    height: CONTROL_HEIGHT,
   },
   warning: {
     flexDirection: 'row',

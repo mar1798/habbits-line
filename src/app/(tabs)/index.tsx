@@ -153,9 +153,10 @@ export default function TodayScreen() {
   return (
     <Screen>
       <View style={styles.header}>
-        <Text variant="title1">Сегодня</Text>
+        <Text variant="title1">Привычки</Text>
         <IconButton
           name="plus"
+          compact
           accessibilityLabel="Добавить привычку"
           onPress={() => router.push('/habit/new')}
         />
@@ -221,6 +222,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
+    // The strip's week arrows sit directly under the "+" button; without this they
+    // touch it and the two rows of controls read as one crowded block.
+    paddingBottom: spacing.md,
   },
   ring: {
     alignItems: 'center',

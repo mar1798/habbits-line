@@ -3,6 +3,7 @@ import { computeCompletionRate, computeStreaks, dayCompletionRatio } from '../st
 
 // Mon / Wed / Fri, matching the example habit in PLAN.md's stage 6 acceptance criteria.
 const MON_WED_FRI = daysToMask([0, 2, 4]);
+const EVERY_DAY = daysToMask([0, 1, 2, 3, 4, 5, 6]);
 
 describe('dayCompletionRatio', () => {
   it('clamps a count above target to 1 (target lowered after the fact)', () => {
@@ -94,5 +95,19 @@ describe('computeCompletionRate', () => {
     // 2026-08-24..2026-08-29 is 6 days, none of them a Sunday.
     const rate = computeCompletionRate({}, sundayOnly, 1, '2026-08-29', 6);
     expect(rate).toBe(0);
+  });
+});
+
+describe('computeStreaks with a malformed history', () => {
+  // Only reachable from a database written before lib/backup.ts validated dates. The
+  // walk used to throw RangeError out of the statistics render, which the error boundary
+  // then showed on every visit to that habit.
+  it('reads as empty instead of throwing on an impossible date', () => {
+    const entryCounts = { '2026-02-31': 1, '2026-08-28': 1 };
+    expect(() => computeStreaks(entryCounts, EVERY_DAY, 1, '2026-08-29')).not.toThrow();
+    expect(computeStreaks(entryCounts, EVERY_DAY, 1, '2026-08-29')).toEqual({
+      current: 0,
+      best: 0,
+    });
   });
 });

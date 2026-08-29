@@ -76,6 +76,7 @@ export function DayStrip({
       <View style={styles.nav}>
         <IconButton
           name="chevron.left"
+          compact
           accessibilityLabel="Предыдущая неделя"
           onPress={onPreviousWeek}
         />
@@ -84,6 +85,7 @@ export function DayStrip({
         </Text>
         <IconButton
           name="chevron.right"
+          compact
           accessibilityLabel="Следующая неделя"
           onPress={onNextWeek}
           disabled={!canGoNext}
@@ -149,7 +151,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xs,
+    paddingBottom: spacing.sm,
   },
   row: {
     flexDirection: 'row',

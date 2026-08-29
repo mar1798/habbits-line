@@ -10,7 +10,7 @@ import Animated, {
 
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { Text } from '@/components/ui/text';
-import { minHitSlop, motion, radius, spacing } from '@/constants/design-tokens';
+import { minHitSlop, motion, opacity, radius, spacing } from '@/constants/design-tokens';
 import { useTheme } from '@/hooks/use-theme';
 
 const checkSpring = { ...motion.spring.check, reduceMotion: ReduceMotion.System };
@@ -63,6 +63,7 @@ export function CheckButton({ count, target, onPress, disabled, color }: CheckBu
         styles.base,
         showsCount && styles.withLabel,
         { backgroundColor: disabled ? colors.disabled : done ? color : colors.surfaceAlt },
+        disabled && { opacity: opacity.disabled },
       ]}>
       <Animated.View style={bounceStyle}>
         {showsCount ? (

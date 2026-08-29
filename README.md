@@ -16,8 +16,13 @@ Expo SDK 57 + expo-router, TypeScript, expo-sqlite, zustand, expo-notifications
 
 ```bash
 npm install
-npm run ios        # expo start --ios
+npm run ios        # expo run:ios — собирает нативный проект и ставит его в симулятор
 ```
+
+Папка `ios/` генерируется и лежит в `.gitignore`. Она не обновляется сама: всё, что
+приходит из `app.json` (отображаемое имя, иконка, splash, bundle id), попадает в сборку
+только после `npx expo prebuild --platform ios`. После правки `app.json` — запускать его,
+иначе собирается старое.
 
 Приложение целиком работает в Expo Go: из сетевого там нужны только локальные
 уведомления, а они в Expo Go доступны. Поведение splash при запуске по тапу на

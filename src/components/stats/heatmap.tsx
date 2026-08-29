@@ -1,21 +1,21 @@
 import { format } from 'date-fns';
 // Deep import, not `date-fns/locale`: that barrel pulls in every locale date-fns ships.
 import { ru } from 'date-fns/locale/ru';
+import { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
 import { spacing } from '@/constants/design-tokens';
 import { useTheme } from '@/hooks/use-theme';
-import { parseDateKey, shiftDateKey, weekStartKey } from '@/lib/date';
+import { DAYS_IN_WEEK, parseDateKey, toDateKey, weekday } from '@/lib/date';
 import { isScheduledOn } from '@/lib/schedule';
 import { dayCompletionRatio } from '@/lib/streaks';
 
-const WEEKS = 13; // ~3 months, Monday-first columns, the current week last.
-const DAYS_IN_WEEK = 7;
-const CELL_SIZE = 13;
-const LABEL_HEIGHT = 14;
-/** Room for a 3-letter month name; it overflows its column on purpose, see `monthLabel`. */
-const LABEL_WIDTH = 40;
+/** The current month and the two before it, oldest on the left. */
+const MONTHS = 3;
+
+/** Monday-first, matching schedule_mask bit 0 and the day strip. */
+const WEEKDAY_INITIALS = ['П', 'В', 'С', 'Ч', 'П', 'С', 'В'];
 
 function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
@@ -25,6 +25,53 @@ function capitalize(value: string): string {
 function alphaHex(ratio: number): string {
   const alpha = Math.round((0.12 + 0.88 * Math.min(Math.max(ratio, 0), 1)) * 255);
   return alpha.toString(16).padStart(2, '0');
+}
+
+type Month = {
+  key: string;
+  label: string;
+  /** Whole weeks, Monday first; `null` is a slot outside the month. */
+  weeks: (string | null)[][];
+};
+
+/**
+ * The last `MONTHS` calendar months as real month grids: every column is one weekday, so
+ * a month starting on Wednesday opens with two empty slots and its first row holds five
+ * days. A rolling 13-week strip lined the squares up by week instead, which made it
+ * impossible to point at a date — the whole reason the months are drawn as calendars.
+ */
+function buildMonths(todayDate: string): Month[] {
+  const today = parseDateKey(todayDate);
+
+  return Array.from({ length: MONTHS }, (_, index) => {
+    // The Date constructor normalises a negative month into the previous year.
+    const first = new Date(today.getFullYear(), today.getMonth() - (MONTHS - 1 - index), 1);
+    const year = first.getFullYear();
+    const month = first.getMonth();
+    // Day 0 of the next month is the last day of this one.
+    const dayCount = new Date(year, month + 1, 0).getDate();
+    // date-fns counts from Sunday; the grid starts on Monday.
+    const leadingBlanks = (weekday(first) + DAYS_IN_WEEK - 1) % DAYS_IN_WEEK;
+
+    const slots: (string | null)[] = Array.from({ length: leadingBlanks }, () => null);
+    for (let day = 1; day <= dayCount; day += 1) {
+      slots.push(toDateKey(new Date(year, month, day)));
+    }
+    while (slots.length % DAYS_IN_WEEK !== 0) {
+      slots.push(null);
+    }
+
+    const weeks: (string | null)[][] = [];
+    for (let start = 0; start < slots.length; start += DAYS_IN_WEEK) {
+      weeks.push(slots.slice(start, start + DAYS_IN_WEEK));
+    }
+
+    return {
+      key: `${year}-${String(month + 1).padStart(2, '0')}`,
+      label: capitalize(format(first, 'LLLL', { locale: ru })),
+      weeks,
+    };
+  });
 }
 
 type HeatmapProps = {
@@ -39,78 +86,77 @@ type HeatmapProps = {
 
 export function Heatmap({ entryCounts, scheduleMask, targetPerDay, color, todayDate }: HeatmapProps) {
   const { colors } = useTheme();
-  const firstWeekStart = shiftDateKey(weekStartKey(todayDate), -(WEEKS - 1) * DAYS_IN_WEEK);
+  // Rebuilt only when the day rolls over, not on every habit the user taps through.
+  const months = useMemo(() => buildMonths(todayDate), [todayDate]);
 
-  const weeks = Array.from({ length: WEEKS }, (_, week) => {
-    const weekStart = shiftDateKey(firstWeekStart, week * DAYS_IN_WEEK);
-    return Array.from({ length: DAYS_IN_WEEK }, (_, day) => shiftDateKey(weekStart, day));
-  });
-
-  // A month's name sits above the first week-column that contains its 1st — otherwise
-  // 13 bare columns of squares don't say which 3 months they cover.
-  const monthLabels = weeks.map((week) => {
-    const monthStart = week.find((date) => date.endsWith('-01'));
-    return monthStart ? capitalize(format(parseDateKey(monthStart), 'LLL', { locale: ru })) : null;
-  });
+  const cellFill = (date: string): string | undefined => {
+    // Nothing to show for a day that hasn't happened yet — an empty slot, not a "missed"
+    // one, or the rest of the current month would read as a wall of failures.
+    if (date > todayDate) return undefined;
+    const count = entryCounts[date] ?? 0;
+    const scheduled = isScheduledOn(scheduleMask, parseDateKey(date));
+    return !scheduled && count === 0
+      ? colors.unscheduled
+      : `${color}${alphaHex(dayCompletionRatio(count, targetPerDay))}`;
+  };
 
   return (
-    <View>
-      <View style={styles.grid}>
-        {weeks.map((week, index) => (
-          <View key={week[0]} style={styles.column}>
-            <View style={styles.labelSlot}>
-              {monthLabels[index] ? (
-                <Text
-                  variant="micro"
-                  color={colors.textTertiary}
-                  style={styles.monthLabel}
-                  numberOfLines={1}>
-                  {monthLabels[index]}
-                </Text>
-              ) : null}
-            </View>
-            {week.map((date) => {
-              if (date > todayDate) {
-                return <View key={date} style={styles.cell} />;
-              }
-              const count = entryCounts[date] ?? 0;
-              const scheduled = isScheduledOn(scheduleMask, parseDateKey(date));
-              const fill =
-                !scheduled && count === 0
-                  ? colors.unscheduled
-                  : `${color}${alphaHex(dayCompletionRatio(count, targetPerDay))}`;
-              return <View key={date} style={[styles.cell, { backgroundColor: fill }]} />;
-            })}
+    // Three months side by side rather than stacked: each one then keeps the squares
+    // large enough to read while the whole quarter still fits on one screen.
+    <View style={styles.row}>
+      {months.map((month) => (
+        <View key={month.key} style={styles.month}>
+          <Text variant="caption" color={colors.textSecondary} numberOfLines={1}>
+            {month.label}
+          </Text>
+          <View style={styles.week}>
+            {WEEKDAY_INITIALS.map((initial, index) => (
+              <Text
+                key={index}
+                variant="micro"
+                color={colors.textTertiary}
+                style={styles.weekdayLabel}>
+                {initial}
+              </Text>
+            ))}
           </View>
-        ))}
-      </View>
+          {month.weeks.map((week, index) => (
+            <View key={`${month.key}-${index}`} style={styles.week}>
+              {week.map((date, slot) => (
+                <View
+                  key={date ?? `${month.key}-${index}-${slot}`}
+                  style={[styles.cell, date ? { backgroundColor: cellFill(date) } : null]}
+                />
+              ))}
+            </View>
+          ))}
+        </View>
+      ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  grid: {
+  row: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    // Months differ by a row; without this the shorter ones would stretch their cells.
+    alignItems: 'flex-start',
+  },
+  month: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  week: {
     flexDirection: 'row',
     gap: spacing.xs,
   },
-  column: {
-    width: CELL_SIZE,
-    gap: spacing.xs,
-  },
-  labelSlot: {
-    height: LABEL_HEIGHT,
-  },
-  // Absolute and wider than the column on purpose: a month name is ~20pt wide, and in
-  // the flow it would stretch its column past CELL_SIZE and knock the grid out of
-  // alignment. Labels sit at least four columns apart, so the overhang never collides.
-  monthLabel: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: LABEL_WIDTH,
+  weekdayLabel: {
+    flex: 1,
+    textAlign: 'center',
   },
   cell: {
-    width: CELL_SIZE,
-    height: CELL_SIZE,
+    flex: 1,
+    aspectRatio: 1,
   },
 });

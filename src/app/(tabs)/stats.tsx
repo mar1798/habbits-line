@@ -121,9 +121,11 @@ export default function StatsScreen() {
         <Text variant="title1">Статистика</Text>
         <PressableScale
           onPress={() => setShowArchived((value) => !value)}
-          accessibilityRole="checkbox"
+          // iOS has no checkbox/radio trait — with those roles VoiceOver announces the
+          // control as plain text and never reads its state. See color-picker.tsx.
+          accessibilityRole="button"
           accessibilityLabel="Показывать архивные привычки"
-          accessibilityState={{ checked: showArchived }}
+          accessibilityState={{ selected: showArchived }}
           style={[
             styles.archiveToggle,
             { backgroundColor: showArchived ? colors.accentSoft : colors.surfaceAlt },
@@ -153,15 +155,19 @@ export default function StatsScreen() {
             extraData={selectedId}
             keyExtractor={(habit) => habit.id}
             showsHorizontalScrollIndicator={false}
+            // A horizontal list inherits ScrollView's `flexGrow: 1`, so in this column it
+            // would split the screen's height with the content below and stretch every
+            // chip to fill it. It must be exactly as tall as one row of chips.
+            style={styles.chipsList}
             contentContainerStyle={styles.chips}
             renderItem={({ item }) => {
               const isSelected = item.id === selectedId;
               return (
                 <PressableScale
                   onPress={() => setSelectedId(item.id)}
-                  accessibilityRole="radio"
+                  accessibilityRole="button"
                   accessibilityLabel={item.name}
-                  accessibilityState={{ checked: isSelected }}
+                  accessibilityState={{ selected: isSelected }}
                   style={[
                     styles.chip,
                     { backgroundColor: isSelected ? colors.accent : colors.surfaceAlt },
@@ -219,10 +225,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderRadius: radius.pill,
   },
+  chipsList: {
+    flexGrow: 0,
+    flexShrink: 0,
+  },
   chips: {
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
+    // Without this the container's default `stretch` pulls each chip to the list's full
+    // height; the chip's own minHeight already carries the 44pt target.
+    alignItems: 'center',
   },
   chip: {
     flexDirection: 'row',

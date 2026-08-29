@@ -1,7 +1,7 @@
 import { MenuView } from '@expo/ui/community/menu';
 import type { NativeActionEvent } from '@expo/ui/community/menu';
 import { router, useIsFocused } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
+import { SFSymbol, SymbolView } from 'expo-symbols';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
 import { Alert, FlatList, Linking, StyleSheet, View } from 'react-native';
@@ -25,6 +25,13 @@ import {
 } from '@/lib/notifications';
 import { useEntriesStore } from '@/store/entries-store';
 import { useHabitsStore } from '@/store/habits-store';
+import { type ThemeMode, useSettingsStore } from '@/store/settings-store';
+
+const THEME_OPTIONS: { mode: ThemeMode; label: string; icon: SFSymbol }[] = [
+  { mode: 'system', label: 'Системная', icon: 'iphone' },
+  { mode: 'light', label: 'Светлая', icon: 'sun.max' },
+  { mode: 'dark', label: 'Тёмная', icon: 'moon' },
+];
 
 type Row =
   | { kind: 'header'; key: string; title: string }
@@ -46,6 +53,8 @@ export default function SettingsScreen() {
   const removeHabit = useHabitsStore((state) => state.remove);
   const reorderHabits = useHabitsStore((state) => state.reorder);
   const reloadEntries = useEntriesStore((state) => state.reload);
+  const themeMode = useSettingsStore((state) => state.themeMode);
+  const setThemeMode = useSettingsStore((state) => state.setThemeMode);
 
   // Includes archived habits — the only screen that needs the full list, so the
   // scope lives on the shared store rather than a local query. That also fixes
@@ -255,7 +264,51 @@ export default function SettingsScreen() {
               </Card>
             ) : null}
 
-            <View style={styles.dataSection}>
+            <View style={styles.group}>
+              <Text variant="title2">Оформление</Text>
+              {/*
+                A segmented control rather than three separate rows: the three modes are
+                one exclusive choice, and the selected pill is what says which one is on.
+              */}
+              <View style={[styles.segmented, { backgroundColor: colors.surfaceAlt }]}>
+                {THEME_OPTIONS.map((option) => {
+                  const isSelected = option.mode === themeMode;
+                  return (
+                    <PressableScale
+                      key={option.mode}
+                      onPress={() => {
+                        // The theme flips synchronously inside the store; only the write
+                        // is awaited, and a failed one must not crash the screen.
+                        setThemeMode(db, option.mode).catch((error) =>
+                          console.warn('Failed to save theme mode', error)
+                        );
+                      }}
+                      // Same reason as the archive toggle on the stats screen: iOS has no
+                      // radio trait, and a non-button role leaves VoiceOver silent on state.
+                      accessibilityRole="button"
+                      accessibilityLabel={option.label}
+                      accessibilityState={{ selected: isSelected }}
+                      style={[
+                        styles.segment,
+                        isSelected && { backgroundColor: colors.surface },
+                      ]}>
+                      <SymbolView
+                        name={option.icon}
+                        size={15}
+                        tintColor={isSelected ? colors.accent : colors.textSecondary}
+                      />
+                      <Text
+                        variant="caption"
+                        color={isSelected ? colors.accent : colors.textSecondary}>
+                        {option.label}
+                      </Text>
+                    </PressableScale>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={styles.group}>
               <Text variant="title2">Данные</Text>
               <View style={styles.dataButtons}>
                 <Button
@@ -281,7 +334,7 @@ export default function SettingsScreen() {
             <EmptyState
               icon="list.bullet"
               title="Привычек пока нет"
-              subtitle="Добавьте первую привычку на вкладке «Сегодня»"
+              subtitle="Добавьте первую привычку на вкладке «Привычки»"
             />
           ) : null
         }
@@ -397,8 +450,23 @@ const styles = StyleSheet.create({
   banner: {
     gap: spacing.md,
   },
-  dataSection: {
+  group: {
     gap: spacing.sm,
+  },
+  segmented: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    padding: spacing.xs,
+    borderRadius: radius.pill,
+  },
+  segment: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    minHeight: minHitSlop,
+    borderRadius: radius.pill,
   },
   dataButtons: {
     flexDirection: 'row',
