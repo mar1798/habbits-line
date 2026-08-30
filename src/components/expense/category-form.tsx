@@ -16,14 +16,14 @@ import {
   spacing,
   typography,
 } from '@/constants/design-tokens';
-import { HABIT_EMOJIS } from '@/constants/emoji';
+import { DEFAULT_CATEGORY_EMOJI } from '@/constants/emoji';
 import type { ExpenseCategoryInput } from '@/db/expense-categories-repo';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 
 export const DEFAULT_CATEGORY_FORM_VALUES: ExpenseCategoryInput = {
   name: '',
-  emoji: HABIT_EMOJIS[0],
+  emoji: DEFAULT_CATEGORY_EMOJI,
   colorKey: DEFAULT_EXPENSE_COLOR,
 };
 

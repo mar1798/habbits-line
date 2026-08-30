@@ -3,6 +3,7 @@ import type { NativeActionEvent } from '@expo/ui/community/menu';
 import { StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/ui/card';
+import { PressableScale } from '@/components/ui/pressable-scale';
 import { Text } from '@/components/ui/text';
 import { radius, resolveExpenseColor, spacing } from '@/constants/design-tokens';
 import type { ExpenseCategoryRow, ExpenseRow as ExpenseRowData } from '@/db/types';
@@ -39,22 +40,32 @@ export function ExpenseRow({ expense, category, onEdit, onDelete }: ExpenseRowPr
         if (nativeEvent.event === 'edit') onEdit();
         if (nativeEvent.event === 'delete') onDelete();
       }}>
-      <Card style={styles.card}>
-        <View style={[styles.emoji, { backgroundColor: `${accentColor}33` }]}>
-          <Text variant="headline">{category?.emoji ?? '📦'}</Text>
-        </View>
-        <View style={styles.info}>
-          <Text variant="headline" numberOfLines={1}>
-            {category?.name ?? '—'}
-          </Text>
-          {category?.archived_at ? (
-            <Text variant="caption" color={colors.textTertiary}>
-              {t('settings_archived_badge')}
+      {/* A plain tap edits, and the long press keeps the full menu. Without this the row
+          had no visible affordance at all: nothing about it says "hold me", and the menu
+          was the only way to reach an expense once it was written. The context menu is
+          an interaction on the MenuView above, so the pressable underneath does not take
+          the long press away from it. */}
+      <PressableScale
+        onPress={onEdit}
+        accessibilityRole="button"
+        accessibilityLabel={t('expense_edit_title')}>
+        <Card style={styles.card}>
+          <View style={[styles.emoji, { backgroundColor: `${accentColor}33` }]}>
+            <Text variant="headline">{category?.emoji ?? '📦'}</Text>
+          </View>
+          <View style={styles.info}>
+            <Text variant="headline" numberOfLines={1}>
+              {category?.name ?? '—'}
             </Text>
-          ) : null}
-        </View>
-        <Text variant="headline">{formatAmount(expense.amount)}</Text>
-      </Card>
+            {category?.archived_at ? (
+              <Text variant="caption" color={colors.textTertiary}>
+                {t('settings_archived_badge')}
+              </Text>
+            ) : null}
+          </View>
+          <Text variant="headline">{formatAmount(expense.amount)}</Text>
+        </Card>
+      </PressableScale>
     </MenuView>
   );
 }

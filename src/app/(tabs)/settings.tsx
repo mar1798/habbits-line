@@ -769,11 +769,12 @@ function CategoryRow({
               {t('settings_archived_badge')}
             </Text>
           ) : null}
-          {count > 0 ? (
-            <Text variant="caption" color={colors.textTertiary}>
-              {t('settings_category_expenses', { count, expenses: plural('expenses', count) })}
-            </Text>
-          ) : null}
+          {/* Unconditional, zero included: hiding the line on an empty category made
+              every row in the list a different height, and the count is what says
+              whether the row's menu will offer Delete at all. */}
+          <Text variant="caption" color={colors.textTertiary}>
+            {t('settings_category_expenses', { count, expenses: plural('expenses', count) })}
+          </Text>
         </View>
       </PressableScale>
 

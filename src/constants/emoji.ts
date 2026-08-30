@@ -54,3 +54,12 @@ export const HABIT_EMOJIS = [
   '🚌',
   '📦',
 ] as const;
+
+/**
+ * What a form starts on before the user picks. They differ because the grid is ordered
+ * for habits: its first entry is 💪, which is a fine default for a habit and a strange
+ * one for a spending category — a new category opened on "flex" until this existed.
+ */
+export const DEFAULT_HABIT_EMOJI = HABIT_EMOJIS[0];
+export const DEFAULT_CATEGORY_EMOJI = '🧾';
+

@@ -21,9 +21,11 @@ export default function TabsLayout() {
         {/*
           The app's own mark instead of an SF Symbol. `template` makes iOS tint it with
           the icon colors above, so one image covers both the default and selected
-          states — the PNGs are the icon.svg mark, minus its background square, built by
-          scripts/build-tab-icon.py. The @1x file the path names is deliberately absent —
-          no iOS device runs at that scale, and the suffixed variants resolve without it.
+          states — the PNGs are the icon.svg mark, minus its background square and cut to
+          its first four nodes so it takes the same 24-29pt of width as the SF Symbols
+          beside it, built by scripts/build-tab-icon.py. The @1x file the path names is
+          deliberately absent — no iOS device runs at that scale, and the suffixed
+          variants resolve without it.
         */}
         <NativeTabs.Trigger.Icon
           src={require('@/assets/images/tab-habits.png')}

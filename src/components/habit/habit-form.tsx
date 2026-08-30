@@ -19,7 +19,7 @@ import {
   spacing,
   typography,
 } from '@/constants/design-tokens';
-import { HABIT_EMOJIS } from '@/constants/emoji';
+import { DEFAULT_HABIT_EMOJI } from '@/constants/emoji';
 import type { HabitInput } from '@/db/habits-repo';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
@@ -30,7 +30,7 @@ const DEFAULT_SCHEDULE_MASK = 127;
 
 export const DEFAULT_HABIT_FORM_VALUES: HabitInput = {
   name: '',
-  emoji: HABIT_EMOJIS[0],
+  emoji: DEFAULT_HABIT_EMOJI,
   colorKey: DEFAULT_HABIT_COLOR,
   targetPerDay: 1,
   scheduleMask: DEFAULT_SCHEDULE_MASK,

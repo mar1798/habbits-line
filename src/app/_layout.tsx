@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useSQLiteContext } from 'expo-sqlite';
 import * as SystemUI from 'expo-system-ui';
 import { Suspense, useEffect } from 'react';
+import { Appearance } from 'react-native';
 
 import { IconButton } from '@/components/ui/icon-button';
 import { fontFamily } from '@/constants/design-tokens';
@@ -30,12 +31,22 @@ SplashScreen.preventAutoHideAsync().catch(() => {
 export default function RootLayout() {
   const { colors, scheme } = useTheme();
   const navigationTheme = useNavigationTheme();
+  const themeMode = useSettingsStore((state) => state.themeMode);
 
   useEffect(() => {
     // The window behind the React root; without it a system-coloured frame shows
     // through on cold start and during rotation.
     SystemUI.setBackgroundColorAsync(colors.bg).catch(() => {});
   }, [colors.bg]);
+
+  // Everything iOS draws itself — the long-press context menus on the habit and expense
+  // rows, Alert, the keyboard — reads the window's interface style, not our tokens. With
+  // the theme set to Dark on a phone left in Light, those all came up light on top of a
+  // dark app. 'unspecified' is this API's way of handing the decision back to the OS,
+  // which is also what keeps `useColorScheme` in useTheme meaningful in 'system' mode.
+  useEffect(() => {
+    Appearance.setColorScheme(themeMode === 'system' ? 'unspecified' : themeMode);
+  }, [themeMode]);
 
   return (
     <ThemeProvider value={navigationTheme}>

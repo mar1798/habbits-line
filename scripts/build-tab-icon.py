@@ -14,29 +14,58 @@ Run from the repo root: python3 scripts/build-tab-icon.py
 """
 import math, struct, zlib
 
-# Geometry, verbatim from icon.svg (viewBox 1024x1024) minus its background rect — a tab
-# icon has to be transparent so UIKit can tint it — with the adaptive variant's alphas
-# for the "future" half, which are set against transparency rather than against the
-# icon's dark square.
+# Geometry from icon.svg (viewBox 1024x1024) minus its background rect — a tab icon has
+# to be transparent so UIKit can tint it — with the adaptive variant's alphas for the
+# "future" half, which are set against transparency rather than against the icon's dark
+# square.
+#
+# Two deliberate departures from the app icon, both about sitting next to SF Symbols:
+#
+#   * Three nodes, not seven. Measured in the running tab bar, creditcard / chart.bar /
+#     gearshape occupy 24-29pt of width and 15-17pt of height; the seven-node mark
+#     occupied 46 by 8 and read as a rule someone had drawn under the label rather than
+#     as an icon. Every node dropped buys height, because the mark is fitted on width:
+#     seven nodes give 8pt of height at this width, four give 8.3, three give 11.5. Three
+#     is also the fewest that still says what the mark says — a day closed, today, a day
+#     still ahead.
+# The node radii are icon.svg's, untouched. Fewer nodes in a narrower box already draw
+# every bead far larger than before (7.0pt across instead of 4.5, 11.5 instead of 7.5),
+# so there is nothing left for a thickening factor to buy: pushing the radii up on top of
+# that closes the 17-unit gaps between the beads — they are 123.3 apart with radii summing
+# to 106 — and the chain fuses into a blob.
 TRACK_W = 26.0
+SPAN_END = 388.7  # last node drawn; icon.svg runs on to 882 with four more.
 SHAPES = [
-    ('line', 142.0, 512.0, 882.0, 512.0, TRACK_W / 2, 0.18),
-    ('line', 142.0, 512.0, 512.0, 512.0, TRACK_W / 2, 1.0),
+    ('line', 142.0, 512.0, SPAN_END, 512.0, TRACK_W / 2, 0.18),
+    ('line', 142.0, 512.0, 265.3, 512.0, TRACK_W / 2, 1.0),
     ('dot', 142.0, 512.0, 40.0, 1.0),
-    ('dot', 265.3, 512.0, 40.0, 1.0),
-    ('dot', 388.7, 512.0, 40.0, 1.0),
-    ('dot', 512.0, 512.0, 66.0, 1.0),
-    ('dot', 635.3, 512.0, 34.0, 0.22),
-    ('dot', 758.7, 512.0, 34.0, 0.22),
-    ('dot', 882.0, 512.0, 34.0, 0.22),
+    ('dot', 265.3, 512.0, 66.0, 1.0),
+    ('dot', SPAN_END, 512.0, 34.0, 0.22),
 ]
 
 # Tight bounds of the drawn mark, not of the viewBox: the icon's square is mostly padding,
 # and keeping it would shrink the glyph to nothing inside the tab bar's fixed box.
-BBOX = (102.0, 446.0, 916.0, 578.0)
+# Derived from SHAPES so the two cannot drift apart.
+def _bbox():
+    xs, ys = [], []
+    for shape in SHAPES:
+        if shape[0] == 'dot':
+            _, cx, cy, r, _ = shape
+            xs += [cx - r, cx + r]
+            ys += [cy - r, cy + r]
+        else:
+            _, ax, ay, bx, by, r, _ = shape
+            xs += [ax - r, bx + r]
+            ys += [ay - r, by + r]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+BBOX = _bbox()
 
 RGB = (0x7C, 0x5C, 0xFF)
-POINT_W, POINT_H = 48, 32  # UIKit's maximum tab-bar icon box.
+# Not UIKit's maximum box (48x32) but the neighbours' measured footprint: the three
+# SF Symbols in this tab bar draw 24-29pt wide, so the mark is fitted to 30.
+POINT_W, POINT_H = 30, 14
 MARGIN = 1.0
 SS = 4
 
@@ -46,7 +75,7 @@ def render(scale: int) -> bytes:
     sw, sh = w * SS, h * SS
 
     x0, y0, x1, y1 = BBOX
-    # Fitted on width: the mark is ~6.2:1, so the width is always the binding side.
+    # Fitted on width: the mark is ~2.4:1, so the width is always the binding side.
     k = ((POINT_W - 2 * MARGIN) * scale * SS) / (x1 - x0)
     off_x = (sw - (x1 - x0) * k) / 2 - x0 * k
     off_y = (sh - (y1 - y0) * k) / 2 - y0 * k

@@ -42,7 +42,11 @@ export function HabitCard({ habit, count, disabled, onToggle, onEdit, onArchive 
           <Text variant="headline">{habit.emoji}</Text>
         </View>
         <View style={styles.info}>
-          <Text variant="headline" numberOfLines={1}>
+          {/* Two lines, not one: the check button and the emoji leave the name about
+              half the card, and "Читать 30 минут перед сном" — an ordinary habit name —
+              was cut at "перед сн…". The rows already vary in height with the goal
+              caption, so a taller card costs the list nothing it had. */}
+          <Text variant="headline" numberOfLines={2}>
             {habit.name}
           </Text>
           {habit.target_per_day > 1 ? (
