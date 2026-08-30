@@ -32,3 +32,24 @@ export function formatAmount(value: number): string {
 
   return whole < 0 ? `-${grouped}` : grouped;
 }
+
+/**
+ * Nine digits is already a billion — past that the grouped number stops fitting the field
+ * on the narrowest phone, and an amount is an SQLite INTEGER either way.
+ */
+export const MAX_AMOUNT_DIGITS = 9;
+
+/**
+ * What an amount field keeps of what was typed: digits only, leading zeros eaten, capped
+ * at `MAX_AMOUNT_DIGITS`. The number pad still lets a paste or a hardware keyboard
+ * through, and "007" would otherwise be stored and shown as typed.
+ *
+ * An empty string is a valid intermediate state — it is what an empty field holds — and
+ * simply fails its caller's "greater than zero" check.
+ *
+ * Shared by the expense form and the budget modal rather than copied into both: the two
+ * fields are the same field, and a copy would drift the first time the rule changes.
+ */
+export function normalizeAmountInput(text: string): string {
+  return text.replace(/\D/g, '').replace(/^0+/, '').slice(0, MAX_AMOUNT_DIGITS);
+}

@@ -2,7 +2,7 @@ import { useIsFocused } from 'expo-router';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useMemo, useState } from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
+import { FlatList, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { ExpenseSummary } from '@/components/stats/expense-summary';
@@ -173,11 +173,19 @@ export default function StatsScreen() {
       {/* Nothing until the first load lands: an ungated screen shows a lone overview chip
           over empty cards for a frame on every cold start. */}
       {!loaded ? null : habits.length === 0 ? (
-        <EmptyState
-          icon="chart.bar"
-          title={t('stats_empty_title')}
-          subtitle={t('stats_empty_subtitle')}
-        />
+        /* No habits is not "nothing to show": the expense block stands on its own, and
+           this screen is the only place it lives. Gating it behind the habit list left a
+           user who only tracks money looking at "no habits yet" and nothing else. */
+        <ScrollView contentContainerStyle={styles.emptyContent}>
+          <View style={styles.emptyHabits}>
+            <EmptyState
+              icon="chart.bar"
+              title={t('stats_empty_title')}
+              subtitle={t('stats_empty_subtitle')}
+            />
+          </View>
+          <ExpenseSummary todayDate={today} />
+        </ScrollView>
       ) : (
         <>
           <FlatList
@@ -277,6 +285,18 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
+  },
+  emptyContent: {
+    gap: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xl,
+    // Lets the empty state below take the height the habit blocks would have filled,
+    // while the expense block still scrolls into view under it on a short screen.
+    flexGrow: 1,
+  },
+  emptyHabits: {
+    flexGrow: 1,
+    paddingVertical: spacing.xl,
   },
   heatmapSection: {
     gap: spacing.md,

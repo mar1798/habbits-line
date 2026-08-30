@@ -92,6 +92,10 @@ export default function SettingsScreen() {
   const [busy, setBusy] = useState<'export' | 'import' | null>(null);
   const [expenseCounts, setExpenseCounts] = useState<Record<string, number>>({});
   const [showArchivedCategories, setShowArchivedCategories] = useState(false);
+  // Both lists start closed: the preferences above them are what the screen is opened
+  // for most often, and either list unfolded pushes them off the top on a long one.
+  const [habitsExpanded, setHabitsExpanded] = useState(false);
+  const [categoriesExpanded, setCategoriesExpanded] = useState(false);
 
   const db = useSQLiteContext();
   const habits = useHabitsStore((state) => state.habits);
@@ -182,7 +186,10 @@ export default function SettingsScreen() {
   const activeHabits = habits.filter((habit) => !habit.archived_at);
   const archivedHabits = habits.filter((habit) => habit.archived_at);
 
-  const rows: Row[] = [
+  // Collapsing the accordion empties the list rather than hiding a rendered one: the
+  // habit rows are the FlatList's `data`, and keeping them mounted behind a closed
+  // section would leave the section headers and the empty state to render around them.
+  const rows: Row[] = !habitsExpanded ? [] : [
     ...(activeHabits.length > 0
       ? [{ kind: 'header' as const, key: 'header-active', title: t('settings_active') }]
       : []),
@@ -378,7 +385,10 @@ export default function SettingsScreen() {
         keyExtractor={(row) => row.key}
         // The empty state fills its remaining height, and `flex: 1` inside a scroll
         // view's content container collapses to nothing without flexGrow to grow into.
-        contentContainerStyle={[styles.list, rows.length === 0 && styles.listEmpty]}
+        contentContainerStyle={[
+          styles.list,
+          habitsExpanded && habits.length === 0 && styles.listEmpty,
+        ]}
         ListHeaderComponent={
           <View style={styles.header}>
             <Text variant="title1">{t('settings_title')}</Text>
@@ -466,6 +476,13 @@ export default function SettingsScreen() {
                 />
               </View>
             </View>
+
+            <AccordionHeader
+              title={t('settings_habits')}
+              count={habits.length}
+              expanded={habitsExpanded}
+              onPress={() => setHabitsExpanded((value) => !value)}
+            />
           </View>
         }
         /**
@@ -476,57 +493,68 @@ export default function SettingsScreen() {
          */
         ListFooterComponent={
           <View style={styles.footer}>
-            <Text variant="title2">{t('settings_categories')}</Text>
-
-            {activeCategories.map((category) => (
-              <CategoryRow
-                key={category.id}
-                category={category}
-                count={expenseCounts[category.id] ?? 0}
-                onPressAction={handleCategoryMenuAction(category)}
-              />
-            ))}
-
-            <Button
-              title={t('settings_categories_add')}
-              variant="secondary"
-              onPress={() => router.push('/expense-category/new')}
+            <AccordionHeader
+              title={t('settings_categories')}
+              count={categories.length}
+              expanded={categoriesExpanded}
+              onPress={() => setCategoriesExpanded((value) => !value)}
             />
 
-            {archivedCategories.length > 0 ? (
+            {categoriesExpanded ? (
               <>
-                <PressableScale
-                  onPress={() => setShowArchivedCategories((value) => !value)}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('settings_categories_archive')}
-                  accessibilityState={{ expanded: showArchivedCategories }}
-                  style={styles.archiveHeader}>
-                  <Text variant="caption" color={colors.textSecondary}>
-                    {`${t('settings_categories_archive')} (${archivedCategories.length})`}
-                  </Text>
-                  <SymbolView
-                    name={showArchivedCategories ? 'chevron.up' : 'chevron.down'}
-                    size={14}
-                    tintColor={colors.textSecondary}
+                {activeCategories.map((category) => (
+                  <CategoryRow
+                    key={category.id}
+                    category={category}
+                    count={expenseCounts[category.id] ?? 0}
+                    onPressAction={handleCategoryMenuAction(category)}
                   />
-                </PressableScale>
+                ))}
 
-                {showArchivedCategories
-                  ? archivedCategories.map((category) => (
-                      <CategoryRow
-                        key={category.id}
-                        category={category}
-                        count={expenseCounts[category.id] ?? 0}
-                        onPressAction={handleCategoryMenuAction(category)}
+                <Button
+                  title={t('settings_categories_add')}
+                  variant="secondary"
+                  onPress={() => router.push('/expense-category/new')}
+                />
+
+                {archivedCategories.length > 0 ? (
+                  <>
+                    <PressableScale
+                      onPress={() => setShowArchivedCategories((value) => !value)}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('settings_categories_archive')}
+                      accessibilityState={{ expanded: showArchivedCategories }}
+                      style={styles.archiveHeader}>
+                      <Text variant="caption" color={colors.textSecondary}>
+                        {`${t('settings_categories_archive')} (${archivedCategories.length})`}
+                      </Text>
+                      <SymbolView
+                        name={showArchivedCategories ? 'chevron.up' : 'chevron.down'}
+                        size={14}
+                        tintColor={colors.textSecondary}
                       />
-                    ))
-                  : null}
+                    </PressableScale>
+
+                    {showArchivedCategories
+                      ? archivedCategories.map((category) => (
+                          <CategoryRow
+                            key={category.id}
+                            category={category}
+                            count={expenseCounts[category.id] ?? 0}
+                            onPressAction={handleCategoryMenuAction(category)}
+                          />
+                        ))
+                      : null}
+                  </>
+                ) : null}
               </>
             ) : null}
           </View>
         }
         ListEmptyComponent={
-          loaded ? (
+          // Only inside the open accordion: a closed one has no rows either, and the
+          // count on its header already says the list is empty.
+          habitsExpanded && loaded && habits.length === 0 ? (
             <EmptyState
               icon="list.bullet"
               title={t('empty_no_habits')}
@@ -638,6 +666,49 @@ export default function SettingsScreen() {
         }}
       />
     </Screen>
+  );
+}
+
+/**
+ * The tappable title of a collapsible settings section. The count sits on the header so a
+ * closed section still says how much is behind it — without it, "Привычки" folded shut
+ * reads the same whether the user has ten habits or none.
+ */
+function AccordionHeader({
+  title,
+  count,
+  expanded,
+  onPress,
+}: {
+  title: string;
+  count: number;
+  expanded: boolean;
+  onPress: () => void;
+}) {
+  const { colors } = useTheme();
+
+  return (
+    <PressableScale
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ expanded }}
+      style={[
+        styles.accordion,
+        { backgroundColor: colors.surface, borderColor: colors.border },
+      ]}>
+      <Text variant="title2" style={styles.accordionTitle}>
+        {title}
+      </Text>
+      <Text variant="callout" color={colors.textSecondary}>
+        {count}
+      </Text>
+      <SymbolView
+        name={expanded ? 'chevron.up' : 'chevron.down'}
+        size={14}
+        tintColor={colors.textSecondary}
+      />
+    </PressableScale>
   );
 }
 
@@ -836,7 +907,23 @@ const styles = StyleSheet.create({
   footer: {
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
+    // Matches the gap between the groups in the header: with both accordions shut the
+    // two headers sit one under the other and have to read as a pair, not as a section
+    // and an afterthought.
+    paddingTop: spacing.md,
+  },
+  accordion: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    minHeight: minHitSlop,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  accordionTitle: {
+    flex: 1,
   },
   categoryRow: {
     flexDirection: 'row',

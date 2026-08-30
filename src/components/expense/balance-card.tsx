@@ -41,6 +41,8 @@ type BalanceCardProps = {
   periodStart: string;
   periodEnd: string;
   todayDate: string;
+  /** True until the period's first read lands — see the placeholder below. */
+  pending?: boolean;
   onPress: () => void;
 };
 
@@ -55,6 +57,7 @@ export function BalanceCard({
   periodStart,
   periodEnd,
   todayDate,
+  pending = false,
   onPress,
 }: BalanceCardProps) {
   const { colors } = useTheme();
@@ -73,7 +76,19 @@ export function BalanceCard({
           {periodLabel(periodStart, periodEnd, todayDate, locale)}
         </Text>
 
-        {remainder === null ? (
+        {pending ? (
+          // Holds the card's height for the length of the period's first query. Without
+          // it the very first visit to the tab paints "no budget set" with its button —
+          // the store is empty before the read lands — and then pops to the real number.
+          <View style={styles.amount}>
+            <Text variant="display" color="transparent">
+              0
+            </Text>
+            <Text variant="callout" color="transparent">
+              0
+            </Text>
+          </View>
+        ) : remainder === null ? (
           <View style={styles.noBudget}>
             <Text variant="title2">{t('expenses_no_budget')}</Text>
             <Button title={t('expenses_set_budget')} variant="secondary" onPress={onPress} />

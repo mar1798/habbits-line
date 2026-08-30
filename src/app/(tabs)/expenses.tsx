@@ -177,6 +177,7 @@ export default function ExpensesScreen() {
                 periodStart={periodStart}
                 periodEnd={periodEnd}
                 todayDate={today}
+                pending={!loaded}
                 onPress={() =>
                   router.push({ pathname: '/expense/budget', params: { date: selectedDate } })
                 }

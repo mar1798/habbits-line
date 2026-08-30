@@ -3,7 +3,6 @@ import { create } from 'zustand';
 
 import * as settingsRepo from '@/db/settings-repo';
 import { parseLanguage, type Language, DEFAULT_LANGUAGE } from '@/i18n';
-import * as notifications from '@/lib/notifications';
 import { clampPeriodStartDay, DEFAULT_PERIOD_START_DAY, parsePeriodStartDay } from '@/lib/period';
 
 /** 'system' follows the OS appearance; the other two override it. */
@@ -78,6 +77,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     set({ language });
     await settingsRepo.setSetting(db, LANGUAGE_KEY, language);
     try {
+      // Imported here rather than at the top of the file: lib/notifications.ts reads the
+      // language back out of this store, and a static import in both directions is a
+      // require cycle Metro warns about on every launch. By the time a language is
+      // switched both modules are long since evaluated, so the lazy edge costs nothing.
+      const notifications = await import('@/lib/notifications');
       await notifications.scheduleAllReminders(db);
     } catch (error) {
       console.error('Failed to reschedule reminders after a language change', error);

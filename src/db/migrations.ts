@@ -81,56 +81,68 @@ export async function migrate(db: SQLiteDatabase): Promise<void> {
     //
     // Names are Russian and stay Russian when the app language changes: like habit names,
     // they are user data, not UI strings.
-    await db.execAsync(`
-      CREATE TABLE expense_categories (
-        id TEXT PRIMARY KEY NOT NULL,
-        name TEXT NOT NULL,
-        emoji TEXT NOT NULL,
-        color_key TEXT NOT NULL,
-        sort_order INTEGER NOT NULL,
-        archived_at TEXT,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      );
-      CREATE INDEX idx_expense_categories_active ON expense_categories(archived_at, sort_order);
+    //
+    // Every statement of the block, `user_version` included, goes in one transaction.
+    // Applied piecemeal it would brick the app: a failure between the CREATE TABLEs and
+    // the version bump leaves the tables in place and the version at 1, so the next
+    // launch re-runs CREATE TABLE against tables that already exist and fails at the
+    // database provider's error screen, whose only way out is deleting the file.
+    // SQLite is transactional over DDL and over the header `user_version` lives in.
+    await db.withTransactionAsync(async () => {
+      await db.execAsync(`
+        CREATE TABLE expense_categories (
+          id TEXT PRIMARY KEY NOT NULL,
+          name TEXT NOT NULL,
+          emoji TEXT NOT NULL,
+          color_key TEXT NOT NULL,
+          sort_order INTEGER NOT NULL,
+          archived_at TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+        CREATE INDEX idx_expense_categories_active ON expense_categories(archived_at, sort_order);
 
-      CREATE TABLE expenses (
-        id TEXT PRIMARY KEY NOT NULL,
-        category_id TEXT NOT NULL REFERENCES expense_categories(id) ON DELETE RESTRICT,
-        amount INTEGER NOT NULL CHECK (amount > 0),
-        date TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      );
-      CREATE INDEX idx_expenses_date ON expenses(date);
-      CREATE INDEX idx_expenses_category ON expenses(category_id);
+        CREATE TABLE expenses (
+          id TEXT PRIMARY KEY NOT NULL,
+          category_id TEXT NOT NULL REFERENCES expense_categories(id) ON DELETE RESTRICT,
+          amount INTEGER NOT NULL CHECK (amount > 0),
+          date TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+        CREATE INDEX idx_expenses_date ON expenses(date);
+        CREATE INDEX idx_expenses_category ON expenses(category_id);
 
-      CREATE TABLE expense_budgets (
-        period_start TEXT PRIMARY KEY NOT NULL,
-        amount INTEGER NOT NULL CHECK (amount > 0),
-        updated_at TEXT NOT NULL
-      );
-    `);
+        CREATE TABLE expense_budgets (
+          period_start TEXT PRIMARY KEY NOT NULL,
+          amount INTEGER NOT NULL CHECK (amount > 0),
+          updated_at TEXT NOT NULL
+        );
+      `);
 
-    const now = new Date().toISOString();
-    for (const [index, category] of SEED_CATEGORIES.entries()) {
-      await db.runAsync(
-        `INSERT INTO expense_categories
-          (id, name, emoji, color_key, sort_order, archived_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, NULL, ?, ?)`,
-        generateId(),
-        category.name,
-        category.emoji,
-        category.colorKey,
-        index,
-        now,
-        now
-      );
-    }
+      const now = new Date().toISOString();
+      for (const [index, category] of SEED_CATEGORIES.entries()) {
+        await db.runAsync(
+          `INSERT INTO expense_categories
+            (id, name, emoji, color_key, sort_order, archived_at, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, NULL, ?, ?)`,
+          generateId(),
+          category.name,
+          category.emoji,
+          category.colorKey,
+          index,
+          now,
+          now
+        );
+      }
+
+      await db.execAsync('PRAGMA user_version = 2');
+    });
     currentVersion = 2;
   }
 
-  // v2 -> v3: add the next migration as a new block below this comment.
+  // v2 -> v3: add the next migration as a new block below this comment, wrapped in
+  // `withTransactionAsync` and bumping `user_version` inside it, the way v1 -> v2 is.
   // The blocks above are shipped — never edit them, only append.
 
   await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);

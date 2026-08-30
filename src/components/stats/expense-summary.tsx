@@ -120,40 +120,17 @@ export function ExpenseSummary({ todayDate }: ExpenseSummaryProps) {
     <View style={styles.section}>
       <Text variant="title2">{t('stats_expenses')}</Text>
 
-      <Card style={styles.comparison}>
-        <View style={styles.current}>
-          <Text variant="caption" color={colors.textSecondary}>
-            {t('stats_expenses_current')}
-          </Text>
-          <Text variant="display">{formatAmount(currentTotal)}</Text>
-          <Text variant="caption" color={colors.textSecondary}>
-            {periodLabel(currentStart, currentEnd, todayDate, locale)}
-          </Text>
-        </View>
-
-        <View style={[styles.previous, { borderLeftColor: colors.border }]}>
-          <Text variant="caption" color={colors.textSecondary}>
-            {t('stats_expenses_previous')}
-          </Text>
-          <Text variant="title1">{formatAmount(previousTotal)}</Text>
-          <Text
-            variant="caption"
-            color={
-              delta.kind === 'up'
-                ? colors.danger
-                : delta.kind === 'down'
-                  ? colors.success
-                  : colors.textSecondary
-            }>
-            {delta.kind === 'up'
-              ? t('stats_expenses_delta_up', { percent: delta.percent })
-              : delta.kind === 'down'
-                ? t('stats_expenses_delta_down', { percent: delta.percent })
-                : delta.kind === 'same'
-                  ? t('stats_expenses_delta_same')
-                  : t('stats_expenses_delta_new')}
-          </Text>
-        </View>
+      {/* The period's own total, on its own: the first thing the block answers is "how
+          much this period", and putting the previous period beside it made the two sums
+          compete for the same glance. The comparison follows the breakdown below. */}
+      <Card style={styles.total}>
+        <Text variant="caption" color={colors.textSecondary}>
+          {t('stats_expenses_current')}
+        </Text>
+        <Text variant="display">{formatAmount(currentTotal)}</Text>
+        <Text variant="caption" color={colors.textSecondary}>
+          {periodLabel(currentStart, currentEnd, todayDate, locale)}
+        </Text>
       </Card>
 
       <View style={styles.block}>
@@ -188,6 +165,42 @@ export function ExpenseSummary({ todayDate }: ExpenseSummaryProps) {
             {t('stats_expenses_empty')}
           </Text>
         )}
+      </View>
+
+      <View style={styles.block}>
+        <Text variant="headline">{t('stats_expenses_comparison')}</Text>
+        <Card style={styles.comparison}>
+          <View style={styles.current}>
+            <Text variant="caption" color={colors.textSecondary}>
+              {t('stats_expenses_current')}
+            </Text>
+            <Text variant="title1">{formatAmount(currentTotal)}</Text>
+          </View>
+
+          <View style={[styles.previous, { borderLeftColor: colors.border }]}>
+            <Text variant="caption" color={colors.textSecondary}>
+              {t('stats_expenses_previous')}
+            </Text>
+            <Text variant="title1">{formatAmount(previousTotal)}</Text>
+            <Text
+              variant="caption"
+              color={
+                delta.kind === 'up'
+                  ? colors.danger
+                  : delta.kind === 'down'
+                    ? colors.success
+                    : colors.textSecondary
+              }>
+              {delta.kind === 'up'
+                ? t('stats_expenses_delta_up', { percent: delta.percent })
+                : delta.kind === 'down'
+                  ? t('stats_expenses_delta_down', { percent: delta.percent })
+                  : delta.kind === 'same'
+                    ? t('stats_expenses_delta_same')
+                    : t('stats_expenses_delta_new')}
+            </Text>
+          </View>
+        </Card>
       </View>
 
       {history.length > 0 ? (
@@ -231,6 +244,9 @@ function describeDelta(current: number, previous: number): Delta {
 const styles = StyleSheet.create({
   section: {
     gap: spacing.md,
+  },
+  total: {
+    gap: spacing.xs,
   },
   comparison: {
     flexDirection: 'row',

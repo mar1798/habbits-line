@@ -20,7 +20,7 @@ import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 import { useTodayKey } from '@/hooks/use-today-key';
 import { isValidDateKey, todayKey } from '@/lib/date';
-import { formatAmount } from '@/lib/money';
+import { formatAmount, normalizeAmountInput } from '@/lib/money';
 import {
   MAX_PERIOD_START_DAY,
   MIN_PERIOD_START_DAY,
@@ -29,13 +29,6 @@ import {
 } from '@/lib/period';
 import { useExpensesStore } from '@/store/expenses-store';
 import { useSettingsStore } from '@/store/settings-store';
-
-const MAX_AMOUNT_DIGITS = 9;
-
-/** Same rule as the expense form: digits only, no leading zeros, empty means "not set". */
-function normalizeAmount(text: string): string {
-  return text.replace(/\D/g, '').replace(/^0+/, '').slice(0, MAX_AMOUNT_DIGITS);
-}
 
 const DAYS = Array.from(
   { length: MAX_PERIOD_START_DAY - MIN_PERIOD_START_DAY + 1 },
@@ -69,7 +62,7 @@ export default function BudgetScreen() {
   // Prefilled with the amount in force, inherited or not: the common edit is a nudge to
   // the number already on the card, not typing one from scratch.
   const [amount, setAmount] = useState(() =>
-    budget === null ? '' : normalizeAmount(String(budget))
+    budget === null ? '' : normalizeAmountInput(String(budget))
   );
   const [startDay, setStartDay] = useState(periodStartDay);
   const [submitting, setSubmitting] = useState(false);
@@ -118,7 +111,7 @@ export default function BudgetScreen() {
         <Section title={t('expense_budget_amount')}>
           <TextInput
             value={amount === '' ? '' : formatAmount(amountValue)}
-            onChangeText={(text) => setAmount(normalizeAmount(text))}
+            onChangeText={(text) => setAmount(normalizeAmountInput(text))}
             placeholder="0"
             placeholderTextColor={colors.textTertiary}
             keyboardType="number-pad"

@@ -1,4 +1,4 @@
-import { formatAmount } from '../money';
+import { formatAmount, MAX_AMOUNT_DIGITS, normalizeAmountInput } from '../money';
 
 // The separator is a narrow no-break space (U+202F), not a normal one — spelled out here
 // so a test failure shows which character actually came back.
@@ -30,5 +30,27 @@ describe('formatAmount', () => {
   it('falls back to zero for a value that is not a number', () => {
     expect(formatAmount(Number.NaN)).toBe('0');
     expect(formatAmount(Number.POSITIVE_INFINITY)).toBe('0');
+  });
+});
+
+describe('normalizeAmountInput', () => {
+  it('keeps digits and drops everything else', () => {
+    expect(normalizeAmountInput('1234')).toBe('1234');
+    expect(normalizeAmountInput('1 2a3,4-')).toBe('1234');
+    expect(normalizeAmountInput('abc')).toBe('');
+  });
+
+  it('eats leading zeros', () => {
+    expect(normalizeAmountInput('007')).toBe('7');
+    expect(normalizeAmountInput('000')).toBe('');
+  });
+
+  it('treats an empty field as an empty string, not a zero', () => {
+    expect(normalizeAmountInput('')).toBe('');
+  });
+
+  it('caps the length so the grouped number still fits the field', () => {
+    expect(normalizeAmountInput('1234567890123')).toHaveLength(MAX_AMOUNT_DIGITS);
+    expect(normalizeAmountInput('1234567890123')).toBe('123456789');
   });
 });

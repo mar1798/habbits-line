@@ -43,7 +43,7 @@ function dateToTime(date: Date): string {
 }
 
 export function TimePickerField({ value, onChange }: TimePickerFieldProps) {
-  const { colors } = useTheme();
+  const { colors, scheme } = useTheme();
   const { t } = useI18n();
   const permission = useNotificationPermissionStatus();
   // Toggling the reminder off clears the stored time; remembering it here means
@@ -69,8 +69,19 @@ export function TimePickerField({ value, onChange }: TimePickerFieldProps) {
           {t('reminder')}
         </Text>
         <View style={styles.control}>
+          {/*
+            SwiftUI reads its own colour scheme from the system, not from the app's theme
+            row — so with the theme forced to dark over a light iOS the picker rendered
+            black digits on the dark surface. The host is told the app's scheme instead,
+            and tinted with the accent so the highlighted field matches the rest of the
+            form.
+          */}
           {enabled ? (
-            <Host matchContents style={styles.picker}>
+            <Host
+              matchContents
+              style={styles.picker}
+              colorScheme={scheme}
+              seedColor={colors.accent}>
               <DatePicker
                 selection={timeToDate(value)}
                 displayedComponents={['hourAndMinute']}

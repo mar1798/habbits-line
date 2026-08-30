@@ -11,24 +11,8 @@ import { fontFamily, minHitSlop, radius, spacing, typography } from '@/constants
 import type { ExpenseInput } from '@/db/expenses-repo';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
-import { formatAmount } from '@/lib/money';
+import { formatAmount, normalizeAmountInput } from '@/lib/money';
 import { useExpenseCategoriesStore } from '@/store/expense-categories-store';
-
-/**
- * Nine digits is already a billion — past that the grouped number stops fitting the field
- * on the narrowest phone, and `amount` is an SQLite INTEGER either way.
- */
-const MAX_AMOUNT_DIGITS = 9;
-
-/**
- * Digits only, with leading zeros eaten: the number pad still lets a paste or a hardware
- * keyboard through, and "007" would otherwise be stored and shown as typed. An empty
- * string is a valid intermediate state — it is what an empty field holds — and simply
- * fails the "greater than zero" check below.
- */
-function normalizeAmount(text: string): string {
-  return text.replace(/\D/g, '').replace(/^0+/, '').slice(0, MAX_AMOUNT_DIGITS);
-}
 
 export type ExpenseFormValues = {
   amount: number | null;
@@ -52,7 +36,7 @@ export function ExpenseForm({ initialValues, submitLabel, onSubmit }: ExpenseFor
   const loadCategories = useExpenseCategoriesStore((state) => state.load);
 
   const [amount, setAmount] = useState(() =>
-    initialValues.amount === null ? '' : normalizeAmount(String(initialValues.amount))
+    initialValues.amount === null ? '' : normalizeAmountInput(String(initialValues.amount))
   );
   const [categoryId, setCategoryId] = useState(initialValues.categoryId);
   const [submitting, setSubmitting] = useState(false);
@@ -121,7 +105,7 @@ export function ExpenseForm({ initialValues, submitLabel, onSubmit }: ExpenseFor
       <Section title={t('expense_form_amount')}>
         <TextInput
           value={amount === '' ? '' : formatAmount(amountValue)}
-          onChangeText={(text) => setAmount(normalizeAmount(text))}
+          onChangeText={(text) => setAmount(normalizeAmountInput(text))}
           placeholder={t('expense_form_amount_placeholder')}
           placeholderTextColor={colors.textTertiary}
           keyboardType="number-pad"
