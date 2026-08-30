@@ -1,5 +1,5 @@
 import { MenuView } from '@expo/ui/community/menu';
-import type { NativeActionEvent } from '@expo/ui/community/menu';
+import type { MenuAction, NativeActionEvent } from '@expo/ui/community/menu';
 import { router, useIsFocused } from 'expo-router';
 import { SFSymbol, SymbolView } from 'expo-symbols';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -13,8 +13,15 @@ import { IconButton } from '@/components/ui/icon-button';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
-import { minHitSlop, radius, resolveHabitColor, spacing } from '@/constants/design-tokens';
-import type { HabitRow } from '@/db/types';
+import {
+  minHitSlop,
+  radius,
+  resolveExpenseColor,
+  resolveHabitColor,
+  spacing,
+} from '@/constants/design-tokens';
+import { countExpensesByCategory } from '@/db/expense-categories-repo';
+import type { ExpenseCategoryRow, HabitRow } from '@/db/types';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 import type { Language, MessageKey } from '@/i18n';
@@ -31,6 +38,7 @@ import {
   useNotificationPermissionStatus,
 } from '@/lib/notifications';
 import { useEntriesStore } from '@/store/entries-store';
+import { useExpenseCategoriesStore } from '@/store/expense-categories-store';
 import { useHabitsStore } from '@/store/habits-store';
 import { type ThemeMode, useSettingsStore } from '@/store/settings-store';
 
@@ -82,6 +90,8 @@ export default function SettingsScreen() {
   const permission = useNotificationPermissionStatus();
   const [scheduledCount, setScheduledCount] = useState(0);
   const [busy, setBusy] = useState<'export' | 'import' | null>(null);
+  const [expenseCounts, setExpenseCounts] = useState<Record<string, number>>({});
+  const [showArchivedCategories, setShowArchivedCategories] = useState(false);
 
   const db = useSQLiteContext();
   const habits = useHabitsStore((state) => state.habits);
@@ -92,6 +102,11 @@ export default function SettingsScreen() {
   const removeHabit = useHabitsStore((state) => state.remove);
   const reorderHabits = useHabitsStore((state) => state.reorder);
   const reloadEntries = useEntriesStore((state) => state.reload);
+  const categories = useExpenseCategoriesStore((state) => state.categories);
+  const loadCategories = useExpenseCategoriesStore((state) => state.load);
+  const archiveCategory = useExpenseCategoriesStore((state) => state.archive);
+  const unarchiveCategory = useExpenseCategoriesStore((state) => state.unarchive);
+  const removeCategory = useExpenseCategoriesStore((state) => state.remove);
   const themeMode = useSettingsStore((state) => state.themeMode);
   const setThemeMode = useSettingsStore((state) => state.setThemeMode);
   const language = useSettingsStore((state) => state.language);
@@ -105,6 +120,35 @@ export default function SettingsScreen() {
     if (!isFocused) return;
     loadHabits(db, { includeArchived: true });
   }, [db, isFocused, loadHabits]);
+
+  /**
+   * Categories and their expense counts, re-read on every focus for the same reason as
+   * the habits above: the tab stays mounted, and a category added from the expense modal
+   * or an expense written since would otherwise not show up here. Archived ones are
+   * included — this screen is where they are brought back from.
+   *
+   * The counts decide which categories may be deleted at all, and come as one grouped
+   * query rather than a count per row.
+   */
+  useEffect(() => {
+    if (!isFocused) return;
+    loadCategories(db, { includeArchived: true }).catch((error) =>
+      console.warn('Failed to load expense categories', error)
+    );
+  }, [db, isFocused, loadCategories]);
+
+  useEffect(() => {
+    if (!isFocused) return;
+    let cancelled = false;
+    countExpensesByCategory(db)
+      .then((counts) => {
+        if (!cancelled) setExpenseCounts(counts);
+      })
+      .catch((error) => console.warn('Failed to count expenses by category', error));
+    return () => {
+      cancelled = true;
+    };
+  }, [db, isFocused]);
 
   // Re-read on every focus: a reminder saved on another screen recomputes the
   // schedule after this tab has already mounted.
@@ -186,6 +230,58 @@ export default function SettingsScreen() {
       ]
     );
   };
+
+  const activeCategories = categories.filter((category) => !category.archived_at);
+  const archivedCategories = categories.filter((category) => category.archived_at);
+
+  /**
+   * Deletion is offered only for a category holding no expenses, so this normally cannot
+   * fail — but the check is made against a count read on focus, and the guarantee under
+   * it is the ON DELETE RESTRICT foreign key. If an expense was written into the category
+   * in between, SQLite refuses and the user is told, rather than the rejection surfacing
+   * as a Metro warning.
+   */
+  const confirmDeleteCategory = (category: ExpenseCategoryRow) => {
+    Alert.alert(
+      t('settings_category_delete_title', { name: category.name }),
+      t('settings_category_delete_message'),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: t('delete'),
+          style: 'destructive',
+          onPress: () =>
+            removeCategory(db, category.id).catch((error) => {
+              console.warn('Failed to delete expense category', error);
+              Alert.alert(t('settings_category_delete_failed'), t('try_again'));
+            }),
+        },
+      ]
+    );
+  };
+
+  const handleCategoryMenuAction =
+    (category: ExpenseCategoryRow) =>
+    ({ nativeEvent }: NativeActionEvent) => {
+      switch (nativeEvent.event) {
+        case 'edit':
+          router.push({ pathname: '/expense-category/[id]', params: { id: category.id } });
+          break;
+        case 'archive':
+          archiveCategory(db, category.id).catch((error) =>
+            console.warn('Failed to archive expense category', error)
+          );
+          break;
+        case 'unarchive':
+          unarchiveCategory(db, category.id).catch((error) =>
+            console.warn('Failed to unarchive expense category', error)
+          );
+          break;
+        case 'delete':
+          confirmDeleteCategory(category);
+          break;
+      }
+    };
 
   const handleExport = async () => {
     setBusy('export');
@@ -372,6 +468,63 @@ export default function SettingsScreen() {
             </View>
           </View>
         }
+        /**
+         * The categories live in the footer rather than in `data`: the habit list has its
+         * own empty state, and category rows in the same array would fill it and keep
+         * "no habits yet" from ever showing. The list is short and bounded by hand —
+         * the FlatList rule is about lists that grow with the data.
+         */
+        ListFooterComponent={
+          <View style={styles.footer}>
+            <Text variant="title2">{t('settings_categories')}</Text>
+
+            {activeCategories.map((category) => (
+              <CategoryRow
+                key={category.id}
+                category={category}
+                count={expenseCounts[category.id] ?? 0}
+                onPressAction={handleCategoryMenuAction(category)}
+              />
+            ))}
+
+            <Button
+              title={t('settings_categories_add')}
+              variant="secondary"
+              onPress={() => router.push('/expense-category/new')}
+            />
+
+            {archivedCategories.length > 0 ? (
+              <>
+                <PressableScale
+                  onPress={() => setShowArchivedCategories((value) => !value)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('settings_categories_archive')}
+                  accessibilityState={{ expanded: showArchivedCategories }}
+                  style={styles.archiveHeader}>
+                  <Text variant="caption" color={colors.textSecondary}>
+                    {`${t('settings_categories_archive')} (${archivedCategories.length})`}
+                  </Text>
+                  <SymbolView
+                    name={showArchivedCategories ? 'chevron.up' : 'chevron.down'}
+                    size={14}
+                    tintColor={colors.textSecondary}
+                  />
+                </PressableScale>
+
+                {showArchivedCategories
+                  ? archivedCategories.map((category) => (
+                      <CategoryRow
+                        key={category.id}
+                        category={category}
+                        count={expenseCounts[category.id] ?? 0}
+                        onPressAction={handleCategoryMenuAction(category)}
+                      />
+                    ))
+                  : null}
+              </>
+            ) : null}
+          </View>
+        }
         ListEmptyComponent={
           loaded ? (
             <EmptyState
@@ -485,6 +638,80 @@ export default function SettingsScreen() {
         }}
       />
     </Screen>
+  );
+}
+
+/**
+ * One category in the settings list, laid out like a habit row minus the reorder arrows:
+ * the order is fixed by `sort_order` at creation, and a category is not something the eye
+ * scans down a screen the way it scans habits.
+ *
+ * Deletion is offered only while the category holds no expenses. On one that does, the
+ * action is absent altogether and the row says how many instead — money already spent must
+ * not vanish from a past period's total because its category was tidied away, and that is
+ * what archiving is for.
+ */
+function CategoryRow({
+  category,
+  count,
+  onPressAction,
+}: {
+  category: ExpenseCategoryRow;
+  count: number;
+  onPressAction: (event: NativeActionEvent) => void;
+}) {
+  const { colors, scheme } = useTheme();
+  const { t, plural } = useI18n();
+  const isArchived = category.archived_at !== null;
+  const accentColor = resolveExpenseColor(category.color_key, scheme);
+
+  const actions: MenuAction[] = [
+    { id: 'edit', title: t('menu_edit'), image: 'pencil' },
+    isArchived
+      ? { id: 'unarchive', title: t('menu_unarchive'), image: 'tray.and.arrow.up' }
+      : { id: 'archive', title: t('menu_archive'), image: 'archivebox' },
+    ...(count === 0
+      ? ([
+          { id: 'delete', title: t('delete'), image: 'trash', attributes: { destructive: true } },
+        ] satisfies MenuAction[])
+      : []),
+  ];
+
+  return (
+    <View style={[styles.categoryRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <PressableScale
+        onPress={() =>
+          router.push({ pathname: '/expense-category/[id]', params: { id: category.id } })
+        }
+        accessibilityRole="button"
+        accessibilityLabel={t('settings_edit_category', { name: category.name })}
+        style={styles.main}>
+        <View style={[styles.emoji, { backgroundColor: `${accentColor}33` }]}>
+          <Text variant="headline">{category.emoji}</Text>
+        </View>
+        <View style={styles.info}>
+          <Text variant="body" numberOfLines={1} color={isArchived ? colors.textSecondary : undefined}>
+            {category.name}
+          </Text>
+          {isArchived ? (
+            <Text variant="caption" color={colors.textTertiary}>
+              {t('settings_archived_badge')}
+            </Text>
+          ) : null}
+          {count > 0 ? (
+            <Text variant="caption" color={colors.textTertiary}>
+              {t('settings_category_expenses', { count, expenses: plural('expenses', count) })}
+            </Text>
+          ) : null}
+        </View>
+      </PressableScale>
+
+      <MenuView actions={actions} onPressAction={onPressAction}>
+        <View style={[styles.moreButton, { backgroundColor: colors.surfaceAlt }]}>
+          <SymbolView name="ellipsis" size={18} tintColor={colors.textPrimary} />
+        </View>
+      </MenuView>
+    </View>
   );
 }
 
@@ -605,6 +832,25 @@ const styles = StyleSheet.create({
   arrows: {
     flexDirection: 'row',
     gap: spacing.xs,
+  },
+  footer: {
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  archiveHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: minHitSlop,
   },
   moreButton: {
     width: minHitSlop,

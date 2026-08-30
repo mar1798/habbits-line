@@ -137,6 +137,16 @@ export const ru = {
   streak_best: 'Лучший',
   rate_7_days: 'За 7 дней',
   rate_30_days: 'За 30 дней',
+  stats_expenses: 'Траты',
+  stats_expenses_current: 'Текущий период',
+  stats_expenses_previous: 'Прошлый период',
+  stats_expenses_delta_up: 'Больше на {percent}%',
+  stats_expenses_delta_down: 'Меньше на {percent}%',
+  stats_expenses_delta_same: 'Столько же',
+  stats_expenses_delta_new: 'В прошлом периоде трат не было',
+  stats_expenses_history: 'Прошлые периоды',
+  stats_expenses_by_category: 'По категориям',
+  stats_expenses_empty: 'В этом периоде трат не было',
 
   // Settings.
   settings_title: 'Настройки',
@@ -161,6 +171,14 @@ export const ru = {
   settings_delete_title: 'Удалить «{name}»?',
   settings_delete_message: 'Привычка и вся её история будут удалены без возможности восстановления.',
   settings_empty_subtitle: 'Добавьте первую привычку на вкладке «Привычки»',
+  settings_categories: 'Категории трат',
+  settings_categories_add: 'Добавить категорию',
+  settings_categories_archive: 'Архив категорий',
+  settings_edit_category: 'Изменить «{name}»',
+  settings_category_expenses: 'В категории {count} {expenses}',
+  settings_category_delete_title: 'Удалить «{name}»?',
+  settings_category_delete_message: 'Категория будет удалена без возможности восстановления.',
+  settings_category_delete_failed: 'Не удалось удалить категорию',
   settings_notifications_denied:
     'Уведомления запрещены в настройках iOS — напоминания не будут приходить.',
   settings_open_ios_settings: 'Открыть настройки',
@@ -206,6 +224,7 @@ export const ru = {
 export const ruPlurals = {
   days: { one: 'день', few: 'дня', many: 'дней' },
   times: { one: 'раз', few: 'раза', many: 'раз' },
+  expenses: { one: 'трата', few: 'траты', many: 'трат' },
   reminders: { one: 'напоминание', few: 'напоминания', many: 'напоминаний' },
 } as const;
 

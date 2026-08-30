@@ -9,6 +9,9 @@ Expo SDK 57 + expo-router, TypeScript, expo-sqlite, zustand, expo-notifications
 (только локальные), react-native-reanimated, date-fns.
 Стилизация — `StyleSheet` поверх `src/constants/design-tokens.ts`.
 
+Кроме привычек есть траты: бюджет на период с любым днём начала (1..28), категории с
+эмодзи и цветом, полоса расходов по категориям и сравнение периодов в статистике.
+
 Тема переключается в настройках (системная / светлая / тёмная), шрифт не масштабируется
 системным Dynamic Type. UI на русском и английском: по умолчанию русский, английский
 включается там же, в настройках. Android и веб намеренно не поддерживаются
@@ -35,26 +38,30 @@ npm run ios        # expo run:ios — собирает нативный прое
 ```bash
 npm run typecheck  # tsc --noEmit — должен проходить чисто
 npm run lint
-npm test           # jest: чистая логика дат, расписаний, стриков и плюрализации
+npm test           # jest: чистая логика дат, расписаний, стриков, периодов, сумм
+                   # и плюрализации
 ```
 
 ## Структура
 
 ```
 src/
-  app/            экраны expo-router: (tabs)/index|stats|settings, habit/new|[id]
-  components/     ui/* — базовые примитивы, habit/* и stats/* — доменные
+  app/            экраны expo-router: (tabs)/index|expenses|stats|settings,
+                  habit/new|[id], expense/new|[id]|budget, expense-category/new|[id]
+  components/     ui/* — базовые примитивы, habit/*, expense/* и stats/* — доменные
   constants/      design-tokens.ts — единственный источник цветов, отступов, радиусов
   db/             миграции, провайдер и репозитории поверх expo-sqlite
   i18n/           ru.ts — источник ключей, en.ts типизирован по нему, plural.ts + тесты
-  store/          zustand: habits-store (привычки + CRUD), entries-store, settings-store
-  lib/            date, schedule, streaks, notifications, backup, haptics, id + тесты
+  store/          zustand: habits-store (привычки + CRUD), entries-store, settings-store,
+                  expense-categories-store, expenses-store
+  lib/            date, schedule, streaks, period, money, expenses, notifications,
+                  backup, haptics, id + тесты
   hooks/          use-theme, use-i18n, use-today-key
 ```
 
 ## Документы
 
 - [PLAN.md](PLAN.md) — принятые решения, схема БД, дизайн-система, этапы и риски.
-  Живой документ: после каждого этапа приводится в соответствие с кодом. Все 11 этапов
-  выполнены.
+  Живой документ: после каждого этапа приводится в соответствие с кодом. Этапы 1–12
+  выполнены (12 — траты: бюджет периода, категории, экран и блок в статистике).
 - [AGENTS.md](AGENTS.md) — правила работы над проектом.

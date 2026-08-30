@@ -122,6 +122,16 @@ export const en: Record<keyof typeof ru, string> = {
   streak_best: 'Best',
   rate_7_days: 'Last 7 days',
   rate_30_days: 'Last 30 days',
+  stats_expenses: 'Expenses',
+  stats_expenses_current: 'This period',
+  stats_expenses_previous: 'Previous period',
+  stats_expenses_delta_up: '{percent}% more',
+  stats_expenses_delta_down: '{percent}% less',
+  stats_expenses_delta_same: 'The same',
+  stats_expenses_delta_new: 'Nothing was spent in the previous period',
+  stats_expenses_history: 'Past periods',
+  stats_expenses_by_category: 'By category',
+  stats_expenses_empty: 'Nothing was spent in this period',
 
   settings_title: 'Settings',
   settings_appearance: 'Appearance',
@@ -143,6 +153,14 @@ export const en: Record<keyof typeof ru, string> = {
   settings_delete_title: 'Delete “{name}”?',
   settings_delete_message: 'The habit and its whole history will be deleted permanently.',
   settings_empty_subtitle: 'Add your first habit on the “Habits” tab',
+  settings_categories: 'Expense categories',
+  settings_categories_add: 'Add a category',
+  settings_categories_archive: 'Archived categories',
+  settings_edit_category: 'Edit “{name}”',
+  settings_category_expenses: '{count} {expenses} in this category',
+  settings_category_delete_title: 'Delete “{name}”?',
+  settings_category_delete_message: 'The category will be deleted permanently.',
+  settings_category_delete_failed: 'Could not delete the category',
   settings_notifications_denied:
     'Notifications are turned off in iOS Settings — reminders will not arrive.',
   settings_open_ios_settings: 'Open Settings',
@@ -186,6 +204,7 @@ export const en: Record<keyof typeof ru, string> = {
 export const enPlurals: Record<keyof typeof ruPlurals, { one: string; other: string }> = {
   days: { one: 'day', other: 'days' },
   times: { one: 'time', other: 'times' },
+  expenses: { one: 'expense', other: 'expenses' },
   reminders: { one: 'reminder', other: 'reminders' },
 };
 

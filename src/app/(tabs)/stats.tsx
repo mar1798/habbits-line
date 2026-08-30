@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
+import { ExpenseSummary } from '@/components/stats/expense-summary';
 import { Heatmap } from '@/components/stats/heatmap';
 import { RateCard } from '@/components/stats/rate-card';
 import { StreakCard } from '@/components/stats/streak-card';
@@ -225,6 +226,9 @@ export default function StatsScreen() {
                 <Text variant="title2">{t('stats_last_3_months')}</Text>
                 <Heatmap series={series} color={accentColor} todayDate={today} />
               </View>
+              {/* Below the habit blocks, and outside the crossfade's reason to exist: the
+                  chips above switch habits, and the expense block is the same either way. */}
+              <ExpenseSummary todayDate={today} />
             </Animated.ScrollView>
           ) : null}
         </>
