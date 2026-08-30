@@ -1,0 +1,230 @@
+import { router, useLocalSearchParams } from 'expo-router';
+import { useSQLiteContext } from 'expo-sqlite';
+import { useState } from 'react';
+import { Alert, FlatList, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+
+import { periodLabel } from '@/components/expense/balance-card';
+import { Button } from '@/components/ui/button';
+import { PressableScale } from '@/components/ui/pressable-scale';
+import { Screen } from '@/components/ui/screen';
+import { Section } from '@/components/ui/section';
+import { Text } from '@/components/ui/text';
+import {
+  fontFamily,
+  minHitSlop,
+  radius,
+  spacing,
+  typography,
+} from '@/constants/design-tokens';
+import { useI18n } from '@/hooks/use-i18n';
+import { useTheme } from '@/hooks/use-theme';
+import { useTodayKey } from '@/hooks/use-today-key';
+import { isValidDateKey, todayKey } from '@/lib/date';
+import { formatAmount } from '@/lib/money';
+import {
+  MAX_PERIOD_START_DAY,
+  MIN_PERIOD_START_DAY,
+  periodEndFor,
+  periodStartFor,
+} from '@/lib/period';
+import { useExpensesStore } from '@/store/expenses-store';
+import { useSettingsStore } from '@/store/settings-store';
+
+const MAX_AMOUNT_DIGITS = 9;
+
+/** Same rule as the expense form: digits only, no leading zeros, empty means "not set". */
+function normalizeAmount(text: string): string {
+  return text.replace(/\D/g, '').replace(/^0+/, '').slice(0, MAX_AMOUNT_DIGITS);
+}
+
+const DAYS = Array.from(
+  { length: MAX_PERIOD_START_DAY - MIN_PERIOD_START_DAY + 1 },
+  (_, index) => MIN_PERIOD_START_DAY + index
+);
+
+const DAY_CHIP_SIZE = minHitSlop;
+const DAY_CHIP_STRIDE = DAY_CHIP_SIZE + spacing.sm;
+
+/**
+ * Both money settings in one modal, opened from the balance card rather than from
+ * Settings: they are about the number on that card and are changed while looking at it.
+ *
+ * The budget is written for the period of the day the strip is on — the same period the
+ * card shows — and never for the one it may have inherited its amount from.
+ */
+export default function BudgetScreen() {
+  const db = useSQLiteContext();
+  const { colors } = useTheme();
+  const { t, locale } = useI18n();
+  const today = useTodayKey();
+  const { date } = useLocalSearchParams<{ date?: string }>();
+
+  const budget = useExpensesStore((state) => state.budget);
+  const loadPeriod = useExpensesStore((state) => state.loadPeriod);
+  const setBudget = useExpensesStore((state) => state.setBudget);
+  const periodStartDay = useSettingsStore((state) => state.periodStartDay);
+  const setPeriodStartDay = useSettingsStore((state) => state.setPeriodStartDay);
+
+  const anchorDate = date && isValidDateKey(date) ? date : todayKey();
+  // Prefilled with the amount in force, inherited or not: the common edit is a nudge to
+  // the number already on the card, not typing one from scratch.
+  const [amount, setAmount] = useState(() =>
+    budget === null ? '' : normalizeAmount(String(budget))
+  );
+  const [startDay, setStartDay] = useState(periodStartDay);
+  const [submitting, setSubmitting] = useState(false);
+
+  const amountValue = amount === '' ? 0 : Number(amount);
+  // An empty amount is still savable while the start day has moved: someone who has not
+  // set a budget yet may still want their periods to open on the 6th.
+  const canSave = (amountValue > 0 || startDay !== periodStartDay) && !submitting;
+
+  // Follows the day picker live, so the label says which period the amount will land in.
+  const periodStart = periodStartFor(anchorDate, startDay);
+  const periodEnd = periodEndFor(anchorDate, startDay);
+
+  /**
+   * The start day is written first, and the period is then reloaded into the store: the
+   * store writes the budget for the period it currently holds, which is the one computed
+   * with the *old* start day until it is told otherwise.
+   */
+  const handleSubmit = async () => {
+    if (!canSave) return;
+    setSubmitting(true);
+    try {
+      if (startDay !== periodStartDay) {
+        await setPeriodStartDay(db, startDay);
+        await loadPeriod(db, periodStart, periodEnd);
+      }
+      if (amountValue > 0) {
+        await setBudget(db, amountValue);
+      }
+      router.back();
+    } catch (error) {
+      console.error('Failed to save budget', error);
+      setSubmitting(false);
+      Alert.alert(t('expense_budget_save_failed'), t('try_again'));
+    }
+  };
+
+  // edges: the native header already covers the top inset.
+  return (
+    <Screen edges={['bottom']}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+        automaticallyAdjustKeyboardInsets>
+        <Section title={t('expense_budget_amount')}>
+          <TextInput
+            value={amount === '' ? '' : formatAmount(amountValue)}
+            onChangeText={(text) => setAmount(normalizeAmount(text))}
+            placeholder="0"
+            placeholderTextColor={colors.textTertiary}
+            keyboardType="number-pad"
+            autoFocus
+            allowFontScaling={false}
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.surfaceAlt,
+                color: colors.textPrimary,
+                borderColor: colors.border,
+              },
+            ]}
+          />
+          <Text variant="caption" color={colors.textSecondary}>
+            {t('expense_budget_period', {
+              period: periodLabel(periodStart, periodEnd, today, locale),
+            })}
+          </Text>
+        </Section>
+
+        <Section title={t('expense_budget_start_day')}>
+          <FlatList
+            horizontal
+            data={DAYS}
+            extraData={startDay}
+            keyExtractor={(day) => String(day)}
+            showsHorizontalScrollIndicator={false}
+            // Every chip is the same size, so the list can jump straight to the selected
+            // day instead of opening on the 1st with the current one off-screen.
+            getItemLayout={(_, index) => ({
+              length: DAY_CHIP_STRIDE,
+              offset: DAY_CHIP_STRIDE * index,
+              index,
+            })}
+            initialScrollIndex={periodStartDay - MIN_PERIOD_START_DAY}
+            // A horizontal list inherits ScrollView's `flexGrow: 1` and would otherwise
+            // split this screen's height with the content below it.
+            style={styles.daysList}
+            contentContainerStyle={styles.days}
+            renderItem={({ item }) => {
+              const isSelected = item === startDay;
+              return (
+                <PressableScale
+                  onPress={() => setStartDay(item)}
+                  // iOS has no radio trait — see color-picker.tsx.
+                  accessibilityRole="button"
+                  accessibilityLabel={t('expense_budget_day', { day: item })}
+                  accessibilityState={{ selected: isSelected }}
+                  style={[
+                    styles.day,
+                    { backgroundColor: isSelected ? colors.accent : colors.surfaceAlt },
+                  ]}>
+                  <Text variant="callout" color={isSelected ? colors.onAccent : colors.textPrimary}>
+                    {item}
+                  </Text>
+                </PressableScale>
+              );
+            }}
+          />
+          <Text variant="caption" color={colors.textSecondary}>
+            {t('expense_budget_start_day_hint')}
+          </Text>
+        </Section>
+
+        <View style={styles.submit}>
+          <Button title={t('save')} onPress={handleSubmit} disabled={!canSave} />
+        </View>
+      </ScrollView>
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  content: {
+    padding: spacing.lg,
+    gap: spacing.xl,
+  },
+  input: {
+    minHeight: minHitSlop,
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.md,
+    textAlign: 'right',
+    // Title type from the tokens, minus its lineHeight: on iOS a TextInput with an
+    // explicit lineHeight clips its own text vertically.
+    fontFamily,
+    fontSize: typography.title1.fontSize,
+    fontWeight: typography.title1.fontWeight,
+  },
+  daysList: {
+    flexGrow: 0,
+    flexShrink: 0,
+  },
+  days: {
+    gap: spacing.sm,
+    alignItems: 'center',
+  },
+  day: {
+    width: DAY_CHIP_SIZE,
+    height: DAY_CHIP_SIZE,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  submit: {
+    marginTop: spacing.md,
+  },
+});

@@ -121,6 +121,51 @@ function RootStack() {
           headerRight: ModalCloseButton,
         }}
       />
+      <Stack.Screen
+        name="expense/new"
+        options={{
+          presentation: 'modal',
+          headerShown: true,
+          title: t('expense_new_title'),
+          headerRight: ModalCloseButton,
+        }}
+      />
+      <Stack.Screen
+        name="expense/[id]"
+        options={{
+          presentation: 'modal',
+          headerShown: true,
+          title: t('expense_edit_title'),
+          headerRight: ModalCloseButton,
+        }}
+      />
+      <Stack.Screen
+        name="expense/budget"
+        options={{
+          presentation: 'modal',
+          headerShown: true,
+          title: t('expense_budget_title'),
+          headerRight: ModalCloseButton,
+        }}
+      />
+      <Stack.Screen
+        name="expense-category/new"
+        options={{
+          presentation: 'modal',
+          headerShown: true,
+          title: t('category_new_title'),
+          headerRight: ModalCloseButton,
+        }}
+      />
+      <Stack.Screen
+        name="expense-category/[id]"
+        options={{
+          presentation: 'modal',
+          headerShown: true,
+          title: t('category_edit_title'),
+          headerRight: ModalCloseButton,
+        }}
+      />
     </Stack>
   );
 }

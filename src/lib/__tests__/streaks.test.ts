@@ -207,10 +207,13 @@ describe('tallyDay', () => {
 });
 
 describe('toHabitSeries', () => {
+  // Built from a local Date rather than written as a UTC literal: the conversion under
+  // test is ISO -> local day, so a fixed 'Z' timestamp lands on the previous day in
+  // western zones and the assertion below would depend on where the test runs.
   const habit = {
     schedule_mask: EVERY_DAY,
     target_per_day: 1,
-    created_at: '2026-08-29T09:00:00.000Z',
+    created_at: new Date(2026, 7, 29, 9, 0).toISOString(),
   };
 
   it('starts the habit on the local day it was created', () => {

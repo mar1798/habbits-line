@@ -12,6 +12,7 @@ import { Text } from '@/components/ui/text';
 import {
   DEFAULT_HABIT_COLOR,
   fontFamily,
+  habitColors,
   minHitSlop,
   radius,
   resolveColorKey,
@@ -110,7 +111,11 @@ export function HabitForm({ initialValues, submitLabel, isEditing, onSubmit }: H
       </Section>
 
       <Section title={t('habit_form_color')}>
-        <ColorPicker value={values.colorKey} onChange={(colorKey) => patch({ colorKey })} />
+        <ColorPicker
+          colors={habitColors}
+          value={values.colorKey}
+          onChange={(colorKey) => patch({ colorKey })}
+        />
       </Section>
 
       <Section title={t('habit_form_weekdays')}>

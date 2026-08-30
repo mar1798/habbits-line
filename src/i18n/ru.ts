@@ -11,16 +11,24 @@ export const ru = {
   delete: 'Удалить',
   close: 'Закрыть',
   try_again: 'Попробуйте ещё раз.',
+  save: 'Сохранить',
+  create: 'Создать',
   empty_no_habits: 'Привычек пока нет',
 
   // Tabs.
   tab_habits: 'Привычки',
+  tab_expenses: 'Траты',
   tab_stats: 'Статистика',
   tab_settings: 'Настройки',
 
   // Modal routes.
   habit_new_title: 'Новая привычка',
   habit_edit_title: 'Изменить привычку',
+  expense_new_title: 'Новая трата',
+  expense_edit_title: 'Изменить трату',
+  expense_budget_title: 'Бюджет',
+  category_new_title: 'Новая категория',
+  category_edit_title: 'Изменить категорию',
 
   // +not-found.
   not_found_title: 'Не найдено',
@@ -74,6 +82,48 @@ export const ru = {
   reminder_denied:
     'Уведомления запрещены в настройках iOS — время сохранится, но напоминание не придёт',
   notification_body: 'Не забудьте отметить привычку сегодня',
+
+  // Expenses screen.
+  expenses_title: 'Траты',
+  expenses_add: 'Добавить трату',
+  expenses_add_action: '+ Добавить трату',
+  expenses_remaining: 'Осталось из {budget}',
+  expenses_overspent: 'Перерасход',
+  expenses_no_budget: 'Бюджет не задан',
+  expenses_set_budget: 'Задать',
+  expenses_open_budget: 'Изменить бюджет периода',
+  expenses_bar_label: 'Потрачено {spent} из {total}',
+  expenses_bar_label_no_budget: 'Потрачено {spent}',
+  expenses_empty_day: 'В этот день трат не было',
+  expense_delete_title: 'Удалить трату?',
+  expense_delete_message: 'Трата будет удалена без возможности восстановления.',
+
+  // Expense form.
+  expense_form_amount: 'Сумма',
+  expense_form_amount_placeholder: '0',
+  expense_form_category: 'Категория',
+  expense_form_category_required: 'Выберите категорию — без неё трату не сохранить',
+  expense_form_save_failed: 'Не удалось сохранить трату',
+  expense_not_found: 'Трата не найдена',
+
+  // Budget modal.
+  expense_budget_amount: 'Бюджет на период',
+  expense_budget_period: 'Период: {period}',
+  expense_budget_start_day: 'День начала периода',
+  expense_budget_start_day_hint:
+    'Период сдвигается целиком. Бюджеты прошлых периодов при этом не теряются.',
+  expense_budget_day: '{day} число',
+  expense_budget_save_failed: 'Не удалось сохранить бюджет',
+
+  // Category form.
+  category_form_name: 'Название',
+  category_form_name_placeholder: 'Например, Кофе',
+  category_form_name_required: 'Введите название — без него категорию не сохранить',
+  category_form_emoji: 'Эмодзи',
+  category_form_color: 'Цвет',
+  category_form_save_failed: 'Не удалось сохранить категорию',
+  category_not_found: 'Категория не найдена',
+  category_add: 'Новая категория',
 
   // Statistics.
   stats_title: 'Статистика',

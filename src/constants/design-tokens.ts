@@ -88,6 +88,81 @@ export function resolveHabitColor(key: string, scheme: 'light' | 'dark'): string
   return habitColors[resolveColorKey(key)][scheme];
 }
 
+export type ExpenseColorKey =
+  | 'violet'
+  | 'indigo'
+  | 'blue'
+  | 'sky'
+  | 'teal'
+  | 'mint'
+  | 'green'
+  | 'olive'
+  | 'amber'
+  | 'orange'
+  | 'coral'
+  | 'rose'
+  | 'pink'
+  | 'plum'
+  | 'brown'
+  | 'slate';
+
+/**
+ * Expense categories get their own sixteen-key palette rather than sharing `habitColors`.
+ * The two are used differently — a habit color is the fill under an `N/M` label, a
+ * category color fills a segment of the period bar and a grid tile — and a shared type
+ * would immediately push all sixteen into the habit picker, where eight are enough and
+ * a row of sixteen stops reading as a scale.
+ *
+ * The first eight keys repeat the habit hex values verbatim: one family of tones across
+ * the whole app is the point, the duplication is deliberate. The eight added here are
+ * intermediate hues, ordered around the wheel so the picker still reads as a scale, with
+ * the two neutrals last.
+ *
+ * Tuned by the same rule as the habit palette — aligned on contrast, not on lightness.
+ * Light variants sit at ~4.85:1 against `onAccent` (a selected tile in the expense modal
+ * is filled with the category color and carries its name on top), dark variants at
+ * ~7:1 against `bg`, above the 6.5:1 floor.
+ */
+export const expenseColors: Record<ExpenseColorKey, { light: string; dark: string }> = {
+  violet: { light: '#6C4DFF', dark: '#9C86FF' },
+  indigo: { light: '#4961E8', dark: '#8093FF' },
+  blue: { light: '#2769DB', dark: '#689CF5' },
+  sky: { light: '#2073B1', dark: '#63B4F0' },
+  teal: { light: '#0E7C70', dark: '#4CD4C0' },
+  mint: { light: '#157E5B', dark: '#29B083' },
+  green: { light: '#327D41', dark: '#6FD186' },
+  olive: { light: '#5C7826', dark: '#81A931' },
+  amber: { light: '#946612', dark: '#F0B64A' },
+  orange: { light: '#AD561B', dark: '#F47928' },
+  coral: { light: '#CB3925', dark: '#FF8875' },
+  rose: { light: '#D02B57', dark: '#F66F93' },
+  pink: { light: '#BA3C94', dark: '#F075C4' },
+  plum: { light: '#B232C6', dark: '#CD7EDA' },
+  brown: { light: '#91654B', dark: '#BC937C' },
+  slate: { light: '#656E8C', dark: '#939BB7' },
+};
+
+export const DEFAULT_EXPENSE_COLOR: ExpenseColorKey = 'violet';
+
+const expenseColorKeys = new Set<string>(Object.keys(expenseColors));
+
+/**
+ * Unknown `color_key` falls back to violet, for the same reason and through the same
+ * key-set lookup as `resolveColorKey` — `expenseColors[key] ?? default` would resolve
+ * an inherited name such as 'constructor' to a prototype member and hand back
+ * `undefined` instead of a color.
+ *
+ * This is also the single place the category form normalizes its value on open, so
+ * saving rewrites a foreign key rather than putting it back into the database.
+ */
+export function resolveExpenseColorKey(key: string): ExpenseColorKey {
+  return expenseColorKeys.has(key) ? (key as ExpenseColorKey) : DEFAULT_EXPENSE_COLOR;
+}
+
+export function resolveExpenseColor(key: string, scheme: 'light' | 'dark'): string {
+  return expenseColors[resolveExpenseColorKey(key)][scheme];
+}
+
 export const fontFamily = Platform.select({ ios: 'ui-rounded', default: undefined });
 
 export const typography = {

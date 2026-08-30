@@ -31,6 +31,11 @@ export default function TabsLayout() {
         />
       </NativeTabs.Trigger>
 
+      <NativeTabs.Trigger name="expenses">
+        <NativeTabs.Trigger.Label>{t('tab_expenses')}</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf={{ default: 'creditcard', selected: 'creditcard.fill' }} />
+      </NativeTabs.Trigger>
+
       <NativeTabs.Trigger name="stats">
         <NativeTabs.Trigger.Label>{t('tab_stats')}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: 'chart.bar', selected: 'chart.bar.fill' }} />

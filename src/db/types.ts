@@ -23,3 +23,29 @@ export interface AppSettingRow {
   key: string;
   value: string;
 }
+
+export interface ExpenseCategoryRow {
+  id: string;
+  name: string;
+  emoji: string;
+  color_key: string;
+  sort_order: number;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExpenseRow {
+  id: string;
+  category_id: string;
+  amount: number;
+  date: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExpenseBudgetRow {
+  period_start: string;
+  amount: number;
+  updated_at: string;
+}

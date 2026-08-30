@@ -1,4 +1,11 @@
-/** Fixed emoji set for the habit picker grid — no free text entry, so every habit's `emoji` is exactly one of these. */
+/**
+ * Fixed emoji set for the picker grid — no free text entry, so every habit's and every
+ * expense category's `emoji` is exactly one of these. The name predates expense
+ * categories; the grid is one set because `emoji-picker.tsx` is shared by both forms.
+ *
+ * The last six were added for the seeded expense categories: an emoji the grid doesn't
+ * hold could not be shown as selected when its category is edited.
+ */
 export const HABIT_EMOJIS = [
   '💪',
   '🏃',
@@ -40,4 +47,10 @@ export const HABIT_EMOJIS = [
   '✅',
   '🐾',
   '📵',
+  '💊',
+  '🏠',
+  '🎬',
+  '🛍️',
+  '🚌',
+  '📦',
 ] as const;

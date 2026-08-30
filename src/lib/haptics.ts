@@ -15,6 +15,8 @@ export const haptics = {
   tick: () => fire(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)),
   /** Cycling a counter back to 0 — deliberately duller than `tick` so it reads as undo. */
   reset: () => fire(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft)),
-  /** A whole day fully completed. */
+  /** A whole day fully completed, or a record saved. */
   success: () => fire(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)),
+  /** Something removed — heavier than `reset`, because deleting an expense is not undoable. */
+  warning: () => fire(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)),
 };

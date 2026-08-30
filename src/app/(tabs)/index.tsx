@@ -3,7 +3,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 
-import { DayStrip } from '@/components/habit/day-strip';
+import { DayStrip } from '@/components/ui/day-strip';
 import { HabitCard } from '@/components/habit/habit-card';
 import { ProgressBar } from '@/components/habit/progress-bar';
 import { EmptyState } from '@/components/ui/empty-state';

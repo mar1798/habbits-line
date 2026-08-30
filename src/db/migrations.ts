@@ -1,6 +1,25 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 1;
+import type { ExpenseColorKey } from '@/constants/design-tokens';
+import { generateId } from '@/lib/id';
+
+const DATABASE_VERSION = 2;
+
+/**
+ * Starter expense categories, written by the v1 -> v2 block. Every emoji here has to be
+ * present in constants/emoji.ts, otherwise the category form could not show the value it
+ * loaded as selected.
+ */
+const SEED_CATEGORIES: { name: string; emoji: string; colorKey: ExpenseColorKey }[] = [
+  { name: 'Здоровье', emoji: '💊', colorKey: 'mint' },
+  { name: 'Досуг', emoji: '🎨', colorKey: 'sky' },
+  { name: 'Дом', emoji: '🏠', colorKey: 'indigo' },
+  { name: 'Еда', emoji: '🍎', colorKey: 'green' },
+  { name: 'Развлечение', emoji: '🎬', colorKey: 'plum' },
+  { name: 'Покупки', emoji: '🛍️', colorKey: 'rose' },
+  { name: 'Транспорт', emoji: '🚌', colorKey: 'amber' },
+  { name: 'Прочее', emoji: '📦', colorKey: 'slate' },
+];
 
 /**
  * PRAGMA foreign_keys is a connection-level setting, not a persisted file setting —
@@ -54,8 +73,65 @@ export async function migrate(db: SQLiteDatabase): Promise<void> {
     currentVersion = 1;
   }
 
-  // v1 -> v2: add the next migration as a new block below this comment.
-  // The block above is shipped — never edit it, only append.
+  if (currentVersion < 2) {
+    // The eight starter categories are seeded here rather than on first render: doing it
+    // at launch would need a "seeded" flag in app_settings and a branch on every start,
+    // while a migration runs exactly once by definition. The consequence is deliberate —
+    // archiving all eight does not bring them back.
+    //
+    // Names are Russian and stay Russian when the app language changes: like habit names,
+    // they are user data, not UI strings.
+    await db.execAsync(`
+      CREATE TABLE expense_categories (
+        id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        emoji TEXT NOT NULL,
+        color_key TEXT NOT NULL,
+        sort_order INTEGER NOT NULL,
+        archived_at TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX idx_expense_categories_active ON expense_categories(archived_at, sort_order);
+
+      CREATE TABLE expenses (
+        id TEXT PRIMARY KEY NOT NULL,
+        category_id TEXT NOT NULL REFERENCES expense_categories(id) ON DELETE RESTRICT,
+        amount INTEGER NOT NULL CHECK (amount > 0),
+        date TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX idx_expenses_date ON expenses(date);
+      CREATE INDEX idx_expenses_category ON expenses(category_id);
+
+      CREATE TABLE expense_budgets (
+        period_start TEXT PRIMARY KEY NOT NULL,
+        amount INTEGER NOT NULL CHECK (amount > 0),
+        updated_at TEXT NOT NULL
+      );
+    `);
+
+    const now = new Date().toISOString();
+    for (const [index, category] of SEED_CATEGORIES.entries()) {
+      await db.runAsync(
+        `INSERT INTO expense_categories
+          (id, name, emoji, color_key, sort_order, archived_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, NULL, ?, ?)`,
+        generateId(),
+        category.name,
+        category.emoji,
+        category.colorKey,
+        index,
+        now,
+        now
+      );
+    }
+    currentVersion = 2;
+  }
+
+  // v2 -> v3: add the next migration as a new block below this comment.
+  // The blocks above are shipped — never edit them, only append.
 
   await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
 }
