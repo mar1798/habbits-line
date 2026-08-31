@@ -71,7 +71,9 @@ export function ExpenseForm({ initialValues, submitLabel, onSubmit }: ExpenseFor
   // deep link — and then the store is empty. Archived categories are loaded too: the
   // grid filters them out itself, and an expense being edited may well sit in one.
   useEffect(() => {
-    loadCategories(db, { includeArchived: true });
+    loadCategories(db, { includeArchived: true }).catch((error) =>
+      console.warn('Failed to load expense categories', error)
+    );
   }, [db, loadCategories]);
 
   /**

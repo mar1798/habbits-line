@@ -86,7 +86,9 @@ export default function ExpensesScreen() {
   };
 
   useEffect(() => {
-    loadCategories(db, { includeArchived: true });
+    loadCategories(db, { includeArchived: true }).catch((error) =>
+      console.warn('Failed to load expense categories', error)
+    );
   }, [db, loadCategories]);
 
   /**

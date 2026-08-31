@@ -131,7 +131,9 @@ export default function SettingsScreen() {
   // scope is preserved by every write-through reload.
   useEffect(() => {
     if (!isFocused) return;
-    loadHabits(db, { includeArchived: true });
+    loadHabits(db, { includeArchived: true }).catch((error) =>
+      console.warn('Failed to load habits', error)
+    );
   }, [db, isFocused, loadHabits]);
 
   /**
