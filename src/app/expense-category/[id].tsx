@@ -25,12 +25,16 @@ export default function EditCategoryScreen() {
    * Same fallback as the habit form: the route can be opened before any list has loaded,
    * and the load widens the scope to archived categories rather than repeating the query
    * that already missed. It runs at most once, so a category that genuinely does not
-   * exist settles on the empty state instead of re-querying on every render.
+   * exist settles on the empty state instead of re-querying on every render, and the
+   * rejection is caught before `finally` so a failed query is not announced as "no such
+   * category" — same reasoning as the habit and expense screens.
    */
   useEffect(() => {
     if (category || lookupStarted.current) return;
     lookupStarted.current = true;
-    loadCategories(db, { includeArchived: true }).finally(() => setLookupDone(true));
+    loadCategories(db, { includeArchived: true })
+      .catch((error) => console.warn('Failed to load the category', error))
+      .finally(() => setLookupDone(true));
   }, [category, db, loadCategories]);
 
   const handleSubmit = async (input: ExpenseCategoryInput) => {

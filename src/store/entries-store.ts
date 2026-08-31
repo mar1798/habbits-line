@@ -6,6 +6,14 @@ import * as entriesRepo from '@/db/entries-repo';
 interface EntriesState {
   /** date -> habitId -> count, for the currently loaded week only. */
   counts: Record<string, Record<string, number>>;
+  /**
+   * The same week exactly as it came out of the database, never patched by a tap. The
+   * "Today" screen lists a habit on a day it predates when that day has progress on it —
+   * read from `counts`, that test flips the moment the count is cycled back to 0, and the
+   * habit vanishes from the day with no way to put the mark back. Read from here it holds
+   * for as long as the week stays loaded.
+   */
+  loadedCounts: Record<string, Record<string, number>>;
   loaded: boolean;
   /** Range of the last loadWeek(), replayed by reload(). */
   range: { from: string; to: string } | null;
@@ -36,16 +44,30 @@ function patch(counts: Counts, date: string, habitId: string, count: number): Co
  */
 export const useEntriesStore = create<EntriesState>((set, get) => ({
   counts: {},
+  loadedCounts: {},
   loaded: false,
   range: null,
 
+  /**
+   * A failed read is reset to the pre-load state rather than left as it lies: the cells
+   * of a week that could not be read would otherwise draw as unmarked, and the next tap
+   * on one would write a 1 over a count that is really there. `loaded` back at false is
+   * what the "Today" screen reads to keep the day non-editable until a read lands.
+   */
   loadWeek: async (db, from, to) => {
-    const rows = await entriesRepo.listEntriesInRange(db, from, to);
-    const counts: Counts = {};
-    for (const row of rows) {
-      (counts[row.date] ??= {})[row.habit_id] = row.count;
+    try {
+      const rows = await entriesRepo.listEntriesInRange(db, from, to);
+      const counts: Counts = {};
+      for (const row of rows) {
+        (counts[row.date] ??= {})[row.habit_id] = row.count;
+      }
+      // Both hold the same object: `patch` never mutates, so every later tap replaces
+      // `counts` and leaves this reference on the week as it was read.
+      set({ counts, loadedCounts: counts, loaded: true, range: { from, to } });
+    } catch (error) {
+      set({ counts: {}, loadedCounts: {}, loaded: false, range: null });
+      throw error;
     }
-    set({ counts, loaded: true, range: { from, to } });
   },
 
   /**
@@ -72,6 +94,12 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
    * is awaited. Deriving it in the component instead loses a tap whenever two presses
    * land inside one pending write: both read the same pre-tap count and the second
    * write repeats the first. On failure the cell rolls back to what it showed before.
+   *
+   * The rollback is conditional and the error is rethrown. Conditional, because a tap
+   * that landed while this write was failing owns the cell now — restoring `previous`
+   * over it would throw away a mark that did save. Rethrown, because a mark that was
+   * shown and then quietly sprang back is the one failure the user has to be told
+   * about; the caller turns it into an alert.
    */
   cycle: async (db, habitId, date, target) => {
     const previous = get().counts[date]?.[habitId] ?? 0;
@@ -81,8 +109,10 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
     try {
       await entriesRepo.setEntryCount(db, habitId, date, next);
     } catch (error) {
-      set((state) => ({ counts: patch(state.counts, date, habitId, previous) }));
-      console.warn('Failed to save entry', error);
+      if ((get().counts[date]?.[habitId] ?? 0) === next) {
+        set((state) => ({ counts: patch(state.counts, date, habitId, previous) }));
+      }
+      throw error;
     }
   },
 }));

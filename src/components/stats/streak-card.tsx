@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
-import { spacing } from '@/constants/design-tokens';
+import { spacing, typography } from '@/constants/design-tokens';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -25,7 +25,9 @@ export function StreakCard({ current, best }: StreakCardProps) {
             {t('streak_current')}
           </Text>
         </View>
-        <Text variant="display">{current}</Text>
+        <View style={styles.value}>
+          <Text variant="display">{current}</Text>
+        </View>
         <Text variant="caption" color={colors.textSecondary}>
           {plural('days', current)}
         </Text>
@@ -37,7 +39,9 @@ export function StreakCard({ current, best }: StreakCardProps) {
             {t('streak_best')}
           </Text>
         </View>
-        <Text variant="title1">{best}</Text>
+        <View style={styles.value}>
+          <Text variant="title1">{best}</Text>
+        </View>
         <Text variant="caption" color={colors.textSecondary}>
           {plural('days', best)}
         </Text>
@@ -53,6 +57,13 @@ const styles = StyleSheet.create({
   stat: {
     flex: 1,
     gap: spacing.xs,
+  },
+  // The two numbers are deliberately different sizes, and left to their own line heights
+  // they put the "days" captions under them on different baselines. A box the height of
+  // the taller one, filled from the bottom, keeps the two columns in step.
+  value: {
+    height: typography.display.lineHeight,
+    justifyContent: 'flex-end',
   },
   divider: {
     borderLeftWidth: StyleSheet.hairlineWidth,

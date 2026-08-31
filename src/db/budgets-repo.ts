@@ -26,6 +26,16 @@ export async function getBudgetFor(
   return resolveBudget(await listBudgets(db), periodStart);
 }
 
+/**
+ * Drops this period's own row, if it has one. It does not mean the period ends up without
+ * a budget: `resolveBudget` then hands it the last amount set before it, exactly as a
+ * period that never had a row of its own. Removing the last row in the table is what
+ * leaves the app with no budget at all.
+ */
+export async function deleteBudget(db: SQLiteDatabase, periodStart: string): Promise<void> {
+  await db.runAsync('DELETE FROM expense_budgets WHERE period_start = ?', periodStart);
+}
+
 /** Writing a budget always writes a row for exactly this period, never for the one it inherited from. */
 export async function setBudget(
   db: SQLiteDatabase,

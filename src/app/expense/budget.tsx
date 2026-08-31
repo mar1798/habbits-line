@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, FlatList, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { periodLabel } from '@/components/expense/balance-card';
@@ -53,33 +53,65 @@ export default function BudgetScreen() {
   const { date } = useLocalSearchParams<{ date?: string }>();
 
   const budget = useExpensesStore((state) => state.budget);
-  const loadPeriod = useExpensesStore((state) => state.loadPeriod);
+  const ensurePeriod = useExpensesStore((state) => state.ensurePeriod);
   const setBudget = useExpensesStore((state) => state.setBudget);
+  const clearBudget = useExpensesStore((state) => state.clearBudget);
   const periodStartDay = useSettingsStore((state) => state.periodStartDay);
   const setPeriodStartDay = useSettingsStore((state) => state.setPeriodStartDay);
 
   const anchorDate = date && isValidDateKey(date) ? date : todayKey();
-  // Prefilled with the amount in force, inherited or not: the common edit is a nudge to
-  // the number already on the card, not typing one from scratch.
-  const [amount, setAmount] = useState(() =>
-    budget === null ? '' : normalizeAmountInput(String(budget))
-  );
+  /** What has been typed, or null while the field is still showing the stored amount. */
+  const [typedAmount, setTypedAmount] = useState<string | null>(null);
   const [startDay, setStartDay] = useState(periodStartDay);
   const [submitting, setSubmitting] = useState(false);
-
-  const amountValue = amount === '' ? 0 : Number(amount);
-  // An empty amount is still savable while the start day has moved: someone who has not
-  // set a budget yet may still want their periods to open on the 6th.
-  const canSave = (amountValue > 0 || startDay !== periodStartDay) && !submitting;
 
   // Follows the day picker live, so the label says which period the amount will land in.
   const periodStart = periodStartFor(anchorDate, startDay);
   const periodEnd = periodEndFor(anchorDate, startDay);
 
   /**
-   * The start day is written first, and the period is then reloaded into the store: the
+   * The store holds the period the expenses tab loaded, and this modal has its own route:
+   * opened by `habbitsline://expense/budget` it mounts with no period at all, so `budget`
+   * is null and the field opened empty on a period that has one. Loading the period the
+   * saved start day describes — not the one the picker is currently showing — is what
+   * gives the field something to show, and the save below then costs no second query.
+   */
+  useEffect(() => {
+    ensurePeriod(
+      db,
+      periodStartFor(anchorDate, periodStartDay),
+      periodEndFor(anchorDate, periodStartDay)
+    ).catch((error) => console.warn('Failed to load the budget period', error));
+  }, [db, ensurePeriod, anchorDate, periodStartDay]);
+
+  /**
+   * Until the field is touched it shows the amount in force, inherited or not: the common
+   * edit is a nudge to the number already on the card, not typing one from scratch. Derived
+   * rather than copied into state by an effect, so an amount that arrives a moment after
+   * the modal opened still lands in an untouched field — and never on top of one being
+   * typed, since the first keystroke gives `typedAmount` a value of its own.
+   */
+  const amount = typedAmount ?? (budget === null ? '' : normalizeAmountInput(String(budget)));
+  const amountValue = amount === '' ? 0 : Number(amount);
+  /** An emptied field with a budget in force means "remove it", and is savable as such. */
+  const clearing = amount === '' && budget !== null;
+  // An empty amount is still savable while the start day has moved: someone who has not
+  // set a budget yet may still want their periods to open on the 6th.
+  const canSave = (amountValue > 0 || clearing || startDay !== periodStartDay) && !submitting;
+
+  /**
+   * The start day is written first, and the period is then loaded into the store: the
    * store writes the budget for the period it currently holds, which is the one computed
    * with the *old* start day until it is told otherwise.
+   *
+   * `ensurePeriod` is called on every save, not only after the start day moved: the day
+   * picker changes which period the amount belongs to, and the store must be holding that
+   * one before it is written. It only queries when the bounds are not the ones already
+   * loaded, so the common save costs nothing extra.
+   *
+   * Writing the prefilled amount again after a start-day change is what keeps the hint
+   * under the picker true: the row it lands on is the new period's, so moving the start
+   * day — in either direction — leaves the period with the budget it had.
    */
   const handleSubmit = async () => {
     if (!canSave) return;
@@ -87,10 +119,12 @@ export default function BudgetScreen() {
     try {
       if (startDay !== periodStartDay) {
         await setPeriodStartDay(db, startDay);
-        await loadPeriod(db, periodStart, periodEnd);
       }
+      await ensurePeriod(db, periodStart, periodEnd);
       if (amountValue > 0) {
         await setBudget(db, amountValue);
+      } else if (clearing) {
+        await clearBudget(db);
       }
       router.back();
     } catch (error) {
@@ -111,7 +145,7 @@ export default function BudgetScreen() {
         <Section title={t('expense_budget_amount')}>
           <TextInput
             value={amount === '' ? '' : formatAmount(amountValue)}
-            onChangeText={(text) => setAmount(normalizeAmountInput(text))}
+            onChangeText={(text) => setTypedAmount(normalizeAmountInput(text))}
             placeholder="0"
             placeholderTextColor={colors.textTertiary}
             keyboardType="number-pad"

@@ -26,9 +26,14 @@ const SEED_CATEGORIES: { name: string; emoji: string; colorKey: ExpenseColorKey 
  * it must run on every open, before checking user_version. Hiding it inside the
  * v0 -> v1 block would make ON DELETE CASCADE silently stop working from the second
  * launch onward, since that block only runs once.
+ *
+ * journal_mode sits here for a different reason: it is persisted, so it would only
+ * ever need to run once, but it cannot run inside a transaction — and every migration
+ * block below is one. Running it on every open is a no-op once WAL is already set.
  */
 export async function migrate(db: SQLiteDatabase): Promise<void> {
   await db.execAsync('PRAGMA foreign_keys = ON;');
+  await db.execAsync('PRAGMA journal_mode = WAL;');
 
   const row = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
   let currentVersion = row?.user_version ?? 0;
@@ -38,38 +43,45 @@ export async function migrate(db: SQLiteDatabase): Promise<void> {
   }
 
   if (currentVersion < 1) {
-    await db.execAsync(`
-      PRAGMA journal_mode = WAL;
+    // One transaction with the version stamp inside it, for the same reason as v1 -> v2
+    // below: applied piecemeal this block bricks the app. A first launch interrupted
+    // between two CREATE TABLEs would leave `habits` in place and `user_version` at 0,
+    // so the next launch re-runs the block, fails on "table habits already exists", and
+    // stops at the database provider's error screen — whose only way out is reinstalling.
+    await db.withTransactionAsync(async () => {
+      await db.execAsync(`
+        CREATE TABLE habits (
+          id TEXT PRIMARY KEY NOT NULL,
+          name TEXT NOT NULL,
+          emoji TEXT NOT NULL,
+          color_key TEXT NOT NULL,
+          target_per_day INTEGER NOT NULL DEFAULT 1 CHECK (target_per_day >= 1),
+          schedule_mask INTEGER NOT NULL DEFAULT 127 CHECK (schedule_mask > 0 AND schedule_mask <= 127),
+          reminder_time TEXT,
+          sort_order INTEGER NOT NULL,
+          archived_at TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+        CREATE INDEX idx_habits_active ON habits(archived_at, sort_order);
 
-      CREATE TABLE habits (
-        id TEXT PRIMARY KEY NOT NULL,
-        name TEXT NOT NULL,
-        emoji TEXT NOT NULL,
-        color_key TEXT NOT NULL,
-        target_per_day INTEGER NOT NULL DEFAULT 1 CHECK (target_per_day >= 1),
-        schedule_mask INTEGER NOT NULL DEFAULT 127 CHECK (schedule_mask > 0 AND schedule_mask <= 127),
-        reminder_time TEXT,
-        sort_order INTEGER NOT NULL,
-        archived_at TEXT,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      );
-      CREATE INDEX idx_habits_active ON habits(archived_at, sort_order);
+        CREATE TABLE entries (
+          habit_id TEXT NOT NULL REFERENCES habits(id) ON DELETE CASCADE,
+          date TEXT NOT NULL,
+          count INTEGER NOT NULL CHECK (count > 0),
+          updated_at TEXT NOT NULL,
+          PRIMARY KEY (habit_id, date)
+        );
+        CREATE INDEX idx_entries_date ON entries(date);
 
-      CREATE TABLE entries (
-        habit_id TEXT NOT NULL REFERENCES habits(id) ON DELETE CASCADE,
-        date TEXT NOT NULL,
-        count INTEGER NOT NULL CHECK (count > 0),
-        updated_at TEXT NOT NULL,
-        PRIMARY KEY (habit_id, date)
-      );
-      CREATE INDEX idx_entries_date ON entries(date);
+        CREATE TABLE app_settings (
+          key TEXT PRIMARY KEY NOT NULL,
+          value TEXT NOT NULL
+        );
+      `);
 
-      CREATE TABLE app_settings (
-        key TEXT PRIMARY KEY NOT NULL,
-        value TEXT NOT NULL
-      );
-    `);
+      await db.execAsync('PRAGMA user_version = 1');
+    });
     currentVersion = 1;
   }
 
@@ -142,7 +154,8 @@ export async function migrate(db: SQLiteDatabase): Promise<void> {
   }
 
   // v2 -> v3: add the next migration as a new block below this comment, wrapped in
-  // `withTransactionAsync` and bumping `user_version` inside it, the way v1 -> v2 is.
+  // `withTransactionAsync` and bumping `user_version` inside it, the way both blocks
+  // above do.
   // The blocks above are shipped — never edit them, only append.
 
   await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);

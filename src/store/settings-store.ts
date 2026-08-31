@@ -36,7 +36,7 @@ interface SettingsState {
  * one is read once at launch: nothing else writes the rows, so there is no reload to
  * write through to.
  */
-export const useSettingsStore = create<SettingsState>((set) => ({
+export const useSettingsStore = create<SettingsState>((set, get) => ({
   themeMode: 'system',
   language: DEFAULT_LANGUAGE,
   periodStartDay: DEFAULT_PERIOD_START_DAY,
@@ -91,16 +91,29 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   /**
    * The start day is not versioned, exactly like a habit's schedule and target: moving it
    * recomputes the boundaries of the whole history. Budget rows whose `period_start` no
-   * longer opens a period are neither deleted nor shown, but they are not lost either —
-   * inheritance finds them, because it looks for the last row *before* a period rather
-   * than an exact match.
+   * longer opens a period are neither deleted nor shown; a later period still inherits
+   * them, since inheritance looks for the last row *before* a period rather than an exact
+   * match, and the current period gets its amount rewritten at its new start by the modal
+   * that moved the day — see `resolveBudget` and `budget.tsx`.
    *
    * Clamped on the way in as well as on the way out: 1..28 is a rule of the period
    * arithmetic, not of the picker that happens to be the only caller today.
+   *
+   * Applied before the write like the two above, but rolled back if the write fails —
+   * and unlike a theme, this one moves every period boundary in the app. Left applied
+   * over a failed write it would show budgets and totals for periods the database knows
+   * nothing about, until a restart quietly put them all back.
    */
   setPeriodStartDay: async (db, day) => {
     const clamped = clampPeriodStartDay(day);
+    const previous = get().periodStartDay;
     set({ periodStartDay: clamped });
-    await settingsRepo.setSetting(db, PERIOD_START_DAY_KEY, String(clamped));
+
+    try {
+      await settingsRepo.setSetting(db, PERIOD_START_DAY_KEY, String(clamped));
+    } catch (error) {
+      set({ periodStartDay: previous });
+      throw error;
+    }
   },
 }));

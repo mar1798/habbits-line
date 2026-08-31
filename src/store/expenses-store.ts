@@ -21,6 +21,7 @@ interface ExpensesState {
   update: (db: SQLiteDatabase, id: string, input: expensesRepo.ExpenseInput) => Promise<void>;
   remove: (db: SQLiteDatabase, id: string) => Promise<void>;
   setBudget: (db: SQLiteDatabase, amount: number) => Promise<void>;
+  clearBudget: (db: SQLiteDatabase) => Promise<void>;
 }
 
 /** Same order the repo reads in: newest day first, and within a day the latest entry first. */
@@ -157,11 +158,35 @@ export const useExpensesStore = create<ExpensesState>((set, get) => ({
    * Writes a budget for exactly the loaded period, never for the one it may have inherited
    * from. Not optimistic: the amount comes from a modal that closes on save, so there is no
    * finger waiting on the number, and a rollback would repaint a screen already gone.
+   *
+   * With no period loaded there is nothing to write it for, and that throws rather than
+   * returning quietly. A silent return is indistinguishable from a save at the call site:
+   * the modal would close on its own success path and the budget would simply not exist.
+   * Callers that can reach this state — the budget modal opened by a deep link, without
+   * the expenses tab ever loading — must call `ensurePeriod` first.
    */
   setBudget: async (db, amount) => {
     const period = get().period;
-    if (!period) return;
+    if (!period) {
+      throw new Error('Cannot set a budget: no expense period is loaded');
+    }
     await budgetsRepo.setBudget(db, period.start, amount);
     set({ budget: amount });
+  },
+
+  /**
+   * Removes the loaded period's own budget row — what an emptied amount field means.
+   *
+   * The new amount is re-read rather than assumed to be null: the period may still
+   * inherit the last budget set before it, and pretending otherwise would show a card the
+   * next load contradicts. Same "no period loaded" rule as `setBudget`.
+   */
+  clearBudget: async (db) => {
+    const period = get().period;
+    if (!period) {
+      throw new Error('Cannot clear a budget: no expense period is loaded');
+    }
+    await budgetsRepo.deleteBudget(db, period.start);
+    set({ budget: await budgetsRepo.getBudgetFor(db, period.start) });
   },
 }));

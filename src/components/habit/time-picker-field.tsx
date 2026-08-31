@@ -1,5 +1,5 @@
 import { DatePicker, Host } from '@expo/ui/swift-ui';
-import { datePickerStyle, frame } from '@expo/ui/swift-ui/modifiers';
+import { background, datePickerStyle } from '@expo/ui/swift-ui/modifiers';
 import { useState } from 'react';
 import { Linking, Switch, StyleSheet, View } from 'react-native';
 
@@ -14,11 +14,14 @@ import { useNotificationPermissionStatus } from '@/lib/notifications';
 const DEFAULT_REMINDER_TIME = '09:00';
 
 /**
- * Height of the compact date picker. A UISwitch is a fixed 31pt tall and cannot be
- * resized, so the picker is pinned to match it — left to its intrinsic size it sits a
- * few points taller than the switch and the two controls read as mismatched.
+ * The compact picker paints its capsule roughly 14pt above the frame SwiftUI lays out
+ * for it, so the time read as floating above the row while the switch stayed centred,
+ * and the top half of the capsule fell outside the host's tappable box. A background
+ * pins the drawing back inside that frame; pinning the host's height instead does not,
+ * because the overflow is in the drawing, not in the measurement. The colour is fully
+ * transparent — this buys layout, nothing else.
  */
-const CONTROL_HEIGHT = 31;
+const PICKER_BACKGROUND = '#00000000';
 
 /** The link's text alone is well under 44pt; hitSlop tops the target up to size. */
 const SETTINGS_LINK_HIT_SLOP = { top: 14, bottom: 14, left: 12, right: 12 };
@@ -77,16 +80,12 @@ export function TimePickerField({ value, onChange }: TimePickerFieldProps) {
             form.
           */}
           {enabled ? (
-            <Host
-              matchContents
-              style={styles.picker}
-              colorScheme={scheme}
-              seedColor={colors.accent}>
+            <Host matchContents colorScheme={scheme} seedColor={colors.accent}>
               <DatePicker
                 selection={timeToDate(value)}
                 displayedComponents={['hourAndMinute']}
                 onDateChange={handleTimeChange}
-                modifiers={[datePickerStyle('compact'), frame({ height: CONTROL_HEIGHT })]}
+                modifiers={[datePickerStyle('compact'), background(PICKER_BACKGROUND)]}
               />
             </Host>
           ) : null}
@@ -139,11 +138,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-  },
-  // The SwiftUI host measures its own content; without a matching height the row would
-  // still be laid out around the picker's intrinsic one.
-  picker: {
-    height: CONTROL_HEIGHT,
   },
   warning: {
     flexDirection: 'row',

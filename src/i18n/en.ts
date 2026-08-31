@@ -37,6 +37,7 @@ export const en: Record<keyof typeof ru, string> = {
   today_empty_subtitle: 'Tap “+” to add your first habit',
   today_nothing_title: 'Nothing is scheduled for this day',
   today_nothing_subtitle: 'Pick another day or change the habit’s schedule',
+  today_mark_failed: 'Could not save the mark',
 
   day_strip_prev_week: 'Previous week',
   day_strip_next_week: 'Next week',
@@ -118,6 +119,9 @@ export const en: Record<keyof typeof ru, string> = {
   stats_empty_subtitle: 'Statistics appear once you start marking habits',
   stats_all: 'All',
   stats_last_3_months: 'Last 3 months',
+  stats_heatmap_month: '{month}: {closed} of {scheduled} scheduled days closed',
+  stats_heatmap_month_empty: '{month}: no scheduled days',
+  rate_no_scheduled: 'Not scheduled',
   streak_current: 'Current streak',
   streak_best: 'Best',
   rate_7_days: 'Last 7 days',
@@ -174,7 +178,7 @@ export const en: Record<keyof typeof ru, string> = {
   settings_import_done_message: 'Your data has been restored from the file.',
   settings_import_confirm_title: 'Import data',
   settings_import_confirm_message:
-    'The current habits and marks will be deleted and replaced with the contents of the file. This cannot be undone.',
+    'The current habits, marks and expenses will be deleted and replaced with the contents of the file. This cannot be undone.',
   settings_import_confirm_action: 'Import',
   settings_picker_failed: 'Could not open the file',
 
@@ -184,6 +188,8 @@ export const en: Record<keyof typeof ru, string> = {
   backup_error_unsupported_version:
     'The file is saved in format version {version}; this app reads up to {supported}',
   backup_error_orphan_entries: 'The file is damaged: it has marks for a habit that does not exist',
+  backup_error_orphan_expenses:
+    'The file is damaged: it has expenses for a category that does not exist',
 
   db_render_error_title: 'Something went wrong',
   db_render_error_subtitle: 'Restart the app — your saved data stays where it is.',

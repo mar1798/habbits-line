@@ -43,6 +43,7 @@ export const ru = {
   today_empty_subtitle: 'Нажмите «+», чтобы добавить первую привычку',
   today_nothing_title: 'На этот день ничего не запланировано',
   today_nothing_subtitle: 'Выберите другой день или измените расписание привычки',
+  today_mark_failed: 'Не удалось сохранить отметку',
 
   // Day strip.
   day_strip_prev_week: 'Предыдущая неделя',
@@ -133,6 +134,11 @@ export const ru = {
   stats_empty_subtitle: 'Статистика появится, когда вы начнёте отмечать привычки',
   stats_all: 'Все',
   stats_last_3_months: 'Последние 3 месяца',
+  // Read out instead of the month's grid of squares: the cells carry their meaning in
+  // colour alone, which VoiceOver has no way to convey.
+  stats_heatmap_month: '{month}: закрыто {closed} из {scheduled} запланированных дней',
+  stats_heatmap_month_empty: '{month}: запланированных дней нет',
+  rate_no_scheduled: 'Не запланировано',
   streak_current: 'Текущий стрик',
   streak_best: 'Лучший',
   rate_7_days: 'За 7 дней',
@@ -192,7 +198,7 @@ export const ru = {
   settings_import_done_message: 'Данные восстановлены из файла.',
   settings_import_confirm_title: 'Импорт данных',
   settings_import_confirm_message:
-    'Текущие привычки и записи будут удалены и заменены содержимым файла. Это необратимо.',
+    'Текущие привычки, отметки и расходы будут удалены и заменены содержимым файла. Это необратимо.',
   settings_import_confirm_action: 'Импортировать',
   settings_picker_failed: 'Не удалось открыть файл',
 
@@ -203,6 +209,7 @@ export const ru = {
   backup_error_unsupported_version:
     'Файл сохранён в формате версии {version}, это приложение читает до {supported}',
   backup_error_orphan_entries: 'Файл повреждён: есть записи для несуществующей привычки',
+  backup_error_orphan_expenses: 'Файл повреждён: есть расходы для несуществующей категории',
 
   // Database provider — the screens behind a database that cannot be opened.
   db_render_error_title: 'Что-то пошло не так',

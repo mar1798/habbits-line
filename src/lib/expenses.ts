@@ -27,9 +27,13 @@ export interface BudgetItem {
  * would have nowhere to run. It only looks backwards: a period *before* the first budget
  * was ever set has none, and that is correct — back then it really was not set.
  *
- * This is also why changing the period start day loses nothing. Old rows stop matching
- * the start of any period, but the search is for the last row *before* the period rather
- * than an exact match, so they are still picked up.
+ * Looking only backwards is also why moving the period start day is not handled here.
+ * Moved forward, the period's new start is after the old row and inherits it; moved back,
+ * the new start is *before* it and would inherit an older amount or none — so the budget
+ * modal rewrites the amount for the new period start as part of the same save. Doing it
+ * here instead would mean guessing which of the rows around a period was written for
+ * "this" one, and would hand a period that genuinely predates every budget a budget it
+ * never had.
  */
 export function resolveBudget(budgets: BudgetItem[], periodStart: string): number | null {
   let inherited: BudgetItem | null = null;

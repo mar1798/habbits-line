@@ -29,11 +29,17 @@ export default function EditHabitScreen() {
    *
    * Runs at most once, so a habit that genuinely does not exist settles on the empty
    * state instead of re-querying on every render.
+   *
+   * The rejection is caught before `finally`, the way expense/[id].tsx does it: without
+   * the catch a failed query leaves an unhandled rejection in Metro *and* is announced to
+   * the user as "no such habit", which is a different thing entirely.
    */
   useEffect(() => {
     if (habit || lookupStarted.current) return;
     lookupStarted.current = true;
-    loadHabits(db, { includeArchived: true }).finally(() => setLookupDone(true));
+    loadHabits(db, { includeArchived: true })
+      .catch((error) => console.warn('Failed to load the habit', error))
+      .finally(() => setLookupDone(true));
   }, [db, habit, loadHabits]);
 
   const handleSubmit = async (input: HabitInput) => {

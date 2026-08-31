@@ -233,11 +233,16 @@ type Delta =
  * The change against the previous period. A previous period of zero has no percentage to
  * take — "infinitely more" says nothing — so it is named rather than computed. Rounding
  * to whole percents keeps the line short; the two sums are right above it either way.
+ *
+ * "The same" means equal sums and nothing else. A rounded 0% used to claim it for any
+ * difference under half a percent, which on a six-figure period is a few thousand — and
+ * both sums sit right above the line, visibly different. Anything smaller than a percent
+ * is shown as one, in the direction it actually moved.
  */
 function describeDelta(current: number, previous: number): Delta {
   if (previous === 0) return { kind: 'new', percent: 0 };
-  const percent = Math.round((Math.abs(current - previous) / previous) * 100);
-  if (percent === 0) return { kind: 'same', percent: 0 };
+  if (current === previous) return { kind: 'same', percent: 0 };
+  const percent = Math.max(1, Math.round((Math.abs(current - previous) / previous) * 100));
   return { kind: current > previous ? 'up' : 'down', percent };
 }
 

@@ -152,7 +152,9 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    paddingHorizontal: spacing.md,
+    // Same gutter as the nav above it and the cards below: at spacing.md the tinted cell
+    // of the selected day stuck out of the screen's margin by 4pt.
+    paddingHorizontal: spacing.lg,
     gap: spacing.xs,
   },
   cell: {

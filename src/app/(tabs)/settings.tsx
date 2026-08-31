@@ -39,6 +39,7 @@ import {
 } from '@/lib/notifications';
 import { useEntriesStore } from '@/store/entries-store';
 import { useExpenseCategoriesStore } from '@/store/expense-categories-store';
+import { useExpensesStore } from '@/store/expenses-store';
 import { useHabitsStore } from '@/store/habits-store';
 import { type ThemeMode, useSettingsStore } from '@/store/settings-store';
 
@@ -72,6 +73,8 @@ function backupErrorKey(error: unknown): MessageKey {
       return 'backup_error_unsupported_version';
     case 'orphan_entries':
       return 'backup_error_orphan_entries';
+    case 'orphan_expenses':
+      return 'backup_error_orphan_expenses';
   }
 }
 
@@ -106,6 +109,7 @@ export default function SettingsScreen() {
   const removeHabit = useHabitsStore((state) => state.remove);
   const reorderHabits = useHabitsStore((state) => state.reorder);
   const reloadEntries = useEntriesStore((state) => state.reload);
+  const reloadExpenses = useExpensesStore((state) => state.reload);
   const categories = useExpenseCategoriesStore((state) => state.categories);
   const loadCategories = useExpenseCategoriesStore((state) => state.load);
   const archiveCategory = useExpenseCategoriesStore((state) => state.archive);
@@ -115,6 +119,7 @@ export default function SettingsScreen() {
   const setThemeMode = useSettingsStore((state) => state.setThemeMode);
   const language = useSettingsStore((state) => state.language);
   const setLanguage = useSettingsStore((state) => state.setLanguage);
+  const loadSettings = useSettingsStore((state) => state.load);
 
   // Includes archived habits — the only screen that needs the full list, so the
   // scope lives on the shared store rather than a local query. That also fixes
@@ -306,19 +311,26 @@ export default function SettingsScreen() {
   };
 
   /**
-   * Both stores are reloaded by hand, and so is the schedule: an import writes straight
+   * Every store is reloaded by hand, and so is the schedule: an import writes straight
    * to SQL, bypassing the repo mutations that the store actions wrap, so none of the
    * write-through reloads or the reminder recompute that normally follow a mutation
    * happen on their own. The entries store matters as much as the habits one — the
    * "Today" tab stays mounted and would keep displaying the marks of the replaced data
-   * until its week changed.
+   * until its week changed — and from backup v2 on the same is true of the expense
+   * tables, which a v2 file replaces as well.
+   *
+   * Preferences are re-read first: a file that carries them may switch the language, and
+   * the reminder recompute at the end bakes the current one into every notification body.
    */
   const performImport = async (uri: string) => {
     setBusy('import');
     try {
       await importBackupAsync(db, uri);
+      await loadSettings(db);
       await loadHabits(db, { includeArchived: true });
       await reloadEntries(db);
+      await loadCategories(db, { includeArchived: true });
+      await reloadExpenses(db);
       await scheduleAllReminders(db, { requestPermission: true }).catch((error) => {
         console.error('Failed to reschedule reminders after import', error);
       });

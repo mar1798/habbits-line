@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
+import { Alert, FlatList, StyleSheet, View } from 'react-native';
 
 import { DayStrip } from '@/components/ui/day-strip';
 import { HabitCard } from '@/components/habit/habit-card';
@@ -39,6 +39,8 @@ export default function TodayScreen() {
   const archiveHabit = useHabitsStore((state) => state.archive);
 
   const counts = useEntriesStore((state) => state.counts);
+  const loadedCounts = useEntriesStore((state) => state.loadedCounts);
+  const entriesLoaded = useEntriesStore((state) => state.loaded);
   const loadWeek = useEntriesStore((state) => state.loadWeek);
   const cycleCount = useEntriesStore((state) => state.cycle);
 
@@ -90,12 +92,15 @@ export default function TodayScreen() {
     setSelectedDate(target > today ? today : target);
   };
 
+  // Both reads are caught rather than left floating: an unhandled rejection surfaces as
+  // a Metro warning, and the screen has somewhere better to put the failure — an empty
+  // habit list, and a week the entries store has put back to "not loaded".
   useEffect(() => {
-    loadHabits(db);
+    loadHabits(db).catch((error) => console.warn('Failed to load habits', error));
   }, [db, loadHabits]);
 
   useEffect(() => {
-    loadWeek(db, week[0], week[6]);
+    loadWeek(db, week[0], week[6]).catch((error) => console.warn('Failed to load the week', error));
   }, [db, loadWeek, week]);
 
   // Settings loads this same store with archived habits included (needed so editing
@@ -103,6 +108,7 @@ export default function TodayScreen() {
   const activeHabits = useMemo(() => habits.filter((habit) => !habit.archived_at), [habits]);
 
   const dayCounts = counts[selectedDate] ?? NO_COUNTS;
+  const loadedDayCounts = loadedCounts[selectedDate] ?? NO_COUNTS;
 
   const scheduledHabits = useMemo(
     () =>
@@ -112,12 +118,19 @@ export default function TodayScreen() {
         // days it wasn't around for, where it could only ever read as missed. A day it
         // already has progress on stays visible either way — a past day marked through
         // the strip before, or an imported history, is still its own.
+        //
+        // The progress is read from the week as it was loaded, not from the live counts:
+        // cycling such a day back to 0 deletes its row, and a live read would drop the
+        // habit off the day on that very tap, leaving no way to put the mark back.
         const created = timestampDateKey(habit.created_at);
-        return created === null || created <= selectedDate || (dayCounts[habit.id] ?? 0) > 0;
+        return created === null || created <= selectedDate || (loadedDayCounts[habit.id] ?? 0) > 0;
       }),
-    [activeHabits, selectedDate, dayCounts]
+    [activeHabits, selectedDate, loadedDayCounts]
   );
-  const isEditable = selectedDate <= today;
+  // Nothing is marked before the week has actually been read. A failed read leaves the
+  // cells at 0, and a tap on one would write a 1 straight over the count that is really
+  // in the database.
+  const isEditable = selectedDate <= today && entriesLoaded;
 
   const dayProgress = scheduledHabits.length
     ? scheduledHabits.reduce((sum, habit) => {
@@ -148,7 +161,13 @@ export default function TodayScreen() {
    */
   const handleToggle = (habit: HabitRow) => {
     const before = useEntriesStore.getState().counts[selectedDate];
-    void cycleCount(db, habit.id, selectedDate, habit.target_per_day);
+    // The optimistic patch has already landed by the time this returns; only the write
+    // is still in flight. Its failure rolls the cell back, and the alert is what keeps
+    // that from reading as the number having jumped back on its own.
+    cycleCount(db, habit.id, selectedDate, habit.target_per_day).catch((error) => {
+      console.warn('Failed to save entry', error);
+      Alert.alert(t('today_mark_failed'), t('try_again'));
+    });
     const after = useEntriesStore.getState().counts[selectedDate];
 
     if (!isDayComplete(before) && isDayComplete(after)) {
@@ -194,6 +213,9 @@ export default function TodayScreen() {
       {scheduledHabits.length > 0 ? (
         <View
           style={styles.progress}
+          // Without `accessible` a View is not an element of its own: iOS would export the
+          // "0%" label inside it and drop the role and the value set here.
+          accessible
           accessibilityRole="progressbar"
           accessibilityLabel={t('today_day_progress')}
           accessibilityValue={{ min: 0, max: 100, now: dayPercent }}

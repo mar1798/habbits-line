@@ -36,8 +36,14 @@ describe('formatAmount', () => {
 describe('normalizeAmountInput', () => {
   it('keeps digits and drops everything else', () => {
     expect(normalizeAmountInput('1234')).toBe('1234');
-    expect(normalizeAmountInput('1 2a3,4-')).toBe('1234');
+    expect(normalizeAmountInput('1 2a3-')).toBe('123');
     expect(normalizeAmountInput('abc')).toBe('');
+  });
+
+  it('truncates a pasted fraction instead of gluing it onto the whole part', () => {
+    expect(normalizeAmountInput('12.50')).toBe('12');
+    expect(normalizeAmountInput('1 250,50')).toBe('1250');
+    expect(normalizeAmountInput('0.99')).toBe('');
   });
 
   it('eats leading zeros', () => {

@@ -25,15 +25,18 @@ import { useExpenseCategoriesStore } from '@/store/expense-categories-store';
 import { useExpensesStore } from '@/store/expenses-store';
 import { useSettingsStore } from '@/store/settings-store';
 
+/** Stable identity for "the store isn't holding this period yet" — see `loaded` below. */
+const NO_EXPENSES: ExpenseRowData[] = [];
+
 export default function ExpensesScreen() {
   const db = useSQLiteContext();
   const { scheme } = useTheme();
   const { t } = useI18n();
   const isFocused = useIsFocused();
 
-  const expenses = useExpensesStore((state) => state.expenses);
-  const budget = useExpensesStore((state) => state.budget);
-  const loaded = useExpensesStore((state) => state.loaded);
+  const loadedExpenses = useExpensesStore((state) => state.expenses);
+  const loadedBudget = useExpensesStore((state) => state.budget);
+  const loadedPeriod = useExpensesStore((state) => state.period);
   const ensurePeriod = useExpensesStore((state) => state.ensurePeriod);
   const removeExpense = useExpensesStore((state) => state.remove);
 
@@ -106,6 +109,17 @@ export default function ExpensesScreen() {
   const periodStart = periodStartFor(selectedDate, periodStartDay);
   const periodEnd = periodEndFor(selectedDate, periodStartDay);
 
+  /**
+   * The dates above are recomputed synchronously from `selectedDate`; the store still
+   * holds the period the strip just left until `ensurePeriod` lands. Reading its money
+   * in the meantime puts last period's totals under this period's heading — a frame of
+   * it when the load is quick, and permanently when the load fails, since its rejection
+   * is only logged. So nothing from the store is read until it is holding this period.
+   */
+  const loaded = loadedPeriod?.start === periodStart && loadedPeriod.end === periodEnd;
+  const expenses = loaded ? loadedExpenses : NO_EXPENSES;
+  const budget = loaded ? loadedBudget : null;
+
   const spent = useMemo(() => sumAmounts(expenses), [expenses]);
   const total = barTotal(budget, spent);
 
@@ -159,18 +173,28 @@ export default function ExpensesScreen() {
         contentContainerStyle={styles.list}
         ListHeaderComponent={
           <View style={styles.header}>
-            <View style={styles.headerBlock}>
-              <View style={styles.titleRow}>
-                <Text variant="title1">{t('expenses_title')}</Text>
-                <IconButton
-                  name="plus"
-                  compact
-                  accessibilityLabel={t('expenses_add')}
-                  disabled={!canAdd}
-                  onPress={openNewExpense}
-                />
-              </View>
+            <View style={styles.titleRow}>
+              <Text variant="title1">{t('expenses_title')}</Text>
+              <IconButton
+                name="plus"
+                compact
+                accessibilityLabel={t('expenses_add')}
+                disabled={!canAdd}
+                onPress={openNewExpense}
+              />
+            </View>
 
+            <DayStrip
+              dates={week}
+              selectedDate={selectedDate}
+              todayDate={today}
+              onSelect={setSelectedDate}
+              onPreviousWeek={() => goToWeek(-1)}
+              onNextWeek={() => goToWeek(1)}
+              canGoNext={canGoNext}
+            />
+
+            <View style={styles.headerBlock}>
               <BalanceCard
                 budget={budget}
                 spent={spent}
@@ -201,16 +225,6 @@ export default function ExpensesScreen() {
                 disabled={!canAdd}
               />
             </View>
-
-            <DayStrip
-              dates={week}
-              selectedDate={selectedDate}
-              todayDate={today}
-              onSelect={setSelectedDate}
-              onPreviousWeek={() => goToWeek(-1)}
-              onNextWeek={() => goToWeek(1)}
-              canGoNext={canGoNext}
-            />
           </View>
         }
         ListEmptyComponent={
@@ -239,20 +253,24 @@ export default function ExpensesScreen() {
 
 const styles = StyleSheet.create({
   header: {
-    gap: spacing.md,
     paddingBottom: spacing.md,
   },
-  // The day strip pads itself, so the padding belongs to the block above it rather than
-  // to the header as a whole.
-  headerBlock: {
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-  },
+  // The title row and the block under the strip pad themselves, so that the strip lands
+  // at the same height as on the "Today" screen — the day cells of both tabs line up.
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    // The strip's week arrows sit directly under the "+" button; without this they
+    // touch it and the two rows of controls read as one crowded block.
+    paddingBottom: spacing.md,
+  },
+  headerBlock: {
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
   },
   list: {
     gap: spacing.sm,

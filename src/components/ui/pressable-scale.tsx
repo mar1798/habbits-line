@@ -11,6 +11,9 @@ import { motion } from '@/constants/design-tokens';
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const pressSpring = { ...motion.spring.press, reduceMotion: ReduceMotion.System };
 
+/** Exported so a caller that runs the press on its own layer scales by the same amount. */
+export const PRESS_SCALE = 0.96;
+
 export type PressableScaleProps = Omit<PressableProps, 'style'> & {
   style?: StyleProp<ViewStyle>;
   scaleTo?: number;
@@ -18,7 +21,7 @@ export type PressableScaleProps = Omit<PressableProps, 'style'> & {
 
 export function PressableScale({
   style,
-  scaleTo = 0.96,
+  scaleTo = PRESS_SCALE,
   onPressIn,
   onPressOut,
   ...rest

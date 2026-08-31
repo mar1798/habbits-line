@@ -104,12 +104,16 @@ export async function deleteHabit(db: SQLiteDatabase, id: string): Promise<void>
  * Rewrites `sort_order` for exactly the given ids, in one transaction, to their
  * position in `orderedIds`. Ids not included (e.g. archived habits sitting between
  * active ones) keep their old value — callers only ever reorder within one group.
+ *
+ * Exclusive, like the import: `withTransactionAsync` does not keep other awaited queries
+ * on the same connection from interleaving with these updates, and a create or an archive
+ * landing between two of them renumbers rows this loop is about to renumber again.
  */
 export async function reorderHabits(db: SQLiteDatabase, orderedIds: string[]): Promise<void> {
   const now = new Date().toISOString();
-  await db.withTransactionAsync(async () => {
+  await db.withExclusiveTransactionAsync(async (txn) => {
     for (let index = 0; index < orderedIds.length; index++) {
-      await db.runAsync(
+      await txn.runAsync(
         'UPDATE habits SET sort_order = ?, updated_at = ? WHERE id = ?',
         index,
         now,

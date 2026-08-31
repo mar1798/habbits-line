@@ -12,14 +12,15 @@ import {
 const MON_WED_FRI = daysToMask([0, 2, 4]);
 const EVERY_DAY = daysToMask([0, 1, 2, 3, 4, 5, 6]);
 
-/** One habit's series, started long before every date these tests use. */
+/** One habit's series, started long before every date these tests use and still active. */
 function series(
   counts: Record<string, number>,
   scheduleMask: number,
   targetPerDay = 1,
-  startDate = '2000-01-01'
+  startDate = '2000-01-01',
+  endDate: string | null = null
 ): HabitSeries[] {
-  return [{ counts, scheduleMask, targetPerDay, startDate }];
+  return [{ counts, scheduleMask, targetPerDay, startDate, endDate }];
 }
 
 describe('dayCompletionRatio', () => {
@@ -105,8 +106,8 @@ describe('computeStreaks', () => {
 
 describe('computeStreaks over several habits', () => {
   const both: HabitSeries[] = [
-    { counts: { '2026-08-24': 1, '2026-08-25': 1 }, scheduleMask: EVERY_DAY, targetPerDay: 1, startDate: '2026-08-24' },
-    { counts: { '2026-08-24': 1 }, scheduleMask: EVERY_DAY, targetPerDay: 1, startDate: '2026-08-24' },
+    { counts: { '2026-08-24': 1, '2026-08-25': 1 }, scheduleMask: EVERY_DAY, targetPerDay: 1, startDate: '2026-08-24', endDate: null },
+    { counts: { '2026-08-24': 1 }, scheduleMask: EVERY_DAY, targetPerDay: 1, startDate: '2026-08-24', endDate: null },
   ];
 
   it('counts a day only when every habit scheduled on it is closed', () => {
@@ -120,7 +121,7 @@ describe('computeStreaks over several habits', () => {
   it('a habit that had not started yet cannot break the day', () => {
     const later: HabitSeries[] = [
       both[0],
-      { counts: {}, scheduleMask: EVERY_DAY, targetPerDay: 1, startDate: '2026-08-26' },
+      { counts: {}, scheduleMask: EVERY_DAY, targetPerDay: 1, startDate: '2026-08-26', endDate: null },
     ];
     const { best } = computeStreaks(later, '2026-08-25');
     expect(best).toBe(2);
@@ -147,11 +148,11 @@ describe('computeCompletionRate', () => {
     expect(rate).toBeCloseTo(2 / 3);
   });
 
-  it('is 0 when the window has no scheduled days', () => {
+  it('is null, not 0, when the window has no scheduled days', () => {
     const sundayOnly = daysToMask([6]);
     // 2026-08-24..2026-08-29 is 6 days, none of them a Sunday.
     const rate = computeCompletionRate(series({}, sundayOnly), '2026-08-29', 6);
-    expect(rate).toBe(0);
+    expect(rate).toBeNull();
   });
 
   it('a habit added today is measured only from the day it was added', () => {
@@ -166,8 +167,8 @@ describe('computeCompletionRate', () => {
 
   it('over several habits the denominator is every habit’s scheduled day', () => {
     const two: HabitSeries[] = [
-      { counts: { '2026-08-29': 1 }, scheduleMask: EVERY_DAY, targetPerDay: 1, startDate: '2026-08-29' },
-      { counts: {}, scheduleMask: EVERY_DAY, targetPerDay: 1, startDate: '2026-08-29' },
+      { counts: { '2026-08-29': 1 }, scheduleMask: EVERY_DAY, targetPerDay: 1, startDate: '2026-08-29', endDate: null },
+      { counts: {}, scheduleMask: EVERY_DAY, targetPerDay: 1, startDate: '2026-08-29', endDate: null },
     ];
     expect(computeCompletionRate(two, '2026-08-29', 7)).toBe(0.5);
   });
@@ -193,8 +194,8 @@ describe('tallyDay', () => {
 
   it('averages the ratio across the habits active on the day', () => {
     const two: HabitSeries[] = [
-      { counts: { '2026-08-24': 1 }, scheduleMask: EVERY_DAY, targetPerDay: 1, startDate: '2026-08-01' },
-      { counts: {}, scheduleMask: EVERY_DAY, targetPerDay: 1, startDate: '2026-08-01' },
+      { counts: { '2026-08-24': 1 }, scheduleMask: EVERY_DAY, targetPerDay: 1, startDate: '2026-08-01', endDate: null },
+      { counts: {}, scheduleMask: EVERY_DAY, targetPerDay: 1, startDate: '2026-08-01', endDate: null },
     ];
     // 2026-08-24 is a Monday: date-fns weekday 1.
     expect(tallyDay(two, '2026-08-24', 1)).toEqual({
@@ -202,6 +203,43 @@ describe('tallyDay', () => {
       closed: 1,
       active: 2,
       ratio: 0.5,
+    });
+  });
+});
+
+describe('an archived habit', () => {
+  // Mon/Wed/Fri, kept for three weeks and then archived on 2026-08-14. Nothing after
+  // that day is its to miss: the streak it was dropped with is the streak it keeps.
+  const entryCounts = {
+    '2026-07-27': 1,
+    '2026-07-29': 1,
+    '2026-07-31': 1,
+    '2026-08-03': 1,
+    '2026-08-05': 1,
+    '2026-08-07': 1,
+    '2026-08-10': 1,
+    '2026-08-12': 1,
+    '2026-08-14': 1,
+  };
+  const archived = series(entryCounts, MON_WED_FRI, 1, '2026-07-27', '2026-08-14');
+
+  it('keeps the streak it was archived with instead of decaying to 0', () => {
+    const { current, best } = computeStreaks(archived, '2026-08-31');
+    expect(current).toBe(9);
+    expect(best).toBe(9);
+  });
+
+  it('does not count days after archiving towards the completion rate', () => {
+    expect(computeCompletionRate(archived, '2026-08-31', 30)).toBe(1);
+  });
+
+  it('drops out of the tally entirely on a day past its end', () => {
+    // 2026-08-31 is a Monday: scheduled, but the habit is no longer around for it.
+    expect(tallyDay(archived, '2026-08-31', 1)).toEqual({
+      scheduled: 0,
+      closed: 0,
+      active: 0,
+      ratio: 0,
     });
   });
 });
@@ -227,6 +265,25 @@ describe('toHabitSeries', () => {
   it('falls back to the entries when created_at cannot be read', () => {
     const broken = { ...habit, created_at: 'not a date' };
     expect(toHabitSeries(broken, { '2026-08-20': 1 }).startDate).toBe('2026-08-20');
+  });
+
+  it('leaves an active habit open-ended', () => {
+    expect(toHabitSeries(habit, {}).endDate).toBeNull();
+  });
+
+  it('ends an archived habit on the local day it was archived', () => {
+    const archived = { ...habit, archived_at: new Date(2026, 8, 3, 21, 0).toISOString() };
+    expect(toHabitSeries(archived, {}).endDate).toBe('2026-09-03');
+  });
+
+  it('moves the end forward to a later entry (a day marked, or an import)', () => {
+    const archived = { ...habit, archived_at: new Date(2026, 8, 3, 21, 0).toISOString() };
+    expect(toHabitSeries(archived, { '2026-09-10': 1 }).endDate).toBe('2026-09-10');
+  });
+
+  it('stays open when archived_at cannot be read, rather than cutting the history', () => {
+    const archived = { ...habit, archived_at: 'not a date' };
+    expect(toHabitSeries(archived, { '2026-08-20': 1 }).endDate).toBeNull();
   });
 });
 

@@ -44,6 +44,11 @@ export const MAX_AMOUNT_DIGITS = 9;
  * at `MAX_AMOUNT_DIGITS`. The number pad still lets a paste or a hardware keyboard
  * through, and "007" would otherwise be stored and shown as typed.
  *
+ * A fractional amount is truncated, not flattened: everything from the first `.` or `,`
+ * on is dropped before the digits are read. Stripping every non-digit instead glued the
+ * fraction onto the whole part, so a pasted "1 250,50" became 125 050 — a hundredfold
+ * error the field then showed back, grouped and plausible.
+ *
  * An empty string is a valid intermediate state — it is what an empty field holds — and
  * simply fails its caller's "greater than zero" check.
  *
@@ -51,5 +56,6 @@ export const MAX_AMOUNT_DIGITS = 9;
  * fields are the same field, and a copy would drift the first time the rule changes.
  */
 export function normalizeAmountInput(text: string): string {
-  return text.replace(/\D/g, '').replace(/^0+/, '').slice(0, MAX_AMOUNT_DIGITS);
+  const whole = text.split(/[.,]/, 1)[0];
+  return whole.replace(/\D/g, '').replace(/^0+/, '').slice(0, MAX_AMOUNT_DIGITS);
 }

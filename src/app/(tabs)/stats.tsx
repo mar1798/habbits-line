@@ -78,17 +78,22 @@ export default function StatsScreen() {
     Promise.all([
       habitsRepo.listHabits(db, { includeArchived: showArchived }),
       entriesRepo.listAllEntries(db),
-    ]).then(([habitRows, entryRows]) => {
-      if (cancelled) return;
-      setHabits(habitRows);
-      setEntriesByHabit(groupByHabit(entryRows));
-      setLoaded(true);
-      // A habit that just went out of scope (archived, or deleted from its edit screen)
-      // must not leave the screen pointing at nothing.
-      setSelectedId((current) =>
-        current === ALL || habitRows.some((habit) => habit.id === current) ? current : ALL
-      );
-    });
+    ])
+      .then(([habitRows, entryRows]) => {
+        if (cancelled) return;
+        setHabits(habitRows);
+        setEntriesByHabit(groupByHabit(entryRows));
+        setLoaded(true);
+        // A habit that just went out of scope (archived, or deleted from its edit screen)
+        // must not leave the screen pointing at nothing.
+        setSelectedId((current) =>
+          current === ALL || habitRows.some((habit) => habit.id === current) ? current : ALL
+        );
+      })
+      // Caught rather than left floating, like the two reads on "Today": unhandled it is a
+      // Metro warning, and `loaded` staying false is what keeps the screen on its skeleton
+      // instead of drawing a history of zeroes that isn't the user's.
+      .catch((error) => console.warn('Failed to load statistics', error));
 
     return () => {
       cancelled = true;
