@@ -8,6 +8,8 @@ export const en: Record<keyof typeof ru, string> = {
   cancel: 'Cancel',
   delete: 'Delete',
   close: 'Close',
+  done: 'Done',
+  clear: 'Clear',
   try_again: 'Please try again.',
   save: 'Save',
   create: 'Create',

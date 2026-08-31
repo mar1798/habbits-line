@@ -5,6 +5,10 @@ import { Alert, FlatList, ScrollView, StyleSheet, TextInput, View } from 'react-
 
 import { periodLabel } from '@/components/expense/balance-card';
 import { Button } from '@/components/ui/button';
+import {
+  DONE_ACCESSORY_ID,
+  KeyboardDoneAccessory,
+} from '@/components/ui/keyboard-done-accessory';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { Screen } from '@/components/ui/screen';
 import { Section } from '@/components/ui/section';
@@ -149,6 +153,8 @@ export default function BudgetScreen() {
             placeholder="0"
             placeholderTextColor={colors.textTertiary}
             keyboardType="number-pad"
+            // The number pad has no return key — see expense-form.tsx.
+            inputAccessoryViewID={DONE_ACCESSORY_ID}
             autoFocus
             allowFontScaling={false}
             style={[
@@ -215,6 +221,8 @@ export default function BudgetScreen() {
           <Button title={t('save')} onPress={handleSubmit} disabled={!canSave} />
         </View>
       </ScrollView>
+
+      <KeyboardDoneAccessory onClear={() => setTypedAmount('')} clearDisabled={amount === ''} />
     </Screen>
   );
 }

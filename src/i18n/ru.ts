@@ -10,6 +10,8 @@ export const ru = {
   cancel: 'Отмена',
   delete: 'Удалить',
   close: 'Закрыть',
+  done: 'Готово',
+  clear: 'Очистить',
   try_again: 'Попробуйте ещё раз.',
   save: 'Сохранить',
   create: 'Создать',

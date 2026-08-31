@@ -5,6 +5,10 @@ import { Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { CategoryGrid } from '@/components/expense/category-grid';
 import { Button } from '@/components/ui/button';
+import {
+  DONE_ACCESSORY_ID,
+  KeyboardDoneAccessory,
+} from '@/components/ui/keyboard-done-accessory';
 import { Section } from '@/components/ui/section';
 import { Text } from '@/components/ui/text';
 import { fontFamily, minHitSlop, radius, spacing, typography } from '@/constants/design-tokens';
@@ -96,53 +100,60 @@ export function ExpenseForm({ initialValues, submitLabel, onSubmit }: ExpenseFor
   };
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="interactive"
-      // The submit button sits under the number pad otherwise.
-      automaticallyAdjustKeyboardInsets>
-      <Section title={t('expense_form_amount')}>
-        <TextInput
-          value={amount === '' ? '' : formatAmount(amountValue)}
-          onChangeText={(text) => setAmount(normalizeAmountInput(text))}
-          placeholder={t('expense_form_amount_placeholder')}
-          placeholderTextColor={colors.textTertiary}
-          keyboardType="number-pad"
-          // The amount is the one thing every expense needs, and the modal is opened to
-          // type it — the keyboard comes up with the screen.
-          autoFocus
-          // Same rule as components/ui/text.tsx: sizes are fixed by the design system.
-          allowFontScaling={false}
-          style={[
-            styles.input,
-            {
-              backgroundColor: colors.surfaceAlt,
-              color: colors.textPrimary,
-              borderColor: colors.border,
-            },
-          ]}
-        />
-      </Section>
+    <>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+        // The submit button sits under the number pad otherwise.
+        automaticallyAdjustKeyboardInsets>
+        <Section title={t('expense_form_amount')}>
+          <TextInput
+            value={amount === '' ? '' : formatAmount(amountValue)}
+            onChangeText={(text) => setAmount(normalizeAmountInput(text))}
+            placeholder={t('expense_form_amount_placeholder')}
+            placeholderTextColor={colors.textTertiary}
+            keyboardType="number-pad"
+            // The number pad has no return key of its own, so without this bar the
+            // keyboard can only be closed by tapping the screen.
+            inputAccessoryViewID={DONE_ACCESSORY_ID}
+            // The amount is the one thing every expense needs, and the modal is opened to
+            // type it — the keyboard comes up with the screen.
+            autoFocus
+            // Same rule as components/ui/text.tsx: sizes are fixed by the design system.
+            allowFontScaling={false}
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.surfaceAlt,
+                color: colors.textPrimary,
+                borderColor: colors.border,
+              },
+            ]}
+          />
+        </Section>
 
-      <Section title={t('expense_form_category')}>
-        <CategoryGrid
-          categories={visibleCategories}
-          value={categoryId}
-          onChange={setCategoryId}
-          onAdd={openNewCategory}
-        />
-        {categoryId === null ? (
-          <Text variant="caption" color={colors.textSecondary}>
-            {t('expense_form_category_required')}
-          </Text>
-        ) : null}
-      </Section>
+        <Section title={t('expense_form_category')}>
+          <CategoryGrid
+            categories={visibleCategories}
+            value={categoryId}
+            onChange={setCategoryId}
+            onAdd={openNewCategory}
+          />
+          {categoryId === null ? (
+            <Text variant="caption" color={colors.textSecondary}>
+              {t('expense_form_category_required')}
+            </Text>
+          ) : null}
+        </Section>
 
-      <View style={styles.submit}>
-        <Button title={submitLabel} onPress={handleSubmit} disabled={!canSave} />
-      </View>
-    </ScrollView>
+        <View style={styles.submit}>
+          <Button title={submitLabel} onPress={handleSubmit} disabled={!canSave} />
+        </View>
+      </ScrollView>
+
+      <KeyboardDoneAccessory onClear={() => setAmount('')} clearDisabled={amount === ''} />
+    </>
   );
 }
 
