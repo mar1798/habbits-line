@@ -3,7 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import type { ExpenseColorKey } from '@/constants/design-tokens';
 import { generateId } from '@/lib/id';
 
-const DATABASE_VERSION = 2;
+const DATABASE_VERSION = 3;
 
 /**
  * Starter expense categories, written by the v1 -> v2 block. Every emoji here has to be
@@ -155,8 +155,22 @@ export async function migrate(db: SQLiteDatabase): Promise<void> {
     currentVersion = 2;
   }
 
-  // v2 -> v3: add the next migration as a new block below this comment, wrapped in
-  // `withTransactionAsync` and bumping `user_version` inside it, the way both blocks
+  if (currentVersion < 3) {
+    // The optional one-line description of an expense. Nullable rather than NOT NULL
+    // DEFAULT '': every row written before this migration genuinely has nothing to say,
+    // and an empty string would make "never described" indistinguishable from "described
+    // and then cleared" — the row list branches on exactly that.
+    //
+    // One transaction with the version stamp inside it, like the blocks above.
+    await db.withTransactionAsync(async () => {
+      await db.execAsync('ALTER TABLE expenses ADD COLUMN note TEXT;');
+      await db.execAsync('PRAGMA user_version = 3');
+    });
+    currentVersion = 3;
+  }
+
+  // v3 -> v4: add the next migration as a new block below this comment, wrapped in
+  // `withTransactionAsync` and bumping `user_version` inside it, the way the blocks
   // above do.
   // The blocks above are shipped — never edit them, only append.
 

@@ -8,6 +8,8 @@ export interface ExpenseInput {
   categoryId: string;
   amount: number;
   date: string;
+  /** The optional one-line description. Null when the field was left empty. */
+  note: string | null;
 }
 
 /**
@@ -47,12 +49,13 @@ export async function createExpense(
   const now = new Date().toISOString();
 
   await db.runAsync(
-    `INSERT INTO expenses (id, category_id, amount, date, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO expenses (id, category_id, amount, date, note, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
     id,
     input.categoryId,
     input.amount,
     input.date,
+    input.note,
     now,
     now
   );
@@ -72,10 +75,11 @@ export async function updateExpense(
 ): Promise<void> {
   const now = new Date().toISOString();
   await db.runAsync(
-    'UPDATE expenses SET category_id = ?, amount = ?, date = ?, updated_at = ? WHERE id = ?',
+    'UPDATE expenses SET category_id = ?, amount = ?, date = ?, note = ?, updated_at = ? WHERE id = ?',
     input.categoryId,
     input.amount,
     input.date,
+    input.note,
     now,
     id
   );

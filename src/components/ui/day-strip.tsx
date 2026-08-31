@@ -1,13 +1,22 @@
 import { format, type Locale } from 'date-fns';
 import { StyleSheet, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  ReduceMotion,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 
 import { IconButton } from '@/components/ui/icon-button';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { Text } from '@/components/ui/text';
-import { minHitSlop, radius, spacing } from '@/constants/design-tokens';
+import { minHitSlop, motion, radius, spacing } from '@/constants/design-tokens';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 import { parseDateKey } from '@/lib/date';
+import { haptics } from '@/lib/haptics';
 
 type DayStripProps = {
   /** The 7 date keys of one week, Monday first — see lib/date's weekDates(). */
@@ -24,6 +33,20 @@ type DayStripProps = {
    * way to wander off into a month the user then has to tap their way back from.
    */
   canGoNext: boolean;
+};
+
+/** How far, or how fast, the strip has to be dragged for the week to actually turn. */
+const SWIPE_DISTANCE = 56;
+const SWIPE_VELOCITY = 500;
+/** Only the horizontal intent pages the strip; below this the list underneath scrolls. */
+const PAN_ACTIVATION = 14;
+const PAN_FAIL_Y = 12;
+/** Resistance past the current week, where there is nothing to page to. */
+const RUBBER_BAND = 0.25;
+
+const settleSpring = {
+  ...motion.spring.press,
+  reduceMotion: ReduceMotion.System,
 };
 
 function capitalize(value: string): string {
@@ -68,77 +91,130 @@ export function DayStrip({
   const { colors } = useTheme();
   const { t, locale, weekdays } = useI18n();
 
+  const translateX = useSharedValue(0);
+
+  /**
+   * Turns the week the swipe asked for and answers the finger — one hop back to the JS
+   * runtime for both, at the end of the gesture rather than per frame.
+   */
+  const commitWeek = (weeks: -1 | 1) => {
+    if (weeks === -1) onPreviousWeek();
+    else onNextWeek();
+    haptics.tick();
+  };
+
+  /**
+   * The arrows are still the explicit control; this is the same paging under the finger,
+   * which is how a week strip is expected to move. It follows the drag and settles back
+   * on release — the week itself changes at once, so a committed swipe hands the new
+   * dates back to the same cells rather than sliding a second copy of the strip in.
+   */
+  const pan = Gesture.Pan()
+    .activeOffsetX([-PAN_ACTIVATION, PAN_ACTIVATION])
+    .failOffsetY([-PAN_FAIL_Y, PAN_FAIL_Y])
+    .onUpdate((event) => {
+      // Dragging left asks for the next week; past today there is none, so it resists.
+      const blocked = event.translationX < 0 && !canGoNext;
+      translateX.value = blocked ? event.translationX * RUBBER_BAND : event.translationX;
+    })
+    .onEnd((event) => {
+      // Distance or velocity: a flick that never travelled far is still a page turn.
+      const committed =
+        Math.abs(event.translationX) > SWIPE_DISTANCE || Math.abs(event.velocityX) > SWIPE_VELOCITY;
+
+      if (committed && event.translationX > 0) {
+        scheduleOnRN(commitWeek, -1);
+      } else if (committed && event.translationX < 0 && canGoNext) {
+        scheduleOnRN(commitWeek, 1);
+      }
+
+      translateX.value = withSpring(0, { ...settleSpring, velocity: event.velocityX });
+    });
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+
   return (
-    <View>
-      <View style={styles.nav}>
-        <IconButton
-          name="chevron.left"
-          compact
-          accessibilityLabel={t('day_strip_prev_week')}
-          onPress={onPreviousWeek}
-        />
-        <Text variant="callout" color={colors.textSecondary}>
-          {weekLabel(dates, todayDate, locale)}
-        </Text>
-        <IconButton
-          name="chevron.right"
-          compact
-          accessibilityLabel={t('day_strip_next_week')}
-          onPress={onNextWeek}
-          disabled={!canGoNext}
-        />
-      </View>
+    <GestureDetector gesture={pan}>
+      <View>
+        <View style={styles.nav}>
+          <IconButton
+            name="chevron.left"
+            compact
+            accessibilityLabel={t('day_strip_prev_week')}
+            onPress={onPreviousWeek}
+          />
+          <Animated.View style={animatedStyle}>
+            <Text variant="callout" color={colors.textSecondary}>
+              {weekLabel(dates, todayDate, locale)}
+            </Text>
+          </Animated.View>
+          <IconButton
+            name="chevron.right"
+            compact
+            accessibilityLabel={t('day_strip_next_week')}
+            onPress={onNextWeek}
+            disabled={!canGoNext}
+          />
+        </View>
 
-      <View style={styles.row}>
-        {dates.map((date, index) => {
-          const isSelected = date === selectedDate;
-          const isToday = date === todayDate;
-          const isFuture = date > todayDate;
-          const dayNumber = format(parseDateKey(date), 'd');
-          // A future day stays readable but recedes — both of its lines, not just the
-          // number, or the weekday label reads as brighter than the date it belongs to.
-          const textColor = isSelected
-            ? colors.onAccent
-            : isFuture
-              ? colors.textTertiary
-              : colors.textPrimary;
-          const labelColor = isSelected
-            ? colors.onAccent
-            : isFuture
-              ? colors.textTertiary
-              : colors.textSecondary;
+        <Animated.View style={[styles.row, animatedStyle]}>
+          {dates.map((date, index) => {
+            const isSelected = date === selectedDate;
+            const isToday = date === todayDate;
+            const isFuture = date > todayDate;
+            const dayNumber = format(parseDateKey(date), 'd');
+            // A future day stays readable but recedes — both of its lines, not just the
+            // number, or the weekday label reads as brighter than the date it belongs to.
+            const textColor = isSelected
+              ? colors.onAccent
+              : isFuture
+                ? colors.textTertiary
+                : colors.textPrimary;
+            const labelColor = isSelected
+              ? colors.onAccent
+              : isFuture
+                ? colors.textTertiary
+                : colors.textSecondary;
 
-          return (
-            <PressableScale
-              key={date}
-              onPress={() => onSelect(date)}
-              accessibilityRole="button"
-              accessibilityLabel={`${weekdays.short[index]}, ${dayNumber}`}
-              accessibilityState={{ selected: isSelected }}
-              style={[styles.cell, { backgroundColor: isSelected ? colors.accent : 'transparent' }]}>
-              <Text variant="caption" color={labelColor}>
-                {weekdays.short[index]}
-              </Text>
-              <Text variant="headline" color={textColor}>
-                {dayNumber}
-              </Text>
-              <View
+            return (
+              <PressableScale
+                key={date}
+                onPress={() => onSelect(date)}
+                accessibilityRole="button"
+                accessibilityLabel={`${weekdays.short[index]}, ${dayNumber}`}
+                accessibilityState={{ selected: isSelected }}
                 style={[
-                  styles.todayDot,
+                  styles.cell,
                   {
-                    backgroundColor: isToday
-                      ? isSelected
-                        ? colors.onAccent
-                        : colors.accent
-                      : 'transparent',
+                    backgroundColor: isSelected ? colors.accent : 'transparent',
                   },
-                ]}
-              />
-            </PressableScale>
-          );
-        })}
+                ]}>
+                <Text variant="caption" color={labelColor}>
+                  {weekdays.short[index]}
+                </Text>
+                <Text variant="headline" color={textColor}>
+                  {dayNumber}
+                </Text>
+                <View
+                  style={[
+                    styles.todayDot,
+                    {
+                      backgroundColor: isToday
+                        ? isSelected
+                          ? colors.onAccent
+                          : colors.accent
+                        : 'transparent',
+                    },
+                  ]}
+                />
+              </PressableScale>
+            );
+          })}
+        </Animated.View>
       </View>
-    </View>
+    </GestureDetector>
   );
 }
 

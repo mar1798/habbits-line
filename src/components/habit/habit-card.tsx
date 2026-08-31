@@ -1,14 +1,14 @@
-import { MenuView } from '@expo/ui/community/menu';
-import type { NativeActionEvent } from '@expo/ui/community/menu';
 import { StyleSheet, View } from 'react-native';
 
 import { CheckButton } from '@/components/habit/check-button';
 import { Card } from '@/components/ui/card';
+import { PressableScale } from '@/components/ui/pressable-scale';
 import { Text } from '@/components/ui/text';
 import { radius, resolveHabitColor, spacing } from '@/constants/design-tokens';
 import type { HabitRow } from '@/db/types';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
+import { showActionSheet } from '@/lib/action-sheet';
 
 type HabitCardProps = {
   habit: HabitRow;
@@ -25,18 +25,28 @@ export function HabitCard({ habit, count, disabled, onToggle, onEdit, onArchive 
   const { t, plural } = useI18n();
   const accentColor = resolveHabitColor(habit.color_key, scheme);
 
+  const openMenu = () => {
+    showActionSheet(
+      {
+        scheme,
+        cancelLabel: t('cancel'),
+        actions: [
+          { id: 'edit', title: t('menu_edit') },
+          { id: 'archive', title: t('menu_archive') },
+        ],
+      },
+      (id) => {
+        if (id === 'edit') onEdit();
+        if (id === 'archive') onArchive();
+      }
+    );
+  };
+
   return (
-    <MenuView
-      style={styles.menu}
-      shouldOpenOnLongPress
-      actions={[
-        { id: 'edit', title: t('menu_edit'), image: 'pencil' },
-        { id: 'archive', title: t('menu_archive'), image: 'archivebox' },
-      ]}
-      onPressAction={({ nativeEvent }: NativeActionEvent) => {
-        if (nativeEvent.event === 'edit') onEdit();
-        if (nativeEvent.event === 'archive') onArchive();
-      }}>
+    // No onPress: a tap over the check button is claimed by its own Pressable before this
+    // one ever sees it, and elsewhere on the card a plain tap has never done anything —
+    // long press opening the menu is the only behavior this wrapper adds.
+    <PressableScale style={styles.wrapper} onLongPress={openMenu}>
       <Card style={styles.card}>
         <View style={[styles.emoji, { backgroundColor: `${accentColor}33` }]}>
           <Text variant="headline">{habit.emoji}</Text>
@@ -66,12 +76,12 @@ export function HabitCard({ habit, count, disabled, onToggle, onEdit, onArchive 
           onPress={onToggle}
         />
       </Card>
-    </MenuView>
+    </PressableScale>
   );
 }
 
 const styles = StyleSheet.create({
-  menu: {
+  wrapper: {
     width: '100%',
   },
   card: {

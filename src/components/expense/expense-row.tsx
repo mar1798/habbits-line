@@ -1,5 +1,3 @@
-import { MenuView } from '@expo/ui/community/menu';
-import type { NativeActionEvent } from '@expo/ui/community/menu';
 import { StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/ui/card';
@@ -9,6 +7,7 @@ import { radius, resolveExpenseColor, spacing } from '@/constants/design-tokens'
 import type { ExpenseCategoryRow, ExpenseRow as ExpenseRowData } from '@/db/types';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
+import { showActionSheet } from '@/lib/action-sheet';
 import { categoryName } from '@/lib/category-name';
 import { formatAmount } from '@/lib/money';
 
@@ -29,50 +28,63 @@ export function ExpenseRow({ expense, category, onEdit, onDelete }: ExpenseRowPr
   const { t } = useI18n();
   const accentColor = resolveExpenseColor(category?.color_key ?? '', scheme);
 
+  const openMenu = () => {
+    showActionSheet(
+      {
+        scheme,
+        cancelLabel: t('cancel'),
+        actions: [
+          { id: 'edit', title: t('menu_edit') },
+          { id: 'delete', title: t('delete'), destructive: true },
+        ],
+      },
+      (id) => {
+        if (id === 'edit') onEdit();
+        if (id === 'delete') onDelete();
+      }
+    );
+  };
+
   return (
-    <MenuView
-      style={styles.menu}
-      shouldOpenOnLongPress
-      actions={[
-        { id: 'edit', title: t('menu_edit'), image: 'pencil' },
-        { id: 'delete', title: t('delete'), image: 'trash', attributes: { destructive: true } },
-      ]}
-      onPressAction={({ nativeEvent }: NativeActionEvent) => {
-        if (nativeEvent.event === 'edit') onEdit();
-        if (nativeEvent.event === 'delete') onDelete();
-      }}>
-      {/* A plain tap edits, and the long press keeps the full menu. Without this the row
-          had no visible affordance at all: nothing about it says "hold me", and the menu
-          was the only way to reach an expense once it was written. The context menu is
-          an interaction on the MenuView above, so the pressable underneath does not take
-          the long press away from it. */}
-      <PressableScale
-        onPress={onEdit}
-        accessibilityRole="button"
-        accessibilityLabel={t('expense_edit_title')}>
-        <Card style={styles.card}>
-          <View style={[styles.emoji, { backgroundColor: `${accentColor}33` }]}>
-            <Text variant="headline">{category?.emoji ?? '📦'}</Text>
-          </View>
-          <View style={styles.info}>
-            <Text variant="headline" numberOfLines={1}>
-              {category ? categoryName(category.name, t) : '—'}
+    // A plain tap edits, and the long press opens the menu — the only visible affordance
+    // this row has, since nothing about it says "hold me".
+    <PressableScale
+      style={styles.wrapper}
+      onPress={onEdit}
+      onLongPress={openMenu}
+      accessibilityRole="button"
+      accessibilityLabel={t('expense_edit_title')}>
+      <Card style={styles.card}>
+        <View style={[styles.emoji, { backgroundColor: `${accentColor}33` }]}>
+          <Text variant="headline">{category?.emoji ?? '📦'}</Text>
+        </View>
+        <View style={styles.info}>
+          <Text variant="headline" numberOfLines={1}>
+            {category ? categoryName(category.name, t) : '—'}
+          </Text>
+          {/* One line, ellipsised: the row is a fixed height in a list, and a description
+              that wrapped would push the amount beside it out of line with its neighbours.
+              Under the category name rather than replacing it — the name is what the row
+              is grouped and coloured by. */}
+          {expense.note ? (
+            <Text variant="caption" color={colors.textSecondary} numberOfLines={1}>
+              {expense.note}
             </Text>
-            {category?.archived_at ? (
-              <Text variant="caption" color={colors.textTertiary}>
-                {t('settings_archived_badge')}
-              </Text>
-            ) : null}
-          </View>
-          <Text variant="headline">{formatAmount(expense.amount)}</Text>
-        </Card>
-      </PressableScale>
-    </MenuView>
+          ) : null}
+          {category?.archived_at ? (
+            <Text variant="caption" color={colors.textTertiary}>
+              {t('settings_archived_badge')}
+            </Text>
+          ) : null}
+        </View>
+        <Text variant="headline">{formatAmount(expense.amount)}</Text>
+      </Card>
+    </PressableScale>
   );
 }
 
 const styles = StyleSheet.create({
-  menu: {
+  wrapper: {
     width: '100%',
   },
   card: {

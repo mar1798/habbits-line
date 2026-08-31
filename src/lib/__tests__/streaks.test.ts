@@ -1,6 +1,7 @@
 import { daysToMask } from '../schedule';
 import {
   computeCompletionRate,
+  computeRangeStats,
   computeStreaks,
   dayCompletionRatio,
   type HabitSeries,
@@ -171,6 +172,46 @@ describe('computeCompletionRate', () => {
       { counts: {}, scheduleMask: EVERY_DAY, targetPerDay: 1, startDate: '2026-08-29', endDate: null },
     ];
     expect(computeCompletionRate(two, '2026-08-29', 7)).toBe(0.5);
+  });
+});
+
+describe('computeRangeStats', () => {
+  it('a range entirely before the habit started has nothing scheduled', () => {
+    const stats = computeRangeStats(
+      series({}, MON_WED_FRI, 1, '2026-08-24'),
+      '2026-08-17',
+      '2026-08-23'
+    );
+    expect(stats).toEqual({ scheduled: 0, closed: 0, rate: null });
+  });
+
+  it('a range entirely after an archived habit ended has nothing scheduled', () => {
+    const archived = series({}, MON_WED_FRI, 1, '2026-07-27', '2026-08-14');
+    const stats = computeRangeStats(archived, '2026-08-17', '2026-08-21');
+    expect(stats).toEqual({ scheduled: 0, closed: 0, rate: null });
+  });
+
+  it('is null, not 0, when the range has no scheduled day at all', () => {
+    const sundayOnly = daysToMask([6]);
+    // 2026-08-24..2026-08-28 is Mon..Fri, no Sunday in it.
+    const stats = computeRangeStats(series({}, sundayOnly), '2026-08-24', '2026-08-28');
+    expect(stats).toEqual({ scheduled: 0, closed: 0, rate: null });
+  });
+
+  it('a bonus mark on an unscheduled day does not enter the denominator', () => {
+    // 2026-08-25 is a Tuesday, unscheduled for Mon/Wed/Fri.
+    const stats = computeRangeStats(
+      series({ '2026-08-25': 1 }, MON_WED_FRI),
+      '2026-08-25',
+      '2026-08-25'
+    );
+    expect(stats).toEqual({ scheduled: 0, closed: 0, rate: null });
+  });
+
+  it('a one-day range on a closed scheduled day is 100%', () => {
+    // 2026-08-24 is a Monday, scheduled and closed.
+    const stats = computeRangeStats(series({ '2026-08-24': 1 }, MON_WED_FRI), '2026-08-24', '2026-08-24');
+    expect(stats).toEqual({ scheduled: 1, closed: 1, rate: 1 });
   });
 });
 

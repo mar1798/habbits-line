@@ -27,7 +27,7 @@ export default function NewExpenseScreen() {
   return (
     <Screen edges={['bottom']}>
       <ExpenseForm
-        initialValues={{ amount: null, categoryId: null, date: day }}
+        initialValues={{ amount: null, categoryId: null, note: null, date: day }}
         submitLabel={t('create')}
         onSubmit={handleSubmit}
       />

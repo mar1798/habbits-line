@@ -1,30 +1,25 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
-import { Alert, FlatList, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, FlatList, ScrollView, StyleSheet, View } from 'react-native';
 
 import { periodLabel } from '@/components/expense/balance-card';
+import { AmountInput } from '@/components/ui/amount-input';
 import { Button } from '@/components/ui/button';
 import {
-  DONE_ACCESSORY_ID,
+  KEYBOARD_BAR_HEIGHT,
   KeyboardDoneAccessory,
 } from '@/components/ui/keyboard-done-accessory';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { Screen } from '@/components/ui/screen';
 import { Section } from '@/components/ui/section';
 import { Text } from '@/components/ui/text';
-import {
-  fontFamily,
-  minHitSlop,
-  radius,
-  spacing,
-  typography,
-} from '@/constants/design-tokens';
+import { minHitSlop, radius, spacing } from '@/constants/design-tokens';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 import { useTodayKey } from '@/hooks/use-today-key';
 import { isValidDateKey, todayKey } from '@/lib/date';
-import { formatAmount, normalizeAmountInput } from '@/lib/money';
+import { normalizeAmountInput } from '@/lib/money';
 import {
   MAX_PERIOD_START_DAY,
   MIN_PERIOD_START_DAY,
@@ -147,24 +142,12 @@ export default function BudgetScreen() {
         keyboardDismissMode="interactive"
         automaticallyAdjustKeyboardInsets>
         <Section title={t('expense_budget_amount')}>
-          <TextInput
-            value={amount === '' ? '' : formatAmount(amountValue)}
-            onChangeText={(text) => setTypedAmount(normalizeAmountInput(text))}
+          <AmountInput
+            value={amount}
+            onChangeValue={setTypedAmount}
             placeholder="0"
-            placeholderTextColor={colors.textTertiary}
-            keyboardType="number-pad"
-            // The number pad has no return key — see expense-form.tsx.
-            inputAccessoryViewID={DONE_ACCESSORY_ID}
+            accessibilityLabel={t('expense_budget_amount')}
             autoFocus
-            allowFontScaling={false}
-            style={[
-              styles.input,
-              {
-                backgroundColor: colors.surfaceAlt,
-                color: colors.textPrimary,
-                borderColor: colors.border,
-              },
-            ]}
           />
           <Text variant="caption" color={colors.textSecondary}>
             {t('expense_budget_period', {
@@ -230,19 +213,9 @@ export default function BudgetScreen() {
 const styles = StyleSheet.create({
   content: {
     padding: spacing.lg,
+    // Room for the keyboard bar — see the same note in the expense form.
+    paddingBottom: spacing.lg + KEYBOARD_BAR_HEIGHT,
     gap: spacing.xl,
-  },
-  input: {
-    minHeight: minHitSlop,
-    borderRadius: radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: spacing.md,
-    textAlign: 'right',
-    // Title type from the tokens, minus its lineHeight: on iOS a TextInput with an
-    // explicit lineHeight clips its own text vertically.
-    fontFamily,
-    fontSize: typography.title1.fontSize,
-    fontWeight: typography.title1.fontWeight,
   },
   daysList: {
     flexGrow: 0,

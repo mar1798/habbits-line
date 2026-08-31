@@ -5,7 +5,9 @@ import { StatusBar } from 'expo-status-bar';
 import { useSQLiteContext } from 'expo-sqlite';
 import * as SystemUI from 'expo-system-ui';
 import { Suspense, useEffect } from 'react';
-import { Appearance } from 'react-native';
+import { Appearance, StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 import { IconButton } from '@/components/ui/icon-button';
 import { fontFamily } from '@/constants/design-tokens';
@@ -49,15 +51,22 @@ export default function RootLayout() {
   }, [themeMode]);
 
   return (
-    <ThemeProvider value={navigationTheme}>
-      {/* Not "auto": that follows the OS scheme, which the theme setting can override. */}
-      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-      <Suspense fallback={null}>
-        <DatabaseProvider>
-          <RootStack />
-        </DatabaseProvider>
-      </Suspense>
-    </ThemeProvider>
+    // Gesture handler does nothing, and says nothing, without a root view of its own —
+    // the week strip's swipe is the first gesture in the app that needs it.
+    <GestureHandlerRootView style={styles.root}>
+      {/* The keyboard bar over the amount fields reads its position from here. */}
+      <KeyboardProvider>
+        <ThemeProvider value={navigationTheme}>
+          {/* Not "auto": that follows the OS scheme, which the theme setting can override. */}
+          <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+          <Suspense fallback={null}>
+            <DatabaseProvider>
+              <RootStack />
+            </DatabaseProvider>
+          </Suspense>
+        </ThemeProvider>
+      </KeyboardProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -203,3 +212,9 @@ function ModalCloseButton() {
     />
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+});

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, FlatList, StyleSheet, View } from 'react-native';
 
 import { DayStrip } from '@/components/ui/day-strip';
+import { Confetti, ConfettiHandle } from '@/components/habit/confetti';
 import { HabitCard } from '@/components/habit/habit-card';
 import { ProgressBar } from '@/components/habit/progress-bar';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -50,6 +51,7 @@ export default function TodayScreen() {
   const [weekStart, setWeekStart] = useState(() => weekStartKey(today));
   const [selectedDate, setSelectedDate] = useState(today);
   const previousTodayRef = useRef(today);
+  const confettiRef = useRef<ConfettiHandle>(null);
 
   const week = useMemo(() => weekDates(parseDateKey(weekStart)), [weekStart]);
   /** Paging forward stops at the week containing today — see DayStrip's `canGoNext`. */
@@ -172,6 +174,7 @@ export default function TodayScreen() {
 
     if (!isDayComplete(before) && isDayComplete(after)) {
       haptics.success();
+      confettiRef.current?.fire();
     } else if ((after?.[habit.id] ?? 0) === 0) {
       haptics.reset();
     } else {
@@ -256,6 +259,8 @@ export default function TodayScreen() {
           )}
         />
       ) : null}
+
+      <Confetti ref={confettiRef} />
     </Screen>
   );
 }

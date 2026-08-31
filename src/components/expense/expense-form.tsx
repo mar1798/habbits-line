@@ -4,23 +4,35 @@ import { useEffect, useRef, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { CategoryGrid } from '@/components/expense/category-grid';
+import { AmountInput } from '@/components/ui/amount-input';
 import { Button } from '@/components/ui/button';
 import {
-  DONE_ACCESSORY_ID,
+  KEYBOARD_BAR_HEIGHT,
   KeyboardDoneAccessory,
 } from '@/components/ui/keyboard-done-accessory';
 import { Section } from '@/components/ui/section';
 import { Text } from '@/components/ui/text';
-import { fontFamily, minHitSlop, radius, spacing, typography } from '@/constants/design-tokens';
+import {
+  fontFamily,
+  minHitSlop,
+  radius,
+  spacing,
+  typography,
+} from '@/constants/design-tokens';
 import type { ExpenseInput } from '@/db/expenses-repo';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
-import { formatAmount, normalizeAmountInput } from '@/lib/money';
+import { normalizeAmountInput } from '@/lib/money';
 import { useExpenseCategoriesStore } from '@/store/expense-categories-store';
+
+/** Long enough for a line about what was bought, short enough to stay one line in the list. */
+const MAX_NOTE_LENGTH = 80;
 
 export type ExpenseFormValues = {
   amount: number | null;
   categoryId: string | null;
+  /** The expense's description, null when it has none. */
+  note: string | null;
   /** The day the expense belongs to. Never editable — see the stage 12.2 notes in PLAN.md. */
   date: string;
 };
@@ -43,7 +55,14 @@ export function ExpenseForm({ initialValues, submitLabel, onSubmit }: ExpenseFor
     initialValues.amount === null ? '' : normalizeAmountInput(String(initialValues.amount))
   );
   const [categoryId, setCategoryId] = useState(initialValues.categoryId);
+  const [note, setNote] = useState(initialValues.note ?? '');
   const [submitting, setSubmitting] = useState(false);
+  /**
+   * Which field the keyboard bar's "Clear" belongs to. The bar is one view over the whole
+   * screen rather than an accessory bound to an input, so without this it would keep
+   * emptying the amount while the description is the field being typed in.
+   */
+  const [focusedField, setFocusedField] = useState<'amount' | 'note'>('amount');
 
   /** Ids known before the category modal was opened; null while none is pending. */
   const knownCategoriesRef = useRef<Set<string> | null>(null);
@@ -89,7 +108,15 @@ export function ExpenseForm({ initialValues, submitLabel, onSubmit }: ExpenseFor
     if (!canSave || categoryId === null) return;
     setSubmitting(true);
     try {
-      await onSubmit({ categoryId, amount: amountValue, date: initialValues.date });
+      // Trimmed, and an empty description is null rather than '': the row list branches on
+      // "has a description at all", and a string of spaces is not one.
+      const trimmedNote = note.trim();
+      await onSubmit({
+        categoryId,
+        amount: amountValue,
+        date: initialValues.date,
+        note: trimmedNote === '' ? null : trimmedNote,
+      });
     } catch (error) {
       // Without this the rejection escapes as an unhandled promise and the screen just
       // sits there looking saved.
@@ -108,22 +135,35 @@ export function ExpenseForm({ initialValues, submitLabel, onSubmit }: ExpenseFor
         // The submit button sits under the number pad otherwise.
         automaticallyAdjustKeyboardInsets>
         <Section title={t('expense_form_amount')}>
-          <TextInput
-            value={amount === '' ? '' : formatAmount(amountValue)}
-            onChangeText={(text) => setAmount(normalizeAmountInput(text))}
+          <AmountInput
+            value={amount}
+            onChangeValue={setAmount}
             placeholder={t('expense_form_amount_placeholder')}
-            placeholderTextColor={colors.textTertiary}
-            keyboardType="number-pad"
-            // The number pad has no return key of its own, so without this bar the
-            // keyboard can only be closed by tapping the screen.
-            inputAccessoryViewID={DONE_ACCESSORY_ID}
+            accessibilityLabel={t('expense_form_amount')}
+            onFocus={() => setFocusedField('amount')}
             // The amount is the one thing every expense needs, and the modal is opened to
             // type it — the keyboard comes up with the screen.
             autoFocus
+          />
+        </Section>
+
+        {/* Optional, and said so on the label rather than left to the user to find out by
+            saving without it. One line: the list shows it on one, and a description that
+            wraps here would promise room the row does not have. */}
+        <Section title={`${t('expense_form_note')} — ${t('expense_form_note_optional')}`}>
+          <TextInput
+            value={note}
+            onChangeText={setNote}
+            onFocus={() => setFocusedField('note')}
+            placeholder={t('expense_form_note_placeholder')}
+            placeholderTextColor={colors.textTertiary}
+            returnKeyType="done"
+            maxLength={MAX_NOTE_LENGTH}
+            accessibilityLabel={t('expense_form_note')}
             // Same rule as components/ui/text.tsx: sizes are fixed by the design system.
             allowFontScaling={false}
             style={[
-              styles.input,
+              styles.note,
               {
                 backgroundColor: colors.surfaceAlt,
                 color: colors.textPrimary,
@@ -152,7 +192,10 @@ export function ExpenseForm({ initialValues, submitLabel, onSubmit }: ExpenseFor
         </View>
       </ScrollView>
 
-      <KeyboardDoneAccessory onClear={() => setAmount('')} clearDisabled={amount === ''} />
+      <KeyboardDoneAccessory
+        onClear={() => (focusedField === 'note' ? setNote('') : setAmount(''))}
+        clearDisabled={focusedField === 'note' ? note === '' : amount === ''}
+      />
     </>
   );
 }
@@ -160,19 +203,22 @@ export function ExpenseForm({ initialValues, submitLabel, onSubmit }: ExpenseFor
 const styles = StyleSheet.create({
   content: {
     padding: spacing.lg,
+    // The keyboard bar rides above the keyboard, and `automaticallyAdjustKeyboardInsets`
+    // only knows about the keyboard itself — without this the submit button ends up
+    // underneath the bar.
+    paddingBottom: spacing.lg + KEYBOARD_BAR_HEIGHT,
     gap: spacing.xl,
   },
-  input: {
+  note: {
     minHeight: minHitSlop,
     borderRadius: radius.md,
     borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: spacing.md,
-    textAlign: 'right',
-    // Title type from the tokens, minus its lineHeight: on iOS a TextInput with an
-    // explicit lineHeight clips its own text vertically.
+    // Body type from the tokens, minus its lineHeight, like the name field of the
+    // category form: on iOS a TextInput with an explicit lineHeight clips its own text.
     fontFamily,
-    fontSize: typography.title1.fontSize,
-    fontWeight: typography.title1.fontWeight,
+    fontSize: typography.body.fontSize,
+    fontWeight: typography.body.fontWeight,
   },
   submit: {
     marginTop: spacing.md,

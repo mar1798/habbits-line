@@ -144,7 +144,14 @@ function isExpenseCategoryRow(value: unknown): value is ExpenseCategoryRow {
   );
 }
 
-/** `amount` mirrors the table's CHECK: a positive integer of minor units. */
+/**
+ * `amount` mirrors the table's CHECK: a positive integer of minor units.
+ *
+ * `note` is optional rather than tied to a version of its own, for the same reason
+ * `settings` is: it was added to the format after v2 files were already being written,
+ * and a file without it is not broken — it says nothing about descriptions, and the
+ * import writes null. A v2 file this build exports does carry it.
+ */
 function isExpenseRow(value: unknown): value is ExpenseRow {
   return (
     isRecord(value) &&
@@ -154,6 +161,7 @@ function isExpenseRow(value: unknown): value is ExpenseRow {
     (value.amount as number) > 0 &&
     typeof value.date === 'string' &&
     isValidDateKey(value.date) &&
+    (value.note === undefined || isNullableString(value.note)) &&
     typeof value.created_at === 'string' &&
     typeof value.updated_at === 'string'
   );
@@ -405,12 +413,14 @@ export async function importBackupAsync(db: SQLiteDatabase, fileUri: string): Pr
 
     for (const expense of expenses) {
       await txn.runAsync(
-        `INSERT INTO expenses (id, category_id, amount, date, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO expenses (id, category_id, amount, date, note, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
         expense.id,
         expense.category_id,
         expense.amount,
         expense.date,
+        // A file written before the column existed has nothing to say here.
+        expense.note ?? null,
         expense.created_at,
         expense.updated_at
       );

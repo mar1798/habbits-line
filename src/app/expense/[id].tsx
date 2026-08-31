@@ -58,6 +58,7 @@ export default function EditExpenseScreen() {
           initialValues={{
             amount: expense.amount,
             categoryId: expense.category_id,
+            note: expense.note,
             // Editing keeps the row's day: moving an expense to another date means
             // deleting it and writing it again.
             date: expense.date,

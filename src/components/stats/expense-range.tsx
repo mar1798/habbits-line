@@ -8,6 +8,7 @@ import { periodLabel } from '@/components/expense/balance-card';
 import { CategoryBreakdown } from '@/components/stats/category-breakdown';
 import { RangeCalendar } from '@/components/stats/range-calendar';
 import { Card } from '@/components/ui/card';
+import { CollapsibleSection } from '@/components/ui/collapsible-section';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { Text } from '@/components/ui/text';
 import { minHitSlop, radius, spacing } from '@/constants/design-tokens';
@@ -46,6 +47,7 @@ export function ExpenseRange({ todayDate, categories }: ExpenseRangeProps) {
   const { t, plural, locale } = useI18n();
   const isFocused = useIsFocused();
 
+  const [expanded, setExpanded] = useState(false);
   const [range, setRange] = useState<DateRange | null>(null);
   const [loaded, setLoaded] = useState<{ start: string; end: string; expenses: ExpenseRow[] } | null>(
     null
@@ -93,10 +95,16 @@ export function ExpenseRange({ todayDate, categories }: ExpenseRangeProps) {
       : 0;
 
   return (
-    <View style={styles.block}>
-      <View style={styles.header}>
-        <Text variant="headline">{t('stats_expenses_range')}</Text>
-        {range !== null ? (
+    // Shut by default, like the habit range above it — see the note there.
+    <CollapsibleSection
+      title={t('stats_expenses_range')}
+      summary={
+        start !== null && end !== null ? periodLabel(start, end, todayDate, locale) : undefined
+      }
+      expanded={expanded}
+      onToggle={() => setExpanded((value) => !value)}>
+      {range !== null ? (
+        <View style={styles.header}>
           <PressableScale
             onPress={() => setRange(null)}
             accessibilityRole="button"
@@ -106,8 +114,8 @@ export function ExpenseRange({ todayDate, categories }: ExpenseRangeProps) {
               {t('stats_expenses_range_clear')}
             </Text>
           </PressableScale>
-        ) : null}
-      </View>
+        </View>
+      ) : null}
 
       <Card>
         <RangeCalendar range={range} maxDate={todayDate} onChange={setRange} />
@@ -150,19 +158,14 @@ export function ExpenseRange({ todayDate, categories }: ExpenseRangeProps) {
           )}
         </>
       )}
-    </View>
+    </CollapsibleSection>
   );
 }
 
 const styles = StyleSheet.create({
-  block: {
-    gap: spacing.sm,
-  },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    minHeight: minHitSlop,
+    justifyContent: 'flex-end',
   },
   clear: {
     minHeight: minHitSlop,

@@ -92,6 +92,7 @@ export const useExpensesStore = create<ExpensesState>((set, get) => ({
       category_id: input.categoryId,
       amount: input.amount,
       date: input.date,
+      note: input.note,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -126,7 +127,13 @@ export const useExpensesStore = create<ExpensesState>((set, get) => ({
       expenses: sortExpenses(
         state.expenses.map((expense) =>
           expense.id === id
-            ? { ...expense, category_id: input.categoryId, amount: input.amount, date: input.date }
+            ? {
+                ...expense,
+                category_id: input.categoryId,
+                amount: input.amount,
+                date: input.date,
+                note: input.note,
+              }
             : expense
         )
       ),

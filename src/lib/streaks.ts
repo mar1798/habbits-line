@@ -198,3 +198,29 @@ export function computeCompletionRate(
 
   return scheduled === 0 ? null : closed / scheduled;
 }
+
+export interface RangeStats {
+  scheduled: number;
+  closed: number;
+  /** Null when the range holds no scheduled day — see `computeCompletionRate`. */
+  rate: number | null;
+}
+
+/**
+ * Scheduled/closed days and their rate over an arbitrary `start`..`end` range, for the
+ * habit statistics screen's own calendar. Same denominator rule as `computeCompletionRate`
+ * — scheduled days, not calendar days, and `rate` is null rather than 0 when the range has
+ * no scheduled day at all.
+ */
+export function computeRangeStats(series: HabitSeries[], start: string, end: string): RangeStats {
+  let scheduled = 0;
+  let closed = 0;
+
+  forEachDateKey(start, end, (date, dayOfWeek) => {
+    const tally = tallyDay(series, date, dayOfWeek);
+    scheduled += tally.scheduled;
+    closed += tally.closed;
+  });
+
+  return { scheduled, closed, rate: scheduled === 0 ? null : closed / scheduled };
+}

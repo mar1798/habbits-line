@@ -1,10 +1,9 @@
-import { MenuView } from '@expo/ui/community/menu';
-import type { MenuAction, NativeActionEvent } from '@expo/ui/community/menu';
 import { router, useIsFocused } from 'expo-router';
 import { SFSymbol, SymbolView } from 'expo-symbols';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
 import { Alert, FlatList, Linking, StyleSheet, View } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -25,6 +24,8 @@ import type { ExpenseCategoryRow, HabitRow } from '@/db/types';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 import type { Language, MessageKey } from '@/i18n';
+import { showActionSheet } from '@/lib/action-sheet';
+import type { ActionSheetAction } from '@/lib/action-sheet';
 import {
   BackupError,
   exportBackupAsync,
@@ -85,6 +86,7 @@ function backupErrorParams(error: unknown) {
 
 type Row =
   | { kind: 'header'; key: string; title: string }
+  | { kind: 'archive-toggle'; key: string }
   | { kind: 'habit'; key: string; habit: HabitRow; isFirst: boolean; isLast: boolean };
 
 export default function SettingsScreen() {
@@ -96,6 +98,7 @@ export default function SettingsScreen() {
   const [busy, setBusy] = useState<'export' | 'import' | null>(null);
   const [expenseCounts, setExpenseCounts] = useState<Record<string, number>>({});
   const [showArchivedCategories, setShowArchivedCategories] = useState(false);
+  const [showArchivedHabits, setShowArchivedHabits] = useState(false);
   // Both lists start closed: the preferences above them are what the screen is opened
   // for most often, and either list unfolded pushes them off the top on a long one.
   const [habitsExpanded, setHabitsExpanded] = useState(false);
@@ -207,15 +210,17 @@ export default function SettingsScreen() {
       isLast: index === activeHabits.length - 1,
     })),
     ...(archivedHabits.length > 0
-      ? [{ kind: 'header' as const, key: 'header-archived', title: t('settings_archive') }]
+      ? [{ kind: 'archive-toggle' as const, key: 'archive-toggle-habits' }]
       : []),
-    ...archivedHabits.map((habit) => ({
-      kind: 'habit' as const,
-      key: habit.id,
-      habit,
-      isFirst: true,
-      isLast: true,
-    })),
+    ...(showArchivedHabits
+      ? archivedHabits.map((habit) => ({
+          kind: 'habit' as const,
+          key: habit.id,
+          habit,
+          isFirst: true,
+          isLast: true,
+        }))
+      : []),
   ];
 
   const moveHabit = (habitId: string, direction: -1 | 1) => {
@@ -273,28 +278,26 @@ export default function SettingsScreen() {
     );
   };
 
-  const handleCategoryMenuAction =
-    (category: ExpenseCategoryRow) =>
-    ({ nativeEvent }: NativeActionEvent) => {
-      switch (nativeEvent.event) {
-        case 'edit':
-          router.push({ pathname: '/expense-category/[id]', params: { id: category.id } });
-          break;
-        case 'archive':
-          archiveCategory(db, category.id).catch((error) =>
-            console.warn('Failed to archive expense category', error)
-          );
-          break;
-        case 'unarchive':
-          unarchiveCategory(db, category.id).catch((error) =>
-            console.warn('Failed to unarchive expense category', error)
-          );
-          break;
-        case 'delete':
-          confirmDeleteCategory(category);
-          break;
-      }
-    };
+  const handleCategoryMenuAction = (category: ExpenseCategoryRow) => (id: string) => {
+    switch (id) {
+      case 'edit':
+        router.push({ pathname: '/expense-category/[id]', params: { id: category.id } });
+        break;
+      case 'archive':
+        archiveCategory(db, category.id).catch((error) =>
+          console.warn('Failed to archive expense category', error)
+        );
+        break;
+      case 'unarchive':
+        unarchiveCategory(db, category.id).catch((error) =>
+          console.warn('Failed to unarchive expense category', error)
+        );
+        break;
+      case 'delete':
+        confirmDeleteCategory(category);
+        break;
+    }
+  };
 
   const handleExport = async () => {
     setBusy('export');
@@ -374,8 +377,8 @@ export default function SettingsScreen() {
     );
   };
 
-  const handleMenuAction = (habit: HabitRow) => ({ nativeEvent }: NativeActionEvent) => {
-    switch (nativeEvent.event) {
+  const handleMenuAction = (habit: HabitRow) => (id: string) => {
+    switch (id) {
       case 'edit':
         router.push({ pathname: '/habit/[id]', params: { id: habit.id } });
         break;
@@ -472,6 +475,9 @@ export default function SettingsScreen() {
 
             <View style={styles.group}>
               <Text variant="title2">{t('settings_data')}</Text>
+              {/* Side by side, under one hint that names both: they are the two halves of
+                  the same operation, and a paragraph each stacked them into a block taller
+                  than every other group on the screen. */}
               <View style={styles.dataButtons}>
                 <Button
                   title={t('settings_export')}
@@ -488,6 +494,9 @@ export default function SettingsScreen() {
                   style={styles.dataButton}
                 />
               </View>
+              <Text variant="caption" color={colors.textSecondary}>
+                {t('settings_data_hint')}
+              </Text>
             </View>
 
             <AccordionHeader
@@ -532,21 +541,12 @@ export default function SettingsScreen() {
 
                 {archivedCategories.length > 0 ? (
                   <>
-                    <PressableScale
+                    <ArchiveToggle
+                      label={t('settings_categories_archive')}
+                      count={archivedCategories.length}
+                      expanded={showArchivedCategories}
                       onPress={() => setShowArchivedCategories((value) => !value)}
-                      accessibilityRole="button"
-                      accessibilityLabel={t('settings_categories_archive')}
-                      accessibilityState={{ expanded: showArchivedCategories }}
-                      style={styles.archiveHeader}>
-                      <Text variant="caption" color={colors.textSecondary}>
-                        {`${t('settings_categories_archive')} (${archivedCategories.length})`}
-                      </Text>
-                      <SymbolView
-                        name={showArchivedCategories ? 'chevron.up' : 'chevron.down'}
-                        size={14}
-                        tintColor={colors.textSecondary}
-                      />
-                    </PressableScale>
+                    />
 
                     {showArchivedCategories
                       ? archivedCategories.map((category) => (
@@ -581,6 +581,18 @@ export default function SettingsScreen() {
               <Text variant="caption" color={colors.textSecondary} style={styles.sectionTitle}>
                 {item.title.toUpperCase()}
               </Text>
+            );
+          }
+
+          if (item.kind === 'archive-toggle') {
+            return (
+              <ArchiveToggle
+                label={t('settings_archive')}
+                count={archivedHabits.length}
+                expanded={showArchivedHabits}
+                onPress={() => setShowArchivedHabits((value) => !value)}
+                style={styles.archiveToggleInList}
+              />
             );
           }
 
@@ -641,39 +653,31 @@ export default function SettingsScreen() {
                 </View>
               ) : null}
 
-              <MenuView
-                actions={
-                  isArchived
-                    ? [
-                        { id: 'edit', title: t('menu_edit'), image: 'pencil' },
-                        {
-                          id: 'unarchive',
-                          title: t('menu_unarchive'),
-                          image: 'tray.and.arrow.up',
-                        },
-                        {
-                          id: 'delete',
-                          title: t('delete'),
-                          image: 'trash',
-                          attributes: { destructive: true },
-                        },
-                      ]
-                    : [
-                        { id: 'edit', title: t('menu_edit'), image: 'pencil' },
-                        { id: 'archive', title: t('menu_archive'), image: 'archivebox' },
-                        {
-                          id: 'delete',
-                          title: t('delete'),
-                          image: 'trash',
-                          attributes: { destructive: true },
-                        },
-                      ]
+              <PressableScale
+                accessibilityRole="button"
+                onPress={() =>
+                  showActionSheet(
+                    {
+                      scheme,
+                      cancelLabel: t('cancel'),
+                      actions: isArchived
+                        ? [
+                            { id: 'edit', title: t('menu_edit') },
+                            { id: 'unarchive', title: t('menu_unarchive') },
+                            { id: 'delete', title: t('delete'), destructive: true },
+                          ]
+                        : [
+                            { id: 'edit', title: t('menu_edit') },
+                            { id: 'archive', title: t('menu_archive') },
+                            { id: 'delete', title: t('delete'), destructive: true },
+                          ],
+                    },
+                    handleMenuAction(habit)
+                  )
                 }
-                onPressAction={handleMenuAction(habit)}>
-                <View style={[styles.moreButton, { backgroundColor: colors.surfaceAlt }]}>
-                  <SymbolView name="ellipsis" size={18} tintColor={colors.textPrimary} />
-                </View>
-              </MenuView>
+                style={[styles.moreButton, { backgroundColor: colors.surfaceAlt }]}>
+                <SymbolView name="ellipsis" size={18} tintColor={colors.textPrimary} />
+              </PressableScale>
             </View>
           );
         }}
@@ -710,11 +714,54 @@ function AccordionHeader({
         styles.accordion,
         { backgroundColor: colors.surface, borderColor: colors.border },
       ]}>
-      <Text variant="title2" style={styles.accordionTitle}>
+      {/* One step below the group titles above it: an accordion is a row that opens, not
+          a heading, and at title2 the two shut sections shouted over the whole screen. */}
+      <Text variant="callout" style={styles.accordionTitle}>
         {title}
       </Text>
-      <Text variant="callout" color={colors.textSecondary}>
+      <Text variant="caption" color={colors.textSecondary}>
         {count}
+      </Text>
+      <SymbolView
+        name={expanded ? 'chevron.up' : 'chevron.down'}
+        size={14}
+        tintColor={colors.textSecondary}
+      />
+    </PressableScale>
+  );
+}
+
+/**
+ * The tappable "Archive (N)" row shared by the habits list and the categories list: both
+ * archives are collapsed by default and expand the same way, so one component keeps them
+ * from drifting apart again. `style` carries the horizontal spacing, since the habits list
+ * needs it on the row itself while the categories footer already supplies it as a
+ * container padding.
+ */
+function ArchiveToggle({
+  label,
+  count,
+  expanded,
+  onPress,
+  style,
+}: {
+  label: string;
+  count: number;
+  expanded: boolean;
+  onPress: () => void;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const { colors } = useTheme();
+
+  return (
+    <PressableScale
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ expanded }}
+      style={[styles.archiveHeader, style]}>
+      <Text variant="caption" color={colors.textSecondary}>
+        {`${label} (${count})`}
       </Text>
       <SymbolView
         name={expanded ? 'chevron.up' : 'chevron.down'}
@@ -742,23 +789,19 @@ function CategoryRow({
 }: {
   category: ExpenseCategoryRow;
   count: number;
-  onPressAction: (event: NativeActionEvent) => void;
+  onPressAction: (id: string) => void;
 }) {
   const { colors, scheme } = useTheme();
   const { t, plural } = useI18n();
   const isArchived = category.archived_at !== null;
   const accentColor = resolveExpenseColor(category.color_key, scheme);
 
-  const actions: MenuAction[] = [
-    { id: 'edit', title: t('menu_edit'), image: 'pencil' },
+  const actions: ActionSheetAction[] = [
+    { id: 'edit', title: t('menu_edit') },
     isArchived
-      ? { id: 'unarchive', title: t('menu_unarchive'), image: 'tray.and.arrow.up' }
-      : { id: 'archive', title: t('menu_archive'), image: 'archivebox' },
-    ...(count === 0
-      ? ([
-          { id: 'delete', title: t('delete'), image: 'trash', attributes: { destructive: true } },
-        ] satisfies MenuAction[])
-      : []),
+      ? { id: 'unarchive', title: t('menu_unarchive') }
+      : { id: 'archive', title: t('menu_archive') },
+    ...(count === 0 ? [{ id: 'delete', title: t('delete'), destructive: true }] : []),
   ];
 
   return (
@@ -791,11 +834,14 @@ function CategoryRow({
         </View>
       </PressableScale>
 
-      <MenuView actions={actions} onPressAction={onPressAction}>
-        <View style={[styles.moreButton, { backgroundColor: colors.surfaceAlt }]}>
-          <SymbolView name="ellipsis" size={18} tintColor={colors.textPrimary} />
-        </View>
-      </MenuView>
+      <PressableScale
+        accessibilityRole="button"
+        onPress={() =>
+          showActionSheet({ scheme, cancelLabel: t('cancel'), actions }, onPressAction)
+        }
+        style={[styles.moreButton, { backgroundColor: colors.surfaceAlt }]}>
+        <SymbolView name="ellipsis" size={18} tintColor={colors.textPrimary} />
+      </PressableScale>
     </View>
   );
 }
@@ -870,9 +916,10 @@ const styles = StyleSheet.create({
   },
   dataButtons: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   dataButton: {
+    // Equal halves of the row, whichever label is the longer of the two.
     flex: 1,
   },
   list: {
@@ -952,6 +999,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     minHeight: minHitSlop,
+  },
+  // Only needed in the habits FlatList: the categories footer already gives its rows
+  // horizontal padding, but a FlatList row has none of its own.
+  archiveToggleInList: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
   },
   moreButton: {
     width: minHitSlop,

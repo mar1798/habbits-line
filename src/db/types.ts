@@ -40,6 +40,8 @@ export interface ExpenseRow {
   category_id: string;
   amount: number;
   date: string;
+  /** The user's own one-line description. Null when they left the field empty. */
+  note: string | null;
   created_at: string;
   updated_at: string;
 }
