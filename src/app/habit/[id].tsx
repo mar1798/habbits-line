@@ -7,6 +7,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Screen } from '@/components/ui/screen';
 import type { HabitInput } from '@/db/habits-repo';
 import { useI18n } from '@/hooks/use-i18n';
+import { useTakenHabitNames } from '@/hooks/use-taken-names';
 import { useHabitsStore } from '@/store/habits-store';
 
 export default function EditHabitScreen() {
@@ -16,6 +17,8 @@ export default function EditHabitScreen() {
   const habit = useHabitsStore((state) => state.habits.find((item) => item.id === id));
   const loadHabits = useHabitsStore((state) => state.load);
   const updateHabit = useHabitsStore((state) => state.update);
+  // Excludes this habit: keeping its own name is not a duplicate.
+  const takenNames = useTakenHabitNames(id);
   const [lookupDone, setLookupDone] = useState(false);
   const lookupStarted = useRef(false);
 
@@ -61,6 +64,7 @@ export default function EditHabitScreen() {
             reminderTime: habit.reminder_time,
           }}
           submitLabel={t('habit_form_save')}
+          takenNames={takenNames}
           isEditing
           onSubmit={handleSubmit}
         />

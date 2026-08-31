@@ -7,6 +7,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Screen } from '@/components/ui/screen';
 import type { ExpenseCategoryInput } from '@/db/expense-categories-repo';
 import { useI18n } from '@/hooks/use-i18n';
+import { useTakenCategoryNames } from '@/hooks/use-taken-names';
 import { categoryName } from '@/lib/category-name';
 import { useExpenseCategoriesStore } from '@/store/expense-categories-store';
 
@@ -19,6 +20,8 @@ export default function EditCategoryScreen() {
   );
   const loadCategories = useExpenseCategoriesStore((state) => state.load);
   const updateCategory = useExpenseCategoriesStore((state) => state.update);
+  // Excludes this category: keeping its own name is not a duplicate.
+  const takenNames = useTakenCategoryNames(id);
   const [lookupDone, setLookupDone] = useState(false);
   const lookupStarted = useRef(false);
 
@@ -59,6 +62,7 @@ export default function EditCategoryScreen() {
             colorKey: category.color_key,
           }}
           submitLabel={t('save')}
+          takenNames={takenNames}
           onSubmit={handleSubmit}
         />
       ) : lookupDone ? (

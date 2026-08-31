@@ -23,6 +23,7 @@ import { DEFAULT_HABIT_EMOJI } from '@/constants/emoji';
 import type { HabitInput } from '@/db/habits-repo';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
+import { isNameTakenByAnother } from '@/lib/name-match';
 
 const MIN_TARGET = 1;
 const MAX_TARGET = 20;
@@ -40,12 +41,20 @@ export const DEFAULT_HABIT_FORM_VALUES: HabitInput = {
 type HabitFormProps = {
   initialValues: HabitInput;
   submitLabel: string;
+  /** Normalized names of every other habit — this one may not reuse any of them. */
+  takenNames: readonly string[];
   /** True while editing an existing habit — schedule/target edits rewrite its past stats. */
   isEditing?: boolean;
   onSubmit: (input: HabitInput) => Promise<void>;
 };
 
-export function HabitForm({ initialValues, submitLabel, isEditing, onSubmit }: HabitFormProps) {
+export function HabitForm({
+  initialValues,
+  submitLabel,
+  takenNames,
+  isEditing,
+  onSubmit,
+}: HabitFormProps) {
   const { colors } = useTheme();
   const { t } = useI18n();
   // A stored color_key outside the palette (foreign or future import file) is pulled
@@ -57,7 +66,12 @@ export function HabitForm({ initialValues, submitLabel, isEditing, onSubmit }: H
   }));
   const [submitting, setSubmitting] = useState(false);
 
-  const nameIsValid = values.name.trim().length > 0;
+  const nameIsFilled = values.name.trim().length > 0;
+  // Two habits reading the same in the list are indistinguishable — in the list, in the
+  // reminder, and in stats — so a name already in use blocks the save the same way an
+  // empty one does.
+  const nameIsTaken = isNameTakenByAnother(values.name, takenNames, initialValues.name);
+  const nameIsValid = nameIsFilled && !nameIsTaken;
   const scheduleIsValid = values.scheduleMask > 0;
   const canSave = nameIsValid && scheduleIsValid && !submitting;
 
@@ -99,9 +113,13 @@ export function HabitForm({ initialValues, submitLabel, isEditing, onSubmit }: H
             { backgroundColor: colors.surfaceAlt, color: colors.textPrimary, borderColor: colors.border },
           ]}
         />
-        {!nameIsValid ? (
+        {!nameIsFilled ? (
           <Text variant="caption" color={colors.textSecondary}>
             {t('habit_form_name_required')}
+          </Text>
+        ) : nameIsTaken ? (
+          <Text variant="caption" color={colors.danger}>
+            {t('habit_form_name_taken')}
           </Text>
         ) : null}
       </Section>

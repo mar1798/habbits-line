@@ -85,7 +85,7 @@ function backupErrorParams(error: unknown) {
 }
 
 type Row =
-  | { kind: 'header'; key: string; title: string }
+  | { kind: 'add-habit'; key: string }
   | { kind: 'archive-toggle'; key: string }
   | { kind: 'habit'; key: string; habit: HabitRow; isFirst: boolean; isLast: boolean };
 
@@ -199,9 +199,6 @@ export default function SettingsScreen() {
   // habit rows are the FlatList's `data`, and keeping them mounted behind a closed
   // section would leave the section headers and the empty state to render around them.
   const rows: Row[] = !habitsExpanded ? [] : [
-    ...(activeHabits.length > 0
-      ? [{ kind: 'header' as const, key: 'header-active', title: t('settings_active') }]
-      : []),
     ...activeHabits.map((habit, index) => ({
       kind: 'habit' as const,
       key: habit.id,
@@ -209,6 +206,10 @@ export default function SettingsScreen() {
       isFirst: index === 0,
       isLast: index === activeHabits.length - 1,
     })),
+    // Same place as the categories' add button: under the active rows, above the
+    // archive toggle. With no habits at all it moves under the empty state instead —
+    // a row here would make `data` non-empty and keep that state from rendering.
+    ...(habits.length > 0 ? [{ kind: 'add-habit' as const, key: 'add-habit' }] : []),
     ...(archivedHabits.length > 0
       ? [{ kind: 'archive-toggle' as const, key: 'archive-toggle-habits' }]
       : []),
@@ -222,6 +223,21 @@ export default function SettingsScreen() {
         }))
       : []),
   ];
+
+  /**
+   * The categories accordion ends in an add button, and this is the habits' one. It is
+   * rendered from two places — a list row when there are habits, and under the empty
+   * state when there are none, since a FlatList shows either its data or its empty
+   * component, never both.
+   */
+  const renderAddHabitButton = (style?: StyleProp<ViewStyle>) => (
+    <Button
+      title={t('settings_habits_add')}
+      variant="secondary"
+      onPress={() => router.push('/habit/new')}
+      style={style}
+    />
+  );
 
   const moveHabit = (habitId: string, direction: -1 | 1) => {
     const ids = activeHabits.map((habit) => habit.id);
@@ -499,11 +515,15 @@ export default function SettingsScreen() {
               </Text>
             </View>
 
+            {/* The habit rows are the FlatList's `data`, so nothing but this margin sits
+                between the open header and the first one — the categories get the same
+                step from the footer's own gap. */}
             <AccordionHeader
               title={t('settings_habits')}
               count={habits.length}
               expanded={habitsExpanded}
               onPress={() => setHabitsExpanded((value) => !value)}
+              style={habitsExpanded ? styles.accordionOpen : undefined}
             />
           </View>
         }
@@ -568,20 +588,19 @@ export default function SettingsScreen() {
           // Only inside the open accordion: a closed one has no rows either, and the
           // count on its header already says the list is empty.
           habitsExpanded && loaded && habits.length === 0 ? (
-            <EmptyState
-              icon="list.bullet"
-              title={t('empty_no_habits')}
-              subtitle={t('settings_empty_subtitle')}
-            />
+            <View style={styles.empty}>
+              <EmptyState
+                icon="list.bullet"
+                title={t('empty_no_habits')}
+                subtitle={t('settings_empty_subtitle')}
+              />
+              {renderAddHabitButton()}
+            </View>
           ) : null
         }
         renderItem={({ item }) => {
-          if (item.kind === 'header') {
-            return (
-              <Text variant="caption" color={colors.textSecondary} style={styles.sectionTitle}>
-                {item.title.toUpperCase()}
-              </Text>
-            );
+          if (item.kind === 'add-habit') {
+            return renderAddHabitButton(styles.addHabitInList);
           }
 
           if (item.kind === 'archive-toggle') {
@@ -696,11 +715,13 @@ function AccordionHeader({
   count,
   expanded,
   onPress,
+  style,
 }: {
   title: string;
   count: number;
   expanded: boolean;
   onPress: () => void;
+  style?: StyleProp<ViewStyle>;
 }) {
   const { colors } = useTheme();
 
@@ -713,6 +734,7 @@ function AccordionHeader({
       style={[
         styles.accordion,
         { backgroundColor: colors.surface, borderColor: colors.border },
+        style,
       ]}>
       {/* One step below the group titles above it: an accordion is a row that opens, not
           a heading, and at title2 the two shut sections shouted over the whole screen. */}
@@ -928,11 +950,6 @@ const styles = StyleSheet.create({
   listEmpty: {
     flexGrow: 1,
   },
-  sectionTitle: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xs,
-  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -983,6 +1000,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
   },
+  accordionOpen: {
+    marginBottom: spacing.sm,
+  },
   accordionTitle: {
     flex: 1,
   },
@@ -1005,6 +1025,18 @@ const styles = StyleSheet.create({
   archiveToggleInList: {
     marginHorizontal: spacing.lg,
     marginBottom: spacing.sm,
+  },
+  addHabitInList: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  // The empty state keeps filling the list's height; the add button sits under it with
+  // the same horizontal padding as every other row.
+  empty: {
+    flex: 1,
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
   },
   moreButton: {
     width: minHitSlop,

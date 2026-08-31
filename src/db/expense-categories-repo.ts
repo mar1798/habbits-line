@@ -127,3 +127,14 @@ export async function countExpensesByCategory(
   }
   return counts;
 }
+
+/**
+ * Every category's name, archived ones included — same reasoning as `listHabitNames`:
+ * an archived category can be unarchived, and two categories reading the same in the
+ * grid are indistinguishable to the person picking one.
+ */
+export async function listExpenseCategoryNames(
+  db: SQLiteDatabase
+): Promise<{ id: string; name: string }[]> {
+  return db.getAllAsync<{ id: string; name: string }>('SELECT id, name FROM expense_categories');
+}

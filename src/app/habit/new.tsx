@@ -5,12 +5,14 @@ import { DEFAULT_HABIT_FORM_VALUES, HabitForm } from '@/components/habit/habit-f
 import { Screen } from '@/components/ui/screen';
 import type { HabitInput } from '@/db/habits-repo';
 import { useI18n } from '@/hooks/use-i18n';
+import { useTakenHabitNames } from '@/hooks/use-taken-names';
 import { useHabitsStore } from '@/store/habits-store';
 
 export default function NewHabitScreen() {
   const db = useSQLiteContext();
   const { t } = useI18n();
   const createHabit = useHabitsStore((state) => state.create);
+  const takenNames = useTakenHabitNames();
 
   const handleSubmit = async (input: HabitInput) => {
     await createHabit(db, input);
@@ -23,6 +25,7 @@ export default function NewHabitScreen() {
       <HabitForm
         initialValues={DEFAULT_HABIT_FORM_VALUES}
         submitLabel={t('habit_form_create')}
+        takenNames={takenNames}
         onSubmit={handleSubmit}
       />
     </Screen>

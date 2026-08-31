@@ -122,3 +122,12 @@ export async function reorderHabits(db: SQLiteDatabase, orderedIds: string[]): P
     }
   });
 }
+
+/**
+ * Every habit's name, archived ones included: a name is taken as long as the habit
+ * exists at all, since an archived habit can be brought back at any time and would then
+ * sit in the list next to its twin.
+ */
+export async function listHabitNames(db: SQLiteDatabase): Promise<{ id: string; name: string }[]> {
+  return db.getAllAsync<{ id: string; name: string }>('SELECT id, name FROM habits');
+}
