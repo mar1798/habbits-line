@@ -31,6 +31,7 @@ import {
   importBackupAsync,
   pickBackupFileAsync,
 } from '@/lib/backup';
+import { categoryName } from '@/lib/category-name';
 import {
   getScheduledCountAsync,
   NOTIFICATION_WARNING_THRESHOLD,
@@ -255,7 +256,7 @@ export default function SettingsScreen() {
    */
   const confirmDeleteCategory = (category: ExpenseCategoryRow) => {
     Alert.alert(
-      t('settings_category_delete_title', { name: category.name }),
+      t('settings_category_delete_title', { name: categoryName(category.name, t) }),
       t('settings_category_delete_message'),
       [
         { text: t('cancel'), style: 'cancel' },
@@ -767,14 +768,14 @@ function CategoryRow({
           router.push({ pathname: '/expense-category/[id]', params: { id: category.id } })
         }
         accessibilityRole="button"
-        accessibilityLabel={t('settings_edit_category', { name: category.name })}
+        accessibilityLabel={t('settings_edit_category', { name: categoryName(category.name, t) })}
         style={styles.main}>
         <View style={[styles.emoji, { backgroundColor: `${accentColor}33` }]}>
           <Text variant="headline">{category.emoji}</Text>
         </View>
         <View style={styles.info}>
           <Text variant="body" numberOfLines={1} color={isArchived ? colors.textSecondary : undefined}>
-            {category.name}
+            {categoryName(category.name, t)}
           </Text>
           {isArchived ? (
             <Text variant="caption" color={colors.textTertiary}>

@@ -192,7 +192,17 @@ export default function StatsScreen() {
           <ExpenseSummary todayDate={today} />
         </ScrollView>
       ) : (
-        <>
+        /* The chips scroll with the cards rather than sitting in a fixed strip above
+           them: pinned, they ate a row of height on every screen for a control that is
+           only touched when switching habits. */
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          {/* The heading stands above the chips, not below them: the chips filter the
+              habit cards and nothing else, and a row of them directly under the screen
+              title read as a filter over the whole screen, expenses included. */}
+          <View style={styles.habitsHeading}>
+            <Text variant="title2">{t('stats_habits')}</Text>
+          </View>
+
           <FlatList
             horizontal
             data={chips}
@@ -232,19 +242,27 @@ export default function StatsScreen() {
           />
 
           {series.length > 0 ? (
-            <Animated.ScrollView style={contentStyle} contentContainerStyle={styles.content}>
-              <StreakCard current={streaks.current} best={streaks.best} />
-              <RateCard rate7={rate7} rate30={rate30} color={accentColor} />
-              <View style={styles.heatmapSection}>
-                <Text variant="title2">{t('stats_last_3_months')}</Text>
-                <Heatmap series={series} color={accentColor} todayDate={today} />
+            <Animated.View style={[styles.content, contentStyle]}>
+              {/* Titled like the expense block below it: two stacks of cards with only
+                  one of them named read as if the streaks belonged to the expenses. The
+                  heading sits outside the crossfade, above the chips — only the cards
+                  under it change with the selection. Its `title2` names the whole habit
+                  stack, so the heatmap's own line stays at `headline`, the level the
+                  expense block gives its subsections. */}
+              <View style={styles.habitsSection}>
+                <StreakCard current={streaks.current} best={streaks.best} />
+                <RateCard rate7={rate7} rate30={rate30} color={accentColor} />
+                <View style={styles.heatmapSection}>
+                  <Text variant="headline">{t('stats_last_3_months')}</Text>
+                  <Heatmap series={series} color={accentColor} todayDate={today} />
+                </View>
               </View>
               {/* Below the habit blocks, and outside the crossfade's reason to exist: the
                   chips above switch habits, and the expense block is the same either way. */}
               <ExpenseSummary todayDate={today} />
-            </Animated.ScrollView>
+            </Animated.View>
           ) : null}
-        </>
+        </ScrollView>
       )}
     </Screen>
   );
@@ -286,10 +304,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderRadius: radius.pill,
   },
+  scrollContent: {
+    paddingBottom: spacing.xl,
+  },
   content: {
     gap: spacing.lg,
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
   },
   emptyContent: {
     gap: spacing.lg,
@@ -303,7 +323,14 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingVertical: spacing.xl,
   },
-  heatmapSection: {
+  habitsHeading: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+  },
+  habitsSection: {
     gap: spacing.md,
+  },
+  heatmapSection: {
+    gap: spacing.sm,
   },
 });

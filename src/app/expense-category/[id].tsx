@@ -7,6 +7,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Screen } from '@/components/ui/screen';
 import type { ExpenseCategoryInput } from '@/db/expense-categories-repo';
 import { useI18n } from '@/hooks/use-i18n';
+import { categoryName } from '@/lib/category-name';
 import { useExpenseCategoriesStore } from '@/store/expense-categories-store';
 
 export default function EditCategoryScreen() {
@@ -47,8 +48,13 @@ export default function EditCategoryScreen() {
     <Screen edges={['bottom']}>
       {category ? (
         <CategoryForm
+          /* The name is the one shown everywhere else, not the stored one: for a starter
+             category in an English UI those differ, and a form that opened on "Еда" over
+             a grid tile reading "Food" would look like it had loaded the wrong row.
+             Saving it writes the visible name, which is exactly right — the category
+             stops being a starter one and becomes the user's own. */
           initialValues={{
-            name: category.name,
+            name: categoryName(category.name, t),
             emoji: category.emoji,
             colorKey: category.color_key,
           }}

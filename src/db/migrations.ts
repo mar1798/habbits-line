@@ -91,8 +91,10 @@ export async function migrate(db: SQLiteDatabase): Promise<void> {
     // while a migration runs exactly once by definition. The consequence is deliberate —
     // archiving all eight does not bring them back.
     //
-    // Names are Russian and stay Russian when the app language changes: like habit names,
-    // they are user data, not UI strings.
+    // Names are written in Russian and stay that way in the database: like habit names,
+    // they are user data. The UI shows a translation for exactly these eight, matched
+    // back by name in lib/category-name.ts — renaming one makes it the user's own and
+    // ends the translation.
     //
     // Every statement of the block, `user_version` included, goes in one transaction.
     // Applied piecemeal it would brick the app: a failure between the CREATE TABLEs and

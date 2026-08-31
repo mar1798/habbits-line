@@ -98,11 +98,28 @@ export function BalanceCard({
             <Text variant="display" color={isOverspent ? colors.danger : undefined}>
               {formatAmount(remainder)}
             </Text>
-            <Text variant="callout" color={isOverspent ? colors.danger : colors.textSecondary}>
-              {isOverspent
-                ? t('expenses_overspent')
-                : t('expenses_remaining', { budget: formatAmount(budget ?? 0) })}
-            </Text>
+            {/* The big number is what is left; what was spent to get there stands beside
+                it rather than under it, so the period reads as one line of two halves.
+                Both shrink and clip at one line: two long amounts in a wide currency
+                would otherwise wrap the row into a second line of its own. */}
+            <View style={styles.captions}>
+              <Text
+                variant="callout"
+                numberOfLines={1}
+                style={styles.caption}
+                color={isOverspent ? colors.danger : colors.textSecondary}>
+                {isOverspent
+                  ? t('expenses_overspent')
+                  : t('expenses_remaining', { budget: formatAmount(budget ?? 0) })}
+              </Text>
+              <Text
+                variant="callout"
+                numberOfLines={1}
+                style={styles.caption}
+                color={colors.textSecondary}>
+                {t('expenses_spent', { amount: formatAmount(spent) })}
+              </Text>
+            </View>
           </View>
         )}
       </Card>
@@ -116,6 +133,15 @@ const styles = StyleSheet.create({
   },
   amount: {
     gap: spacing.xs,
+  },
+  captions: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  caption: {
+    flexShrink: 1,
   },
   noBudget: {
     gap: spacing.md,

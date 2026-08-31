@@ -9,6 +9,7 @@ import { radius, resolveExpenseColor, spacing } from '@/constants/design-tokens'
 import type { ExpenseCategoryRow, ExpenseRow as ExpenseRowData } from '@/db/types';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
+import { categoryName } from '@/lib/category-name';
 import { formatAmount } from '@/lib/money';
 
 type ExpenseRowProps = {
@@ -55,7 +56,7 @@ export function ExpenseRow({ expense, category, onEdit, onDelete }: ExpenseRowPr
           </View>
           <View style={styles.info}>
             <Text variant="headline" numberOfLines={1}>
-              {category?.name ?? '—'}
+              {category ? categoryName(category.name, t) : '—'}
             </Text>
             {category?.archived_at ? (
               <Text variant="caption" color={colors.textTertiary}>

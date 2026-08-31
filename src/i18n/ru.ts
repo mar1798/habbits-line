@@ -89,6 +89,7 @@ export const ru = {
   expenses_add: 'Добавить расход',
   expenses_add_action: '+ Добавить расход',
   expenses_remaining: 'Осталось из {budget}',
+  expenses_spent: 'Потрачено {amount}',
   expenses_overspent: 'Перерасход',
   expenses_no_budget: 'Бюджет не задан',
   expenses_set_budget: 'Задать',
@@ -116,6 +117,17 @@ export const ru = {
   expense_budget_day: '{day} число',
   expense_budget_save_failed: 'Не удалось сохранить бюджет',
 
+  // Starter category names. The rows are seeded in Russian by the v1 -> v2 migration and
+  // matched back to these keys by name — see lib/category-name.ts.
+  category_seed_health: 'Здоровье',
+  category_seed_leisure: 'Досуг',
+  category_seed_home: 'Дом',
+  category_seed_food: 'Еда',
+  category_seed_entertainment: 'Развлечение',
+  category_seed_shopping: 'Покупки',
+  category_seed_transport: 'Транспорт',
+  category_seed_other: 'Прочее',
+
   // Category form.
   category_form_name: 'Название',
   category_form_name_placeholder: 'Например, Кофе',
@@ -133,6 +145,7 @@ export const ru = {
   stats_empty_title: 'Пока нет данных',
   stats_empty_subtitle: 'Статистика появится, когда вы начнёте отмечать привычки',
   stats_all: 'Все',
+  stats_habits: 'Привычки',
   stats_last_3_months: 'Последние 3 месяца',
   // Read out instead of the month's grid of squares: the cells carry their meaning in
   // colour alone, which VoiceOver has no way to convey.
@@ -145,15 +158,17 @@ export const ru = {
   rate_30_days: 'За 30 дней',
   stats_expenses: 'Расходы',
   stats_expenses_current: 'Текущий период',
-  stats_expenses_previous: 'Прошлый период',
-  stats_expenses_delta_up: 'Больше на {percent}%',
-  stats_expenses_delta_down: 'Меньше на {percent}%',
-  stats_expenses_delta_same: 'Столько же',
-  stats_expenses_delta_new: 'В прошлом периоде расходов не было',
-  stats_expenses_comparison: 'Сравнение периодов',
   stats_expenses_history: 'Прошлые периоды',
   stats_expenses_by_category: 'По категориям',
   stats_expenses_empty: 'В этом периоде расходов не было',
+  stats_expenses_range: 'Свой период',
+  stats_expenses_range_hint: 'Выберите в календаре первую и последнюю дату, чтобы увидеть расходы за эти дни',
+  stats_expenses_range_pending: 'Теперь выберите последнюю дату',
+  stats_expenses_range_clear: 'Сбросить',
+  stats_expenses_range_days: '{count} {days}',
+  stats_expenses_range_empty: 'За выбранные даты расходов не было',
+  calendar_prev_month: 'Предыдущий месяц',
+  calendar_next_month: 'Следующий месяц',
 
   // Settings.
   settings_title: 'Настройки',

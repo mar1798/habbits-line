@@ -7,6 +7,7 @@ import { radius, resolveExpenseColor, spacing } from '@/constants/design-tokens'
 import type { ExpenseCategoryRow } from '@/db/types';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
+import { categoryName } from '@/lib/category-name';
 
 const COLUMNS = 3;
 const SELECTED_BORDER_WIDTH = 2;
@@ -87,7 +88,7 @@ export function CategoryGrid({ categories, value, onChange, onAdd }: CategoryGri
             // Same reason as the emoji picker: iOS has no radio trait, and a non-button
             // role leaves VoiceOver announcing neither a control nor its selection.
             accessibilityRole="button"
-            accessibilityLabel={`${category.emoji} ${category.name}`}
+            accessibilityLabel={`${category.emoji} ${categoryName(category.name, t)}`}
             accessibilityState={{ selected: isSelected }}
             style={[
               styles.cell,
@@ -102,7 +103,7 @@ export function CategoryGrid({ categories, value, onChange, onAdd }: CategoryGri
               numberOfLines={1}
               color={isSelected ? colors.onAccent : colors.textSecondary}
               style={styles.name}>
-              {category.name}
+              {categoryName(category.name, t)}
             </Text>
           </PressableScale>
         );
