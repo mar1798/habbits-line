@@ -119,9 +119,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // The counter keeps the circle's diameter as a floor, so a habit with a target of
+  // 3 draws the same 44pt pill as the checkmark next to it in the list; only counts
+  // too wide for that — "10/12" — push it out.
   withLabel: {
     width: undefined,
-    paddingHorizontal: spacing.md,
+    minWidth: minHitSlop,
+    paddingHorizontal: spacing.sm,
   },
   // Its own layer so the animations have something to scale that isn't the label; the
   // pill it draws is the one `base` would have drawn as a plain background.
