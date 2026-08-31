@@ -21,9 +21,10 @@ export async function listBudgets(db: SQLiteDatabase): Promise<ExpenseBudgetRow[
  */
 export async function getBudgetFor(
   db: SQLiteDatabase,
-  periodStart: string
+  periodStart: string,
+  startDay: number
 ): Promise<number | null> {
-  return resolveBudget(await listBudgets(db), periodStart);
+  return resolveBudget(await listBudgets(db), periodStart, startDay);
 }
 
 /**

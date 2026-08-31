@@ -4,6 +4,8 @@
  * be tested without one.
  */
 
+import { periodStartFor } from './period';
+
 /** The fields of an expense every calculation here reads. */
 export interface ExpenseItem {
   category_id: string;
@@ -27,27 +29,39 @@ export interface BudgetItem {
  * would have nowhere to run. It only looks backwards: a period *before* the first budget
  * was ever set has none, and that is correct — back then it really was not set.
  *
- * Looking only backwards is also why moving the period start day is not handled here.
- * Moved forward, the period's new start is after the old row and inherits it; moved back,
- * the new start is *before* it and would inherit an older amount or none — so the budget
- * modal rewrites the amount for the new period start as part of the same save. Doing it
- * here instead would mean guessing which of the rows around a period was written for
- * "this" one, and would hand a period that genuinely predates every budget a budget it
- * never had.
+ * Moving the start day leaves rows behind whose `period_start` no longer opens any period.
+ * They stay eligible, because a file imported without its `expense_period_start_day` — a
+ * v2 backup written before settings joined the format — carries budgets keyed to a day
+ * this device does not use, and dropping them outright would lose every budget in it.
+ * But they lose to a row that does open a period, and that ordering is the whole point:
+ * moving the start day *back* writes the replacement at an earlier date than the row it
+ * replaces, so by date alone the abandoned row is the later one and would be inherited by
+ * every period after it — quietly handing the next period an amount the user overwrote.
  */
-export function resolveBudget(budgets: BudgetItem[], periodStart: string): number | null {
-  let inherited: BudgetItem | null = null;
+export function resolveBudget(
+  budgets: BudgetItem[],
+  periodStart: string,
+  startDay: number
+): number | null {
+  let live: BudgetItem | null = null;
+  let abandoned: BudgetItem | null = null;
 
   for (const budget of budgets) {
     if (budget.period_start === periodStart) return budget.amount;
-    if (budget.period_start < periodStart) {
-      if (inherited === null || budget.period_start > inherited.period_start) {
-        inherited = budget;
-      }
+    if (budget.period_start > periodStart) continue;
+
+    const opensAPeriod = periodStartFor(budget.period_start, startDay) === budget.period_start;
+    const best = opensAPeriod ? live : abandoned;
+    if (best !== null && best.period_start >= budget.period_start) continue;
+
+    if (opensAPeriod) {
+      live = budget;
+    } else {
+      abandoned = budget;
     }
   }
 
-  return inherited?.amount ?? null;
+  return (live ?? abandoned)?.amount ?? null;
 }
 
 export function sumAmounts(expenses: ExpenseItem[]): number {

@@ -1,9 +1,12 @@
 import { shiftDateKey } from '../date';
 import {
   clampPeriodStartDay,
+  MAX_PERIOD_START_DAY,
+  MIN_PERIOD_START_DAY,
   parsePeriodStartDay,
   periodEndFor,
   periodLength,
+  periodStartDayOf,
   periodStartFor,
   shiftPeriod,
 } from '../period';
@@ -108,5 +111,21 @@ describe('clampPeriodStartDay / parsePeriodStartDay', () => {
     expect(parsePeriodStartDay('nonsense')).toBe(1);
     expect(parsePeriodStartDay('29')).toBe(28);
     expect(parsePeriodStartDay('6')).toBe(6);
+  });
+});
+
+describe('periodStartDayOf', () => {
+  // The inverse of `periodStartFor`: what start day produced this period start.
+  it('reads the start day back off a period start', () => {
+    expect(periodStartDayOf('2026-08-06')).toBe(6);
+    expect(periodStartDayOf('2026-01-01')).toBe(1);
+    expect(periodStartDayOf('2026-12-28')).toBe(28);
+  });
+
+  it('round-trips every legal start day, February included', () => {
+    for (let day = MIN_PERIOD_START_DAY; day <= MAX_PERIOD_START_DAY; day++) {
+      expect(periodStartDayOf(periodStartFor('2026-02-15', day))).toBe(day);
+      expect(periodStartDayOf(periodStartFor('2026-08-31', day))).toBe(day);
+    }
   });
 });

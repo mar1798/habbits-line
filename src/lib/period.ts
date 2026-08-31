@@ -64,3 +64,17 @@ export function periodLength(periodStart: string, startDay: number): number {
   const end = periodEndFor(periodStart, startDay);
   return differenceInCalendarDays(parseDateKey(end), parseDateKey(periodStart)) + 1;
 }
+
+/**
+ * The start day a period start was built with — its day of month.
+ *
+ * `periodStartFor` always returns a date whose day of month is the (clamped) start day,
+ * and the limit of 28 means no month is ever too short to carry it, so this is exact for
+ * any key that function produced. It is the inverse nobody had to write while budgets
+ * were only ever read for the period the caller had just computed; `resolveBudget` needs
+ * the start day itself, and recovering it here keeps it off the signature of every
+ * `loadPeriod` and `ensurePeriod` between the screen and the repository.
+ */
+export function periodStartDayOf(periodStart: string): number {
+  return parseDateKey(periodStart).getDate();
+}

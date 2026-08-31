@@ -5,6 +5,7 @@ import * as budgetsRepo from '@/db/budgets-repo';
 import * as expensesRepo from '@/db/expenses-repo';
 import type { ExpenseRow } from '@/db/types';
 import { haptics } from '@/lib/haptics';
+import { periodStartDayOf } from '@/lib/period';
 
 interface ExpensesState {
   /** Every expense of the loaded period, ordered as the repo returns them. */
@@ -53,7 +54,10 @@ export const useExpensesStore = create<ExpensesState>((set, get) => ({
   loadPeriod: async (db, start, end) => {
     const [expenses, budget] = await Promise.all([
       expensesRepo.listExpensesBetween(db, start, end),
-      budgetsRepo.getBudgetFor(db, start),
+      // The start day is read back off the period start rather than taken as a parameter:
+      // `start` was built by `periodStartFor` and carries it, so every caller between here
+      // and the screen would only be passing along what this argument already says.
+      budgetsRepo.getBudgetFor(db, start, periodStartDayOf(start)),
     ]);
     set({ expenses, budget, period: { start, end }, loaded: true });
   },
@@ -194,6 +198,12 @@ export const useExpensesStore = create<ExpensesState>((set, get) => ({
       throw new Error('Cannot clear a budget: no expense period is loaded');
     }
     await budgetsRepo.deleteBudget(db, period.start);
-    set({ budget: await budgetsRepo.getBudgetFor(db, period.start) });
+    set({
+      budget: await budgetsRepo.getBudgetFor(
+        db,
+        period.start,
+        periodStartDayOf(period.start)
+      ),
+    });
   },
 }));
