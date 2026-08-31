@@ -1,4 +1,7 @@
-import { addDays, getDay, parse, startOfWeek } from 'date-fns';
+import { addDays } from 'date-fns/addDays';
+import { getDay } from 'date-fns/getDay';
+import { parse } from 'date-fns/parse';
+import { startOfWeek } from 'date-fns/startOfWeek';
 
 const DATE_KEY_FORMAT = 'yyyy-MM-dd';
 

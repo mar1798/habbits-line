@@ -1,4 +1,5 @@
-import { format, type Locale } from 'date-fns';
+import { format } from 'date-fns/format';
+import type { Locale } from 'date-fns';
 import { useMemo } from 'react';
 import { StyleSheet, View, type ViewStyle } from 'react-native';
 

@@ -1,4 +1,4 @@
-import { differenceInCalendarDays } from 'date-fns';
+import { differenceInCalendarDays } from 'date-fns/differenceInCalendarDays';
 import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 

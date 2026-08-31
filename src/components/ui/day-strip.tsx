@@ -1,4 +1,5 @@
-import { format, type Locale } from 'date-fns';
+import { format } from 'date-fns/format';
+import type { Locale } from 'date-fns';
 import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {

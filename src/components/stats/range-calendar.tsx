@@ -1,4 +1,4 @@
-import { format } from 'date-fns';
+import { format } from 'date-fns/format';
 import { useMemo, useState } from 'react';
 import { StyleSheet, View, type ViewStyle } from 'react-native';
 
