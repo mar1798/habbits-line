@@ -98,7 +98,7 @@ export const en: Record<keyof typeof ru, string> = {
   expense_form_category_required: 'Pick a category — the expense cannot be saved without one',
   expense_form_note: 'Description',
   expense_form_note_optional: 'optional',
-  expense_form_note_placeholder: 'Lunch with colleagues, say',
+  expense_form_note_placeholder: 'For example, lunch with colleagues',
   expense_form_save_failed: 'Could not save the expense',
   expense_not_found: 'Expense not found',
 
