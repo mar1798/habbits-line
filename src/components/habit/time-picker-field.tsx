@@ -79,6 +79,7 @@ export function TimePickerField({ value, onChange }: TimePickerFieldProps) {
               themeVariant={scheme}
               accentColor={colors.accent}
               onValueChange={(_, date) => handleTimeChange(date)}
+              style={styles.picker}
             />
           ) : null}
           <Switch
@@ -125,6 +126,13 @@ const styles = StyleSheet.create({
   },
   title: {
     flexShrink: 1,
+  },
+  // The picker's Host matches its content vertically only, so in a flex row it lays out
+  // at zero width and the SwiftUI field spills over the switch, clipped. The width is
+  // fixed here instead: 104pt is the widest the compact field gets — '12:00 AM' on a
+  // 12-hour locale — and a 24-hour locale simply centres its shorter time inside it.
+  picker: {
+    width: 104,
   },
   control: {
     flexDirection: 'row',
