@@ -39,6 +39,9 @@ function alphaHex(ratio: number): string {
 const MISSED_RING_ALPHA = 0.45;
 const MISSED_RING_WIDTH = 1;
 
+/** Same ring, drawn in the neutral border token: the slot exists, nothing is known yet. */
+const FUTURE_BORDER_WIDTH = 1;
+
 type Month = {
   key: string;
   label: string;
@@ -122,10 +125,14 @@ export function Heatmap({ series, color, todayDate }: HeatmapProps) {
   }, [months, series, todayDate]);
 
   const cellStyle = (date: string): ViewStyle | undefined => {
-    // Nothing to show for a day that hasn't happened yet — an empty slot, not a "missed"
-    // one, or the rest of the current month would read as a wall of failures.
+    // A day that hasn't happened yet gets an outline and no fill — not the "missed"
+    // treatment, or the rest of the current month would read as a wall of failures, and
+    // not nothing at all: on the 1st of a month the whole third column went invisible
+    // and the month looked broken rather than unwritten.
     const tally = tallies.get(date);
-    if (!tally) return undefined;
+    if (!tally) {
+      return { borderWidth: FUTURE_BORDER_WIDTH, borderColor: colors.border };
+    }
     // Same for a day before the habits existed, or after they were archived: `tallyDay`
     // leaves those inactive, so they read as "nothing planned" rather than as a miss.
     if (tally.active === 0) {
