@@ -4,7 +4,7 @@ import { Linking, Switch, StyleSheet, View } from 'react-native';
 
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { Text } from '@/components/ui/text';
-import { minHitSlop, spacing } from '@/constants/design-tokens';
+import { minHitSlop, opacity, spacing } from '@/constants/design-tokens';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 import { useNotificationPermissionStatus } from '@/lib/notifications';
@@ -46,7 +46,9 @@ export function TimePickerField({ value, onChange }: TimePickerFieldProps) {
   const handleTimeChange = (date: Date) => {
     const time = dateToTime(date);
     setLastTime(time);
-    onChange(time);
+    // The disabled picker is inert, but SwiftUI still emits its initial value change;
+    // writing it back would turn the reminder on without the switch being touched.
+    if (enabled) onChange(time);
   };
 
   return (
@@ -70,10 +72,18 @@ export function TimePickerField({ value, onChange }: TimePickerFieldProps) {
             The community entry point rather than the `@expo/ui/swift-ui` barrel: that
             barrel is one module re-exporting every SwiftUI component in the package, and
             importing two of them pulled all of them into the bundle.
+
+            The picker stays mounted when the reminder is off: hiding it shrank the row
+            and made the switch jump out from under the finger that had just tapped it.
+            Off, it shows the time the switch would restore, dimmed and inert.
           */}
-          {enabled ? (
+          <View
+            pointerEvents={enabled ? 'auto' : 'none'}
+            accessibilityElementsHidden={!enabled}
+            importantForAccessibility={enabled ? 'auto' : 'no-hide-descendants'}
+            style={enabled ? undefined : styles.pickerDisabled}>
             <DateTimePicker
-              value={timeToDate(value)}
+              value={timeToDate(value ?? lastTime)}
               mode="time"
               display="compact"
               themeVariant={scheme}
@@ -81,7 +91,7 @@ export function TimePickerField({ value, onChange }: TimePickerFieldProps) {
               onValueChange={(_, date) => handleTimeChange(date)}
               style={styles.picker}
             />
-          ) : null}
+          </View>
           <Switch
             value={enabled}
             onValueChange={(next) => onChange(next ? lastTime : null)}
@@ -133,6 +143,9 @@ const styles = StyleSheet.create({
   // 12-hour locale — and a 24-hour locale simply centres its shorter time inside it.
   picker: {
     width: 104,
+  },
+  pickerDisabled: {
+    opacity: opacity.disabled,
   },
   control: {
     flexDirection: 'row',
