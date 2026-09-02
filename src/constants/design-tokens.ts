@@ -226,6 +226,13 @@ export const motion = {
   spring: {
     press: { damping: 18, stiffness: 320 },
     check: { damping: 12, stiffness: 260 },
+    /**
+     * Settling back after a swipe. Same speed as `press`, but damped nearly to the
+     * critical point: `press` sits at a damping ratio of ~0.5 and rings back and forth
+     * several times, which on a week strip reads as a pendulum. At ~0.85 the strip
+     * overshoots once and stops.
+     */
+    settle: { damping: 30, stiffness: 320 },
   },
   timing: {
     fast: 140,

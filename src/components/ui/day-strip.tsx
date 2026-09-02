@@ -46,7 +46,7 @@ const PAN_FAIL_Y = 12;
 const RUBBER_BAND = 0.25;
 
 const settleSpring = {
-  ...motion.spring.press,
+  ...motion.spring.settle,
   reduceMotion: ReduceMotion.System,
 };
 
