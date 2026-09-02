@@ -52,6 +52,7 @@ export default function BudgetScreen() {
   const { date } = useLocalSearchParams<{ date?: string }>();
 
   const budget = useExpensesStore((state) => state.budget);
+  const ownBudget = useExpensesStore((state) => state.ownBudget);
   const ensurePeriod = useExpensesStore((state) => state.ensurePeriod);
   const setBudget = useExpensesStore((state) => state.setBudget);
   const clearBudget = useExpensesStore((state) => state.clearBudget);
@@ -92,8 +93,15 @@ export default function BudgetScreen() {
    */
   const amount = typedAmount ?? (budget === null ? '' : normalizeAmountInput(String(budget)));
   const amountValue = amount === '' ? 0 : Number(amount);
-  /** An emptied field with a budget in force means "remove it", and is savable as such. */
-  const clearing = amount === '' && budget !== null;
+  /**
+   * An emptied field means "remove it" only for a period that owns its budget row: the
+   * amount in force may have been inherited from an earlier period, and `clearBudget`
+   * deletes by `period_start`, so on an inherited amount it deleted nothing and Save
+   * closed the modal having changed what the card shows by nothing at all. Now the field
+   * says so instead, and there is nothing to save.
+   */
+  const inherited = budget !== null && ownBudget === null;
+  const clearing = amount === '' && ownBudget !== null;
   // An empty amount is still savable while the start day has moved: someone who has not
   // set a budget yet may still want their periods to open on the 6th.
   const canSave = (amountValue > 0 || clearing || startDay !== periodStartDay) && !submitting;
@@ -154,6 +162,11 @@ export default function BudgetScreen() {
               period: periodLabel(periodStart, periodEnd, today, locale),
             })}
           </Text>
+          {inherited ? (
+            <Text variant="caption" color={colors.textSecondary}>
+              {t('expense_budget_inherited')}
+            </Text>
+          ) : null}
         </Section>
 
         <Section title={t('expense_budget_start_day')}>

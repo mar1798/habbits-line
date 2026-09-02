@@ -121,6 +121,8 @@ export const ru = {
   expense_budget_start_day_hint:
     'Период сдвигается целиком. Бюджеты прошлых периодов при этом не теряются.',
   expense_budget_day: '{day} число',
+  expense_budget_inherited:
+    'Сумма перенесена из более раннего периода. Очистить поле можно только там, где она задана.',
   expense_budget_save_failed: 'Не удалось сохранить бюджет',
 
   // Starter category names. The rows are seeded in Russian by the v1 -> v2 migration and
@@ -181,6 +183,26 @@ export const ru = {
   stats_habits_range_days: '{count} {days}',
   stats_habits_range_closed: 'Закрыто {closed} из {scheduled} {days}',
   stats_habits_range_empty: 'В эти дни ничего не было запланировано',
+
+  // Colour names, keyed by the sixteen-colour expense palette — the habit palette's eight
+  // keys are a strict subset, so one set serves both pickers. Spoken by VoiceOver on a
+  // swatch, where the raw key ('slate') said nothing to a Russian-speaking user.
+  color_violet: 'Фиолетовый',
+  color_indigo: 'Индиго',
+  color_blue: 'Синий',
+  color_sky: 'Голубой',
+  color_teal: 'Бирюзовый',
+  color_mint: 'Мятный',
+  color_green: 'Зелёный',
+  color_olive: 'Оливковый',
+  color_amber: 'Янтарный',
+  color_orange: 'Оранжевый',
+  color_coral: 'Коралловый',
+  color_rose: 'Розово-красный',
+  color_pink: 'Розовый',
+  color_plum: 'Сливовый',
+  color_brown: 'Коричневый',
+  color_slate: 'Серо-синий',
   calendar_prev_month: 'Предыдущий месяц',
   calendar_next_month: 'Следующий месяц',
 
@@ -204,6 +226,8 @@ export const ru = {
   settings_habits_add: 'Добавить привычку',
   settings_archive: 'Архив',
   settings_archived_badge: 'Архивная',
+  settings_habit_menu: 'Меню «{name}»',
+  settings_category_menu: 'Меню «{name}»',
   settings_move_up: 'Переместить вверх',
   settings_move_down: 'Переместить вниз',
   settings_edit_habit: 'Изменить «{name}»',
@@ -263,6 +287,9 @@ export const ru = {
 /** Russian has three plural forms; `plural.ts` picks between them. */
 export const ruPlurals = {
   days: { one: 'день', few: 'дня', many: 'дней' },
+  // Genitive, for the counted noun after «из»: «из 1 дня», «из 2 дней». The nominative
+  // `days` set above is right only in the 5+/0/11–14 branch and reads as broken elsewhere.
+  days_of: { one: 'дня', few: 'дней', many: 'дней' },
   times: { one: 'раз', few: 'раза', many: 'раз' },
   expenses: { one: 'расход', few: 'расхода', many: 'расходов' },
   reminders: { one: 'напоминание', few: 'напоминания', many: 'напоминаний' },

@@ -41,7 +41,7 @@ export default function TodayScreen() {
 
   const counts = useEntriesStore((state) => state.counts);
   const loadedCounts = useEntriesStore((state) => state.loadedCounts);
-  const entriesLoaded = useEntriesStore((state) => state.loaded);
+  const entriesRange = useEntriesStore((state) => state.range);
   const loadWeek = useEntriesStore((state) => state.loadWeek);
   const cycleCount = useEntriesStore((state) => state.cycle);
 
@@ -132,7 +132,15 @@ export default function TodayScreen() {
   // Nothing is marked before the week has actually been read. A failed read leaves the
   // cells at 0, and a tap on one would write a 1 straight over the count that is really
   // in the database.
-  const isEditable = selectedDate <= today && entriesLoaded;
+  //
+  // The loaded range, not the bare `loaded` flag: that flag only says *some* week has been
+  // read. While the read for a freshly paged week is in flight it stays true over the
+  // previous week's counts, so the new week's cells drew as unmarked and were tappable —
+  // the same window the failure path above already guards. The expenses tab compares its
+  // loaded period the same way.
+  const isWeekLoaded =
+    entriesRange !== null && entriesRange.from <= selectedDate && selectedDate <= entriesRange.to;
+  const isEditable = selectedDate <= today && isWeekLoaded;
 
   const dayProgress = scheduledHabits.length
     ? scheduledHabits.reduce((sum, habit) => {

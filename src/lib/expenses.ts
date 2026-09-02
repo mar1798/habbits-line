@@ -38,6 +38,18 @@ export interface BudgetItem {
  * replaces, so by date alone the abandoned row is the later one and would be inherited by
  * every period after it — quietly handing the next period an amount the user overwrote.
  */
+/**
+ * The amount this period wrote for itself, ignoring what it would inherit. Separate from
+ * `resolveBudget` because the two answer different questions: the card shows the budget in
+ * force, while "remove the budget" can only act on a row this period actually owns.
+ */
+export function resolveOwnBudget(budgets: BudgetItem[], periodStart: string): number | null {
+  for (const budget of budgets) {
+    if (budget.period_start === periodStart) return budget.amount;
+  }
+  return null;
+}
+
 export function resolveBudget(
   budgets: BudgetItem[],
   periodStart: string,

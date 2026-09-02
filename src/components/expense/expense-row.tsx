@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { type AccessibilityActionEvent, StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/ui/card';
 import { PressableScale } from '@/components/ui/pressable-scale';
@@ -45,15 +45,39 @@ export function ExpenseRow({ expense, category, onEdit, onDelete }: ExpenseRowPr
     );
   };
 
+  const handleAccessibilityAction = (event: AccessibilityActionEvent) => {
+    if (event.nativeEvent.actionName === 'edit') onEdit();
+    if (event.nativeEvent.actionName === 'delete') onDelete();
+  };
+
+  // What the row draws, in reading order: the tap target hides its own children from a
+  // screen reader, so the label has to carry the content instead of naming the action —
+  // that name is what the hint is for. The emoji is left out; the category names it.
+  const label = [
+    category ? categoryName(category.name, t) : '—',
+    formatAmount(expense.amount),
+    expense.note || null,
+    category?.archived_at ? t('settings_archived_badge') : null,
+  ]
+    .filter(Boolean)
+    .join(', ');
+
   return (
     // A plain tap edits, and the long press opens the menu — the only visible affordance
-    // this row has, since nothing about it says "hold me".
+    // this row has, since nothing about it says "hold me". The menu has no gesture a
+    // screen reader can make, so it is offered as custom actions too.
     <PressableScale
       style={styles.wrapper}
       onPress={onEdit}
       onLongPress={openMenu}
       accessibilityRole="button"
-      accessibilityLabel={t('expense_edit_title')}>
+      accessibilityLabel={label}
+      accessibilityHint={t('expense_edit_title')}
+      accessibilityActions={[
+        { name: 'edit', label: t('menu_edit') },
+        { name: 'delete', label: t('delete') },
+      ]}
+      onAccessibilityAction={handleAccessibilityAction}>
       <Card style={styles.card}>
         <View style={[styles.emoji, { backgroundColor: `${accentColor}33` }]}>
           <Text variant="headline">{category?.emoji ?? '📦'}</Text>

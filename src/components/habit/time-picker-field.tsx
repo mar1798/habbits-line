@@ -1,5 +1,4 @@
-import { DatePicker, Host } from '@expo/ui/swift-ui';
-import { background, datePickerStyle } from '@expo/ui/swift-ui/modifiers';
+import { DateTimePicker } from '@expo/ui/community/datetime-picker';
 import { useState } from 'react';
 import { Linking, Switch, StyleSheet, View } from 'react-native';
 
@@ -12,16 +11,6 @@ import { useNotificationPermissionStatus } from '@/lib/notifications';
 
 /** Turning the reminder on lands on a sane morning slot, not on the current minute. */
 const DEFAULT_REMINDER_TIME = '09:00';
-
-/**
- * The compact picker paints its capsule roughly 14pt above the frame SwiftUI lays out
- * for it, so the time read as floating above the row while the switch stayed centred,
- * and the top half of the capsule fell outside the host's tappable box. A background
- * pins the drawing back inside that frame; pinning the host's height instead does not,
- * because the overflow is in the drawing, not in the measurement. The colour is fully
- * transparent — this buys layout, nothing else.
- */
-const PICKER_BACKGROUND = '#00000000';
 
 /** The link's text alone is well under 44pt; hitSlop tops the target up to size. */
 const SETTINGS_LINK_HIT_SLOP = { top: 14, bottom: 14, left: 12, right: 12 };
@@ -75,19 +64,22 @@ export function TimePickerField({ value, onChange }: TimePickerFieldProps) {
           {/*
             SwiftUI reads its own colour scheme from the system, not from the app's theme
             row — so with the theme forced to dark over a light iOS the picker rendered
-            black digits on the dark surface. The host is told the app's scheme instead,
-            and tinted with the accent so the highlighted field matches the rest of the
-            form.
+            black digits on the dark surface. `themeVariant` hands it the app's scheme
+            instead, and `accentColor` tints the highlighted field to match the form.
+
+            The community entry point rather than the `@expo/ui/swift-ui` barrel: that
+            barrel is one module re-exporting every SwiftUI component in the package, and
+            importing two of them pulled all of them into the bundle.
           */}
           {enabled ? (
-            <Host matchContents colorScheme={scheme} seedColor={colors.accent}>
-              <DatePicker
-                selection={timeToDate(value)}
-                displayedComponents={['hourAndMinute']}
-                onDateChange={handleTimeChange}
-                modifiers={[datePickerStyle('compact'), background(PICKER_BACKGROUND)]}
-              />
-            </Host>
+            <DateTimePicker
+              value={timeToDate(value)}
+              mode="time"
+              display="compact"
+              themeVariant={scheme}
+              accentColor={colors.accent}
+              onValueChange={(_, date) => handleTimeChange(date)}
+            />
           ) : null}
           <Switch
             value={enabled}

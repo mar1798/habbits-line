@@ -104,7 +104,9 @@ export function HabitRange({ todayDate, series, color }: HabitRangeProps) {
             {t('stats_habits_range_closed', {
               closed: stats.closed,
               scheduled: stats.scheduled,
-              days: plural('days', stats.scheduled),
+              // Genitive: the noun stands after «из». The line below is a bare count and
+              // keeps the nominative set.
+              days: plural('days_of', stats.scheduled),
             })}
           </Text>
           <Text variant="caption" color={colors.textSecondary}>

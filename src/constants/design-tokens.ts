@@ -1,5 +1,11 @@
 import { Platform } from 'react-native';
 
+/**
+ * `bg` is duplicated in app.json as the splash background — light under `backgroundColor`,
+ * dark under `dark.backgroundColor` — so a cold start does not flash a different color
+ * than the app it opens into. Config is evaluated by Node and cannot import this file
+ * (line 1 imports `Platform`), so the two literals have to be kept in step by hand.
+ */
 export const lightColors = {
   bg: '#F6F5FA',
   surface: '#FDFCFF',
@@ -7,7 +13,10 @@ export const lightColors = {
   border: '#E3E0EE',
   textPrimary: '#16141F',
   textSecondary: '#5C5870',
-  textTertiary: '#8E8AA3',
+  // Retuned for 4.5:1 on all three light surfaces: the token is content, not decor —
+  // it colors every form placeholder, the week strip's weekday letters and the archived
+  // badges, and the lighter original sat at 2.9–3.3:1.
+  textTertiary: '#6B6780',
   accent: '#6C4DFF',
   accentPressed: '#5B3EE0',
   accentSoft: '#EAE4FF',
@@ -22,6 +31,10 @@ export const lightColors = {
   shadowColor: '#2A2440',
   unscheduled: '#E9E7F1',
   disabled: '#D9D6E4',
+  // `disabled` already composited over `bg` at `opacity.disabled`. A control that carries
+  // a text label uses this instead of fading the whole control, so the label keeps its
+  // own contrast while the fill still sits below `surfaceAlt` and recedes.
+  disabledSurface: '#EAE9F1',
 } as const;
 
 export const darkColors = {
@@ -31,7 +44,8 @@ export const darkColors = {
   border: '#2C2739',
   textPrimary: '#F2F0F7',
   textSecondary: '#A9A4BD',
-  textTertiary: '#6F6A85',
+  // Same 4.5:1 retune as the light token above; the original sat at 3.1–3.7:1.
+  textTertiary: '#8D88A5',
   accent: '#9C86FF',
   accentPressed: '#8A73F0',
   accentSoft: '#241E3A',
@@ -43,6 +57,7 @@ export const darkColors = {
   shadowColor: '#05030B',
   unscheduled: '#1E1A2A',
   disabled: '#2A2537',
+  disabledSurface: '#1A1724',
 } as const;
 
 export type ThemeColors = Record<keyof typeof lightColors, string>;

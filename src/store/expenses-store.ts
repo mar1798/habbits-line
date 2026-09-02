@@ -14,6 +14,12 @@ interface ExpensesState {
   period: { start: string; end: string } | null;
   /** Budget in force for the loaded period — its own or inherited. Null when none applies. */
   budget: number | null;
+  /**
+   * The amount the loaded period wrote for itself, null when it has no row of its own —
+   * including when `budget` is set and inherited. Only a period that owns its row can have
+   * its budget removed, and this is what says so.
+   */
+  ownBudget: number | null;
   loaded: boolean;
   loadPeriod: (db: SQLiteDatabase, start: string, end: string) => Promise<void>;
   ensurePeriod: (db: SQLiteDatabase, start: string, end: string) => Promise<void>;
@@ -49,17 +55,24 @@ export const useExpensesStore = create<ExpensesState>((set, get) => ({
   expenses: [],
   period: null,
   budget: null,
+  ownBudget: null,
   loaded: false,
 
   loadPeriod: async (db, start, end) => {
-    const [expenses, budget] = await Promise.all([
+    const [expenses, budgetState] = await Promise.all([
       expensesRepo.listExpensesBetween(db, start, end),
       // The start day is read back off the period start rather than taken as a parameter:
       // `start` was built by `periodStartFor` and carries it, so every caller between here
       // and the screen would only be passing along what this argument already says.
-      budgetsRepo.getBudgetFor(db, start, periodStartDayOf(start)),
+      budgetsRepo.getBudgetStateFor(db, start, periodStartDayOf(start)),
     ]);
-    set({ expenses, budget, period: { start, end }, loaded: true });
+    set({
+      expenses,
+      budget: budgetState.budget,
+      ownBudget: budgetState.ownBudget,
+      period: { start, end },
+      loaded: true,
+    });
   },
 
   /** Loads only when the requested period is not the one already in the store. */
@@ -182,7 +195,8 @@ export const useExpensesStore = create<ExpensesState>((set, get) => ({
       throw new Error('Cannot set a budget: no expense period is loaded');
     }
     await budgetsRepo.setBudget(db, period.start, amount);
-    set({ budget: amount });
+    // The row written is this period's own, by construction — see the repo's `setBudget`.
+    set({ budget: amount, ownBudget: amount });
   },
 
   /**
@@ -198,12 +212,11 @@ export const useExpensesStore = create<ExpensesState>((set, get) => ({
       throw new Error('Cannot clear a budget: no expense period is loaded');
     }
     await budgetsRepo.deleteBudget(db, period.start);
-    set({
-      budget: await budgetsRepo.getBudgetFor(
-        db,
-        period.start,
-        periodStartDayOf(period.start)
-      ),
-    });
+    const budgetState = await budgetsRepo.getBudgetStateFor(
+      db,
+      period.start,
+      periodStartDayOf(period.start)
+    );
+    set({ budget: budgetState.budget, ownBudget: budgetState.ownBudget });
   },
 }));

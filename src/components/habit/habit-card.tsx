@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { type AccessibilityActionEvent, StyleSheet, View } from 'react-native';
 
 import { CheckButton } from '@/components/habit/check-button';
 import { Card } from '@/components/ui/card';
@@ -42,16 +42,35 @@ export function HabitCard({ habit, count, disabled, onToggle, onEdit, onArchive 
     );
   };
 
+  const handleAccessibilityAction = (event: AccessibilityActionEvent) => {
+    if (event.nativeEvent.actionName === 'edit') onEdit();
+    if (event.nativeEvent.actionName === 'archive') onArchive();
+  };
+
   return (
     // No onPress: a tap over the check button is claimed by its own Pressable before this
     // one ever sees it, and elsewhere on the card a plain tap has never done anything —
     // long press opening the menu is the only behavior this wrapper adds.
-    <PressableScale style={styles.wrapper} onLongPress={openMenu}>
+    //
+    // accessible={false} because an accessibility element hides its whole subtree on iOS:
+    // with the default the card exported as one merged element and CheckButton — the only
+    // control on the screen that does anything — could not be focused or activated.
+    <PressableScale style={styles.wrapper} onLongPress={openMenu} accessible={false}>
       <Card style={styles.card}>
         <View style={[styles.emoji, { backgroundColor: `${accentColor}33` }]}>
           <Text variant="headline">{habit.emoji}</Text>
         </View>
-        <View style={styles.info}>
+        {/* The long press has no accessible equivalent, so the menu is offered here as
+            custom actions — on this View rather than on the wrapper, where accessible={false}
+            would swallow them silently. */}
+        <View
+          style={styles.info}
+          accessible
+          accessibilityActions={[
+            { name: 'edit', label: t('menu_edit') },
+            { name: 'archive', label: t('menu_archive') },
+          ]}
+          onAccessibilityAction={handleAccessibilityAction}>
           {/* Two lines, not one: the check button and the emoji leave the name about
               half the card, and "Читать 30 минут перед сном" — an ordinary habit name —
               was cut at "перед сн…". The rows already vary in height with the goal

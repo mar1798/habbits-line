@@ -2,8 +2,10 @@ import { SymbolView } from 'expo-symbols';
 import { StyleSheet, View } from 'react-native';
 
 import { PressableScale } from '@/components/ui/pressable-scale';
-import { radius, spacing } from '@/constants/design-tokens';
+import { type ExpenseColorKey, radius, spacing } from '@/constants/design-tokens';
+import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
+import type { MessageKey } from '@/i18n';
 
 /**
  * Eight swatches share the row width, so each circle is only ~36–38pt across. The slop
@@ -13,10 +15,34 @@ import { useTheme } from '@/hooks/use-theme';
 const SWATCH_HIT_SLOP = { top: 4, bottom: 4, left: spacing.xs, right: spacing.xs };
 const COLUMNS = 8;
 
-/** A palette as design-tokens.ts writes them: one key per color, one hex per scheme. */
-export type Palette<K extends string> = Record<K, { light: string; dark: string }>;
+/**
+ * Spoken names for the swatches. Keyed by the expense palette because the habit palette's
+ * keys are a strict subset of it, and written out rather than built as `color_${key}` so
+ * that adding a palette color fails the build instead of silently announcing its raw key.
+ */
+const COLOR_LABELS: Record<ExpenseColorKey, MessageKey> = {
+  violet: 'color_violet',
+  indigo: 'color_indigo',
+  blue: 'color_blue',
+  sky: 'color_sky',
+  teal: 'color_teal',
+  mint: 'color_mint',
+  green: 'color_green',
+  olive: 'color_olive',
+  amber: 'color_amber',
+  orange: 'color_orange',
+  coral: 'color_coral',
+  rose: 'color_rose',
+  pink: 'color_pink',
+  plum: 'color_plum',
+  brown: 'color_brown',
+  slate: 'color_slate',
+};
 
-type ColorPickerProps<K extends string> = {
+/** A palette as design-tokens.ts writes them: one key per color, one hex per scheme. */
+export type Palette<K extends ExpenseColorKey> = Record<K, { light: string; dark: string }>;
+
+type ColorPickerProps<K extends ExpenseColorKey> = {
   /**
    * The palette to show. Passed in rather than read from the tokens directly: habits and
    * expense categories pick from two different palettes, and a second copy of this file
@@ -42,8 +68,9 @@ function chunk<T>(items: T[], size: number): T[][] {
   return rows;
 }
 
-export function ColorPicker<K extends string>({ colors, value, onChange }: ColorPickerProps<K>) {
+export function ColorPicker<K extends ExpenseColorKey>({ colors, value, onChange }: ColorPickerProps<K>) {
   const { scheme, colors: themeColors } = useTheme();
+  const { t } = useI18n();
   const rows = chunk(Object.keys(colors) as K[], COLUMNS);
 
   return (
@@ -62,7 +89,7 @@ export function ColorPicker<K extends string>({ colors, value, onChange }: Color
                 // a plain element and VoiceOver announces neither a control nor its
                 // selection.
                 accessibilityRole="button"
-                accessibilityLabel={key}
+                accessibilityLabel={t(COLOR_LABELS[key])}
                 accessibilityState={{ selected: isSelected }}
                 style={[styles.swatch, { backgroundColor: swatch }]}>
                 {isSelected ? (

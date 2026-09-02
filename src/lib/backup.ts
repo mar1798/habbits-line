@@ -13,7 +13,7 @@ import type {
   HabitRow,
 } from '@/db/types';
 import type { MessageParams } from '@/i18n';
-import { isValidDateKey, isValidTimeOfDay } from '@/lib/date';
+import { isValidDateKey, isValidTimeOfDay, todayKey } from '@/lib/date';
 
 /**
  * v2 added the three expense tables. It is a superset of v1, not a replacement: a v1
@@ -254,8 +254,9 @@ export async function exportBackupAsync(db: SQLiteDatabase): Promise<void> {
 
   // Dated, not timestamped: the name is what the user sees in the share sheet, and
   // overwriting today's file keeps a tap-happy afternoon from filling the cache with
-  // near-identical copies.
-  const file = new File(Paths.cache, `habits-backup-${backup.exportedAt.slice(0, 10)}.json`);
+  // near-identical copies. The local day, not `exportedAt` — that field is a UTC instant,
+  // and slicing it named yesterday's file for anyone exporting after their UTC midnight.
+  const file = new File(Paths.cache, `habits-backup-${todayKey()}.json`);
   file.create({ overwrite: true });
   file.write(JSON.stringify(backup, null, 2));
 

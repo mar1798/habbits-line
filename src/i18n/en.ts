@@ -108,6 +108,8 @@ export const en: Record<keyof typeof ru, string> = {
   expense_budget_start_day_hint:
     'The whole period moves with it. Budgets of past periods are not lost.',
   expense_budget_day: 'day {day}',
+  expense_budget_inherited:
+    'This amount carries over from an earlier period. It can only be cleared where it was set.',
   expense_budget_save_failed: 'Could not save the budget',
 
   // Starter category names. See lib/category-name.ts.
@@ -163,6 +165,23 @@ export const en: Record<keyof typeof ru, string> = {
   stats_habits_range_days: '{count} {days}',
   stats_habits_range_closed: 'Closed {closed} of {scheduled} {days}',
   stats_habits_range_empty: 'Nothing was scheduled on those days',
+
+  color_violet: 'Violet',
+  color_indigo: 'Indigo',
+  color_blue: 'Blue',
+  color_sky: 'Sky',
+  color_teal: 'Teal',
+  color_mint: 'Mint',
+  color_green: 'Green',
+  color_olive: 'Olive',
+  color_amber: 'Amber',
+  color_orange: 'Orange',
+  color_coral: 'Coral',
+  color_rose: 'Rose',
+  color_pink: 'Pink',
+  color_plum: 'Plum',
+  color_brown: 'Brown',
+  color_slate: 'Slate',
   calendar_prev_month: 'Previous month',
   calendar_next_month: 'Next month',
 
@@ -183,6 +202,8 @@ export const en: Record<keyof typeof ru, string> = {
   settings_habits_add: 'Add habit',
   settings_archive: 'Archive',
   settings_archived_badge: 'Archived',
+  settings_habit_menu: 'Menu for {name}',
+  settings_category_menu: 'Menu for {name}',
   settings_move_up: 'Move up',
   settings_move_down: 'Move down',
   settings_edit_habit: 'Edit “{name}”',
@@ -241,6 +262,7 @@ export const en: Record<keyof typeof ru, string> = {
 /** English has two forms where Russian has three — `other` covers everything but 1. */
 export const enPlurals: Record<keyof typeof ruPlurals, { one: string; other: string }> = {
   days: { one: 'day', other: 'days' },
+  days_of: { one: 'day', other: 'days' },
   times: { one: 'time', other: 'times' },
   expenses: { one: 'expense', other: 'expenses' },
   reminders: { one: 'reminder', other: 'reminders' },

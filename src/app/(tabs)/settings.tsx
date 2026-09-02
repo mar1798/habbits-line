@@ -357,6 +357,16 @@ export default function SettingsScreen() {
         console.error('Failed to reschedule reminders after import', error);
       });
       setScheduledCount(await getScheduledCountAsync());
+      // By hand, like the reminder count above it: the focus effect that owns this map
+      // cannot re-fire during an import, and a stale count both mislabels every category
+      // row and offers Delete on categories that now hold expenses. Its own catch, so a
+      // failed count cannot report a successful import as failed.
+      setExpenseCounts(
+        await countExpensesByCategory(db).catch((error) => {
+          console.warn('Failed to count expenses by category after import', error);
+          return {};
+        })
+      );
       Alert.alert(t('settings_import_done_title'), t('settings_import_done_message'));
     } catch (error) {
       console.warn('Import failed', error);
@@ -676,6 +686,7 @@ export default function SettingsScreen() {
 
               <PressableScale
                 accessibilityRole="button"
+                accessibilityLabel={t('settings_habit_menu', { name: habit.name })}
                 onPress={() =>
                   showActionSheet(
                     {
@@ -860,6 +871,7 @@ function CategoryRow({
 
       <PressableScale
         accessibilityRole="button"
+        accessibilityLabel={t('settings_category_menu', { name: categoryName(category.name, t) })}
         onPress={() =>
           showActionSheet({ scheme, cancelLabel: t('cancel'), actions }, onPressAction)
         }

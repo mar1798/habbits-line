@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import { resolveBudget } from '@/lib/expenses';
+import { resolveBudget, resolveOwnBudget } from '@/lib/expenses';
 
 import type { ExpenseBudgetRow } from './types';
 
@@ -25,6 +25,23 @@ export async function getBudgetFor(
   startDay: number
 ): Promise<number | null> {
   return resolveBudget(await listBudgets(db), periodStart, startDay);
+}
+
+/**
+ * Both answers off one read: the amount in force, and the amount this period owns a row
+ * for. The budget modal needs the second to tell "clear my budget" from "clear the one I
+ * inherited", which it cannot act on.
+ */
+export async function getBudgetStateFor(
+  db: SQLiteDatabase,
+  periodStart: string,
+  startDay: number
+): Promise<{ budget: number | null; ownBudget: number | null }> {
+  const budgets = await listBudgets(db);
+  return {
+    budget: resolveBudget(budgets, periodStart, startDay),
+    ownBudget: resolveOwnBudget(budgets, periodStart),
+  };
 }
 
 /**

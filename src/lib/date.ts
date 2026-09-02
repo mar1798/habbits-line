@@ -1,9 +1,6 @@
 import { addDays } from 'date-fns/addDays';
 import { getDay } from 'date-fns/getDay';
-import { parse } from 'date-fns/parse';
 import { startOfWeek } from 'date-fns/startOfWeek';
-
-const DATE_KEY_FORMAT = 'yyyy-MM-dd';
 
 /**
  * Local-timezone date key. `toISOString()` is banned here — it goes through UTC and
@@ -24,8 +21,23 @@ export function toDateKey(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+/**
+ * Inverse of `toDateKey`: local midnight on the key's day.
+ *
+ * Sliced by hand rather than through `parse(key, 'yyyy-MM-dd', new Date())` — that is the
+ * one entry point into date-fns's general format-string parser, which Metro cannot
+ * tree-shake, so reading a single fixed pattern pulled all 34 token parsers into the
+ * bundle (~96 KB of JS, 49 KB of bytecode) for a shape this file already validates with a
+ * regex. A malformed key yields an Invalid Date here exactly as it did before.
+ *
+ * `setFullYear`, not `new Date(year, ...)`: the two-digit-year remap would turn a year
+ * below 100 into 19xx.
+ */
 export function parseDateKey(key: string): Date {
-  return parse(key, DATE_KEY_FORMAT, new Date());
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  date.setFullYear(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1, Number(key.slice(8, 10)));
+  return date;
 }
 
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -33,10 +45,9 @@ const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 /**
  * True only for a key that is both shaped like `YYYY-MM-DD` and a real calendar day.
  *
- * The shape alone is not enough: `2026-02-31` matches the pattern but parses to an
- * Invalid Date, and every later date operation on it — `shiftDateKey` in particular —
- * throws `RangeError: Invalid time value`. Import is the only way such a key can reach
- * the database, so this is what guards it there.
+ * The shape alone is not enough: `2026-02-31` matches the pattern but is not a day —
+ * it rolls forward to 2026-03-03, and the round-trip below is what catches it. Import is
+ * the only way such a key can reach the database, so this is what guards it there.
  */
 export function isValidDateKey(key: string): boolean {
   if (!DATE_KEY_PATTERN.test(key)) return false;
