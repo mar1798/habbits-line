@@ -63,6 +63,7 @@ export const en: Record<keyof typeof ru, string> = {
   habit_form_emoji: 'Emoji',
   habit_form_color: 'Colour',
   habit_form_weekdays: 'Days of the week',
+  habit_form_weekdays_hint: 'All seven days are selected by default — tap to drop the ones you skip',
   habit_form_weekdays_required:
     'Pick at least one day — otherwise the habit will not show up anywhere',
   habit_form_editing_note: 'Changing the days or the goal now also rewrites past statistics',

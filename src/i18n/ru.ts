@@ -73,6 +73,7 @@ export const ru = {
   habit_form_emoji: 'Эмодзи',
   habit_form_color: 'Цвет',
   habit_form_weekdays: 'Дни недели',
+  habit_form_weekdays_hint: 'По умолчанию выбраны все дни — снимите те, в которые не занимаетесь',
   habit_form_weekdays_required: 'Выберите хотя бы один день — иначе привычка нигде не появится',
   habit_form_editing_note: 'Изменение дней или цели задним числом меняет прошлую статистику',
   habit_form_target: 'Цель в день',

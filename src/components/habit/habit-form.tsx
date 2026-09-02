@@ -142,6 +142,13 @@ export function HabitForm({
           <Text variant="caption" color={colors.danger}>
             {t('habit_form_weekdays_required')}
           </Text>
+        ) : !isEditing ? (
+          // Only on a new habit: every day starts selected, and a row of seven filled
+          // pills does not say whether that is a default or something already chosen.
+          // On an edit the selection is the user's own, so the sentence would be a lie.
+          <Text variant="caption" color={colors.textSecondary}>
+            {t('habit_form_weekdays_hint')}
+          </Text>
         ) : null}
         {isEditing ? (
           <Text variant="caption" color={colors.textSecondary}>
