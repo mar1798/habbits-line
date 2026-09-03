@@ -48,7 +48,8 @@
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
     "test": "jest --passWithNoTests",
-    "build:ios": "expo export --platform ios --output-dir dist"
+    "build:ios": "expo export --platform ios --output-dir dist",
+    "test:tz": "for tz in Pacific/Kiritimati Asia/Tokyo Australia/Lord_Howe Asia/Kolkata UTC Europe/Lisbon America/New_York America/Santiago America/Los_Angeles Pacific/Honolulu; do echo \"— $tz\"; TZ=$tz jest src/lib/__tests__/date.timezone.test.ts || exit 1; done"
   },
   "private": true,
   "jest": {
