@@ -5,5 +5,23 @@
   "attribution": {
     "commit": "",
     "pr": ""
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npm run typecheck)",
+      "Bash(npm run lint)",
+      "Bash(npm test:*)",
+      "Bash(npm run test:tz)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx jest:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(xcrun simctl openurl:*)",
+      "Bash(xcrun simctl io booted screenshot:*)",
+      "Bash(xcrun simctl get_app_container:*)",
+      "Bash(sips:*)"
+    ]
   }
 }
