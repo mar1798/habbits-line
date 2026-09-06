@@ -59,7 +59,7 @@ export function AmountInput({
 
   return (
     <Pressable
-      // The whole field is the target, not just the digits at its right edge.
+      // The whole field is the target, not just the digits at its leading edge.
       onPress={() => inputRef.current?.focus()}
       // One control, and it is the input below: without this the row would be exported
       // as an element of its own and swallow the field.
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
   field: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-start',
     gap: spacing.xs,
     minHeight: minHitSlop,
     paddingHorizontal: spacing.md,
