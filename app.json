@@ -3,13 +3,19 @@
     "name": "Habbits Line",
     "slug": "habbits-line",
     "version": "1.0.0",
+    "description": "Офлайн-трекер привычек и трат: стрики, бюджет на период и статистика. Без аккаунтов, без сети, всё хранится на устройстве.",
     "platforms": ["ios"],
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "habbitsline",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "bundleIdentifier": "com.mar1798.habbits-line"
+      "bundleIdentifier": "com.mar1798.habbits-line",
+      "buildNumber": "1",
+      "supportsTablet": false,
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "plugins": [
       "expo-router",
