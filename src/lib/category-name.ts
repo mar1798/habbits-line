@@ -26,6 +26,17 @@ const SEED_CATEGORY_KEYS: Record<string, MessageKey> = {
 };
 
 /**
+ * Where expenses go when their own category is deleted: the starter "Прочее", identified
+ * by the same stored name as the map above and written with the same emoji and color the
+ * v1 -> v2 migration seeds it with, for the database that no longer has it.
+ */
+export const FALLBACK_CATEGORY = {
+  name: 'Прочее',
+  emoji: '📦',
+  colorKey: 'slate',
+} as const;
+
+/**
  * What to show for a category's name: the translation for a starter category, the stored
  * name for everything else. Every place a category is named goes through this — including
  * the edit form's initial value, so what the user sees is what they edit.

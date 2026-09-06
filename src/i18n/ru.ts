@@ -242,6 +242,8 @@ export const ru = {
   settings_category_expenses: 'В категории {count} {expenses}',
   settings_category_delete_title: 'Удалить «{name}»?',
   settings_category_delete_message: 'Категория будет удалена без возможности восстановления.',
+  settings_category_delete_reassign_message:
+    'Записанные в неё расходы перейдут в категорию «{fallback}». Сама категория будет удалена без возможности восстановления.',
   settings_category_delete_failed: 'Не удалось удалить категорию',
   settings_notifications_denied:
     'Уведомления запрещены в настройках iOS — напоминания не будут приходить.',

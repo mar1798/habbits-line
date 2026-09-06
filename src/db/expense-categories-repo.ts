@@ -1,5 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
+import { FALLBACK_CATEGORY } from '@/lib/category-name';
 import { generateId } from '@/lib/id';
 
 import type { ExpenseCategoryRow } from './types';
@@ -104,10 +105,64 @@ export async function unarchiveExpenseCategory(db: SQLiteDatabase, id: string): 
  * Deletes a category outright. Only legal while it holds no expenses: the foreign key is
  * ON DELETE RESTRICT, so SQLite rejects the statement otherwise instead of taking the
  * expenses with it. Money already spent must not disappear from a past period's total
- * because its category was tidied away — that is what archiving is for.
+ * because its category was tidied away — that is what `deleteExpenseCategoryReassigning`
+ * and archiving are for.
  */
 export async function deleteExpenseCategory(db: SQLiteDatabase, id: string): Promise<void> {
   await db.runAsync('DELETE FROM expense_categories WHERE id = ?', id);
+}
+
+/**
+ * The category expenses are moved to when their own is deleted: the seeded "Прочее",
+ * found by its stored name the same way `lib/category-name.ts` recognizes the starter
+ * eight. Archived, it is brought back — it is about to hold expenses again, and a
+ * destination missing from the grid is one the user cannot pick for the next expense.
+ * Gone entirely (deleted earlier, or a database that never ran the seed), it is written
+ * fresh with the emoji and color the migration gives it.
+ */
+async function ensureFallbackCategory(db: SQLiteDatabase): Promise<ExpenseCategoryRow> {
+  const existing = await db.getFirstAsync<ExpenseCategoryRow>(
+    'SELECT * FROM expense_categories WHERE name = ? ORDER BY archived_at IS NOT NULL LIMIT 1',
+    FALLBACK_CATEGORY.name
+  );
+  if (existing) {
+    if (existing.archived_at) {
+      await unarchiveExpenseCategory(db, existing.id);
+    }
+    return existing;
+  }
+  return createExpenseCategory(db, FALLBACK_CATEGORY);
+}
+
+/**
+ * Deletes a category that still holds expenses, moving them to "Прочее" first. The two
+ * statements are one transaction: interrupted between them the expenses would be left
+ * pointing at a row that is about to go, and ON DELETE RESTRICT would then block the
+ * category from ever being deleted again.
+ *
+ * Returns the category the expenses landed in, so the caller can name it in what it
+ * tells the user. Deleting "Прочее" itself is refused — there is nowhere to move its
+ * expenses to, and the caller does not offer the action for it.
+ */
+export async function deleteExpenseCategoryReassigning(
+  db: SQLiteDatabase,
+  id: string
+): Promise<ExpenseCategoryRow> {
+  const fallback = await ensureFallbackCategory(db);
+  if (fallback.id === id) {
+    throw new Error('The fallback expense category cannot be reassigned to itself');
+  }
+  const now = new Date().toISOString();
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      'UPDATE expenses SET category_id = ?, updated_at = ? WHERE category_id = ?',
+      fallback.id,
+      now,
+      id
+    );
+    await db.runAsync('DELETE FROM expense_categories WHERE id = ?', id);
+  });
+  return fallback;
 }
 
 /**

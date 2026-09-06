@@ -218,6 +218,8 @@ export const en: Record<keyof typeof ru, string> = {
   settings_category_expenses: '{count} {expenses} in this category',
   settings_category_delete_title: 'Delete “{name}”?',
   settings_category_delete_message: 'The category will be deleted permanently.',
+  settings_category_delete_reassign_message:
+    'The expenses in it will move to “{fallback}”. The category itself will be deleted permanently.',
   settings_category_delete_failed: 'Could not delete the category',
   settings_notifications_denied:
     'Notifications are turned off in iOS Settings — reminders will not arrive.',

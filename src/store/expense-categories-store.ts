@@ -23,6 +23,7 @@ interface ExpenseCategoriesState {
   archive: (db: SQLiteDatabase, id: string) => Promise<void>;
   unarchive: (db: SQLiteDatabase, id: string) => Promise<void>;
   remove: (db: SQLiteDatabase, id: string) => Promise<void>;
+  removeReassigning: (db: SQLiteDatabase, id: string) => Promise<ExpenseCategoryRow>;
 }
 
 /**
@@ -84,5 +85,17 @@ export const useExpenseCategoriesStore = create<ExpenseCategoriesState>((set, ge
   remove: async (db, id) => {
     await categoriesRepo.deleteExpenseCategory(db, id);
     await get().reload(db);
+  },
+
+  /**
+   * Deletes a category that holds expenses, moving them to "Прочее" first, and returns
+   * the category they landed in so the caller can name it. The fallback may have been
+   * unarchived or created on the way, which is why this reloads like every other
+   * mutation rather than only dropping the deleted row.
+   */
+  removeReassigning: async (db, id) => {
+    const fallback = await categoriesRepo.deleteExpenseCategoryReassigning(db, id);
+    await get().reload(db);
+    return fallback;
   },
 }));

@@ -33,7 +33,7 @@ import {
   importBackupAsync,
   pickBackupFileAsync,
 } from '@/lib/backup';
-import { categoryName } from '@/lib/category-name';
+import { categoryName, FALLBACK_CATEGORY } from '@/lib/category-name';
 import {
   getScheduledCountAsync,
   NOTIFICATION_WARNING_THRESHOLD,
@@ -139,6 +139,7 @@ export default function SettingsScreen() {
   const archiveCategory = useExpenseCategoriesStore((state) => state.archive);
   const unarchiveCategory = useExpenseCategoriesStore((state) => state.unarchive);
   const removeCategory = useExpenseCategoriesStore((state) => state.remove);
+  const removeCategoryReassigning = useExpenseCategoriesStore((state) => state.removeReassigning);
   const themeMode = useSettingsStore((state) => state.themeMode);
   const setThemeMode = useSettingsStore((state) => state.setThemeMode);
   const language = useSettingsStore((state) => state.language);
@@ -291,32 +292,45 @@ export default function SettingsScreen() {
   const archivedCategories = categories.filter((category) => category.archived_at);
 
   /**
-   * Deletion is offered only for a category holding no expenses, so this normally cannot
-   * fail — but the check is made against a count read on focus, and the guarantee under
-   * it is the ON DELETE RESTRICT foreign key. If an expense was written into the category
-   * in between, SQLite refuses and the user is told, rather than the rejection surfacing
-   * as a Metro warning.
+   * Deletes a category, and says in the confirmation what will happen to the money in it.
+   * An empty one goes straight out; one holding expenses hands them to "Прочее" first, so
+   * nothing disappears from a past period's total — the count in the message comes from a
+   * map read on focus, but the reassignment itself works off what is in SQL at the moment
+   * of the delete, so a stale count only mislabels the prompt.
+   *
+   * Both paths reload the expenses store and re-read the counts: the expenses tab stays
+   * mounted, and its rows carry the category id that just changed underneath them.
    */
-  const confirmDeleteCategory = (category: ExpenseCategoryRow) => {
+  const confirmDeleteCategory = (category: ExpenseCategoryRow, count: number) => {
+    const fallbackName = categoryName(FALLBACK_CATEGORY.name, t);
+    const runDelete = async () => {
+      try {
+        if (count > 0) {
+          await removeCategoryReassigning(db, category.id);
+        } else {
+          await removeCategory(db, category.id);
+        }
+        await reloadExpenses(db);
+        setExpenseCounts(await countExpensesByCategory(db));
+      } catch (error) {
+        console.warn('Failed to delete expense category', error);
+        Alert.alert(t('settings_category_delete_failed'), t('try_again'));
+      }
+    };
+
     Alert.alert(
       t('settings_category_delete_title', { name: categoryName(category.name, t) }),
-      t('settings_category_delete_message'),
+      count > 0
+        ? t('settings_category_delete_reassign_message', { fallback: fallbackName })
+        : t('settings_category_delete_message'),
       [
         { text: t('cancel'), style: 'cancel' },
-        {
-          text: t('delete'),
-          style: 'destructive',
-          onPress: () =>
-            removeCategory(db, category.id).catch((error) => {
-              console.warn('Failed to delete expense category', error);
-              Alert.alert(t('settings_category_delete_failed'), t('try_again'));
-            }),
-        },
+        { text: t('delete'), style: 'destructive', onPress: () => void runDelete() },
       ]
     );
   };
 
-  const handleCategoryMenuAction = (category: ExpenseCategoryRow) => (id: string) => {
+  const handleCategoryMenuAction = (category: ExpenseCategoryRow, count: number) => (id: string) => {
     switch (id) {
       case 'edit':
         router.push({ pathname: '/expense-category/[id]', params: { id: category.id } });
@@ -332,7 +346,7 @@ export default function SettingsScreen() {
         );
         break;
       case 'delete':
-        confirmDeleteCategory(category);
+        confirmDeleteCategory(category, count);
         break;
     }
   };
@@ -581,7 +595,10 @@ export default function SettingsScreen() {
                     key={category.id}
                     category={category}
                     count={expenseCounts[category.id] ?? 0}
-                    onPressAction={handleCategoryMenuAction(category)}
+                    onPressAction={handleCategoryMenuAction(
+                      category,
+                      expenseCounts[category.id] ?? 0
+                    )}
                   />
                 ))}
 
@@ -606,7 +623,10 @@ export default function SettingsScreen() {
                             key={category.id}
                             category={category}
                             count={expenseCounts[category.id] ?? 0}
-                            onPressAction={handleCategoryMenuAction(category)}
+                            onPressAction={handleCategoryMenuAction(
+                              category,
+                              expenseCounts[category.id] ?? 0
+                            )}
                           />
                         ))
                       : null}
@@ -857,10 +877,10 @@ function ArchiveToggle({
  * the order is fixed by `sort_order` at creation, and a category is not something the eye
  * scans down a screen the way it scans habits.
  *
- * Deletion is offered only while the category holds no expenses. On one that does, the
- * action is absent altogether and the row says how many instead — money already spent must
- * not vanish from a past period's total because its category was tidied away, and that is
- * what archiving is for.
+ * Deletion is offered whatever the category holds: the expenses in it move to "Прочее"
+ * rather than going with it, so money already spent stays in its period's total. The one
+ * category that cannot be deleted while it holds expenses is "Прочее" itself — it is
+ * where they would have to move to.
  */
 function CategoryRow({
   category,
@@ -876,12 +896,14 @@ function CategoryRow({
   const isArchived = category.archived_at !== null;
   const accentColor = resolveExpenseColor(category.color_key, scheme);
 
+  const canDelete = count === 0 || category.name !== FALLBACK_CATEGORY.name;
+
   const actions: ActionSheetAction[] = [
     { id: 'edit', title: t('menu_edit') },
     isArchived
       ? { id: 'unarchive', title: t('menu_unarchive') }
       : { id: 'archive', title: t('menu_archive') },
-    ...(count === 0 ? [{ id: 'delete', title: t('delete'), destructive: true }] : []),
+    ...(canDelete ? [{ id: 'delete', title: t('delete'), destructive: true }] : []),
   ];
 
   return (
@@ -906,8 +928,8 @@ function CategoryRow({
             </Text>
           ) : null}
           {/* Unconditional, zero included: hiding the line on an empty category made
-              every row in the list a different height, and the count is what says
-              whether the row's menu will offer Delete at all. */}
+              every row in the list a different height, and the count is what says how
+              much would move to "Прочее" if the row were deleted. */}
           <Text variant="caption" color={colors.textTertiary}>
             {t('settings_category_expenses', { count, expenses: plural('expenses', count) })}
           </Text>
