@@ -1,0 +1,57 @@
+{
+  "configVersion": 0,
+  "apple": {
+    "copyright": "2026 Habbits Line",
+    "categories": [
+      "PRODUCTIVITY",
+      "HEALTH_AND_FITNESS"
+    ],
+    "info": {
+      "ru": {
+        "title": "Habbits Line: привычки",
+        "subtitle": "Привычки и траты офлайн",
+        "description": "Habbits Line — трекер привычек и трат, который работает целиком на вашем iPhone. Без регистрации, без облака, без сети.\n\nПРИВЫЧКИ\n• Отметка одним касанием прямо на главном экране\n• Расписание по дням недели или каждый день\n• Стрики: текущий и лучший, считаются по всей истории\n• Напоминание в выбранное время — локальное уведомление\n• Свой эмодзи и цвет для каждой привычки\n\nТРАТЫ\n• Бюджет на период с любым днём начала месяца\n• Категории с эмодзи и цветом\n• Полоса расходов по категориям и остаток бюджета\n• История прошлых периодов — сколько стоил каждый\n\nСТАТИСТИКА\n• Тепловая карта выполнения по дням\n• Процент выполнения за выбранный диапазон\n• Разбивка трат по категориям\n\nВАШИ ДАННЫЕ ОСТАЮТСЯ У ВАС\nПриложение не делает ни одного сетевого запроса. Нет аккаунтов, нет аналитики, нет рекламы и нет трекинга. Всё хранится в базе на устройстве.\n\nРезервная копия — файл, который вы выгружаете сами и сами решаете, куда его положить. Импорт возвращает данные обратно.\n\nМЕЛОЧИ, КОТОРЫЕ ВАЖНЫ\n• Русский и английский язык\n• Светлая и тёмная тема\n• Только iPhone, только портретная ориентация",
+        "keywords": "привычки,трекер,стрик,бюджет,траты,расходы,цели,дневник,планер,офлайн,приватность,финансы",
+        "releaseNotes": "Первая версия.\n\n• Привычки с расписанием, стриками и напоминаниями\n• Траты, категории и бюджет на период\n• Статистика: тепловая карта, проценты, разбивка по категориям\n• Резервная копия в файл и обратно\n• Русский и английский, светлая и тёмная тема",
+        "privacyPolicyUrl": "https://mar1798.github.io/habbits-line/privacy-policy.ru.html",
+        "supportUrl": "https://github.com/mar1798/habbits-line/issues"
+      },
+      "en-US": {
+        "title": "Habbits Line: habits",
+        "subtitle": "Habits & spending, offline",
+        "description": "Habbits Line is a habit and spending tracker that runs entirely on your iPhone. No sign-up, no cloud, no network.\n\nHABITS\n• One tap to check a habit off, right on the main screen\n• Schedule by weekday, or every day\n• Streaks: current and best, computed over your whole history\n• A reminder at the time you pick — a local notification\n• Your own emoji and color for each habit\n\nSPENDING\n• A budget for a period that can start on any day of the month\n• Categories with emoji and color\n• A spending bar by category and what is left of the budget\n• A year of past periods, and what each one cost\n\nSTATS\n• A heatmap of completions by day\n• Completion rate over any range you choose\n• Spending broken down by category\n\nYOUR DATA STAYS YOURS\nThe app makes no network requests at all. No accounts, no analytics, no ads, no tracking. Everything lives in a database on the device.\n\nA backup is a file you export yourself and place wherever you choose. Import brings it back.\n\nSMALL THINGS THAT MATTER\n• Russian and English\n• Light and dark theme\n• iPhone only, portrait only",
+        "keywords": "habit,tracker,streak,budget,expense,spending,goals,routine,journal,planner,offline,privacy",
+        "releaseNotes": "First release.\n\n• Habits with schedules, streaks, and reminders\n• Expenses, categories, and a budget per period\n• Stats: heatmap, completion rate, category breakdown\n• Backup to a file and back\n• Russian and English, light and dark theme",
+        "privacyPolicyUrl": "https://mar1798.github.io/habbits-line/privacy-policy.en.html",
+        "supportUrl": "https://github.com/mar1798/habbits-line/issues"
+      }
+    },
+    "advisory": {
+      "alcoholTobaccoOrDrugUseOrReferences": "NONE",
+      "contests": "NONE",
+      "gambling": false,
+      "gamblingSimulated": "NONE",
+      "horrorOrFearThemes": "NONE",
+      "matureOrSuggestiveThemes": "NONE",
+      "medicalOrTreatmentInformation": "NONE",
+      "profanityOrCrudeHumor": "NONE",
+      "sexualContentGraphicAndNudity": "NONE",
+      "sexualContentOrNudity": "NONE",
+      "unrestrictedWebAccess": false,
+      "violenceCartoonOrFantasy": "NONE",
+      "violenceRealistic": "NONE",
+      "violenceRealisticProlongedGraphicOrSadistic": "NONE",
+      "seventeenPlus": false
+    },
+    "release": {
+      "automaticRelease": false
+    },
+    "review": {
+      "firstName": "REPLACE_WITH_FIRST_NAME",
+      "lastName": "REPLACE_WITH_LAST_NAME",
+      "email": "REPLACE_WITH_CONTACT_EMAIL",
+      "phone": "REPLACE_WITH_PHONE",
+      "notes": "The app is fully offline: no accounts, no login, no server. No demo account is needed — every screen is reachable on a fresh install. Reminders are local notifications; permission is asked when the first reminder is switched on."
+    }
+  }
+}
