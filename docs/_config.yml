@@ -1,0 +1,6 @@
+# GitHub Pages serves this folder ("Deploy from a branch" → /docs). Only the two
+# privacy-policy pages carry YAML front matter, so only they are rendered to HTML;
+# the rest of docs/ is developer documentation and is copied through untouched.
+title: Habbits Line
+description: Офлайн-трекер привычек и трат для iOS
+theme: jekyll-theme-minimal

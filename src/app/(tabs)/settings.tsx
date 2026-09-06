@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import { router, useIsFocused } from 'expo-router';
 import { SFSymbol, SymbolView } from 'expo-symbols';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -60,6 +61,25 @@ const LANGUAGE_OPTIONS: { language: Language; labelKey: MessageKey }[] = [
   { language: 'ru', labelKey: 'language_ru' },
   { language: 'en', labelKey: 'language_en' },
 ];
+
+/**
+ * Read from the manifest embedded in the build, not from `expo-application`: that would
+ * be a new dependency for two strings. Both come from the same `app.json` that prebuild
+ * writes `Info.plist` from — so they match the binary only if prebuild was actually run,
+ * which is why release acceptance compares this row against the archive's plist.
+ */
+const APP_VERSION = Constants.expoConfig?.version ?? '—';
+const APP_BUILD = Constants.expoConfig?.ios?.buildNumber ?? '—';
+
+/**
+ * Published from `docs/` via GitHub Pages, one page per UI language: the App Store
+ * listing points at the same pair, and a reader who switched the app to English should
+ * not land on the Russian text.
+ */
+const PRIVACY_POLICY_URL: Record<Language, string> = {
+  ru: 'https://mar1798.github.io/habbits-line/privacy-policy.ru.html',
+  en: 'https://mar1798.github.io/habbits-line/privacy-policy.en.html',
+};
 
 /** Message key for a failed import or export — a BackupError carries its own code. */
 function backupErrorKey(error: unknown): MessageKey {
@@ -594,6 +614,31 @@ export default function SettingsScreen() {
                 ) : null}
               </>
             ) : null}
+
+            {/* Last on the screen and deliberately so: a version number and a policy link
+                are reference, not a setting. The link leaves the app, so it is a plain
+                row rather than a button — nothing here changes state. */}
+            <View style={styles.about}>
+              <Text variant="title2">{t('settings_about')}</Text>
+              <Text variant="caption" color={colors.textSecondary}>
+                {t('settings_about_version', { version: APP_VERSION, build: APP_BUILD })}
+              </Text>
+              <PressableScale
+                accessibilityRole="link"
+                accessibilityLabel={t('settings_about_privacy')}
+                hitSlop={minHitSlop}
+                onPress={() => {
+                  // Opening an external browser can be refused (no handler, restricted
+                  // device). Nothing on this screen depends on it, so it stays a warning.
+                  Linking.openURL(PRIVACY_POLICY_URL[language]).catch((error) =>
+                    console.warn('Failed to open the privacy policy', error)
+                  );
+                }}>
+                <Text variant="body" color={colors.accent}>
+                  {t('settings_about_privacy')}
+                </Text>
+              </PressableScale>
+            </View>
           </View>
         }
         ListEmptyComponent={
@@ -1003,6 +1048,12 @@ const styles = StyleSheet.create({
     // two headers sit one under the other and have to read as a pair, not as a section
     // and an afterthought.
     paddingTop: spacing.md,
+  },
+  about: {
+    gap: spacing.sm,
+    // The categories accordion sits directly above; without this the heading reads as
+    // part of it rather than as a section of its own.
+    paddingTop: spacing.lg,
   },
   accordion: {
     flexDirection: 'row',
