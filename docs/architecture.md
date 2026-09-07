@@ -28,7 +28,7 @@ src/
                   habit/*, expense/*, stats/* — доменные
   constants/      design-tokens.ts — единственный источник цветов, отступов, радиусов,
                                      типографики, теней и таймингов
-                  emoji.ts
+                  emoji.ts, habit-templates.ts
   db/             migrations.ts, provider.tsx, *-repo.ts, types.ts
   i18n/           ru.ts — источник ключей, en.ts типизирован по нему, plural.ts
   store/          habits, entries, settings, expense-categories, expenses
