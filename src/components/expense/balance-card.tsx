@@ -8,10 +8,10 @@ import { PressableScale } from '@/components/ui/pressable-scale';
 import { Text } from '@/components/ui/text';
 import { spacing } from '@/constants/design-tokens';
 import { useI18n } from '@/hooks/use-i18n';
+import { useMoney } from '@/hooks/use-money';
 import { useTheme } from '@/hooks/use-theme';
 import { parseDateKey } from '@/lib/date';
-import { budgetRemainder } from '@/lib/expenses';
-import { formatAmount } from '@/lib/money';
+import { budgetRemainder, spendingPace } from '@/lib/expenses';
 
 /**
  * Names the period the card is showing: "6 авг. — 5 сент.", or "26 дек. 2026 — 25 янв. 2027"
@@ -63,8 +63,16 @@ export function BalanceCard({
 }: BalanceCardProps) {
   const { colors } = useTheme();
   const { t, locale } = useI18n();
+  const money = useMoney();
   const remainder = budgetRemainder(budget, spent);
   const isOverspent = remainder !== null && remainder < 0;
+
+  // Only ever set for the period that is actually running — see `spendingPace`.
+  const pace = spendingPace(spent, periodStart, periodEnd, todayDate);
+  // The forecast is the half of the line worth colouring: an average per day is neutral,
+  // "this ends above the budget" is the warning, and it is worth having before the
+  // remainder has gone negative — which is the whole point of a forecast.
+  const overBudgetPace = pace !== null && budget !== null && pace.projected > budget;
 
   return (
     <PressableScale
@@ -97,7 +105,7 @@ export function BalanceCard({
         ) : (
           <View style={styles.amount}>
             <Text variant="display" color={isOverspent ? colors.danger : undefined}>
-              {formatAmount(remainder)}
+              {money(remainder)}
             </Text>
             {/* The big number is what is left; what was spent to get there stands beside
                 it rather than under it, so the period reads as one line of two halves.
@@ -111,18 +119,33 @@ export function BalanceCard({
                 color={isOverspent ? colors.danger : colors.textSecondary}>
                 {isOverspent
                   ? t('expenses_overspent')
-                  : t('expenses_remaining', { budget: formatAmount(budget ?? 0) })}
+                  : t('expenses_remaining', { budget: money(budget ?? 0) })}
               </Text>
               <Text
                 variant="callout"
                 numberOfLines={1}
                 style={styles.caption}
                 color={colors.textSecondary}>
-                {t('expenses_spent', { amount: formatAmount(spent) })}
+                {t('expenses_spent', { amount: money(spent) })}
               </Text>
             </View>
           </View>
         )}
+
+        {/* Under both branches, not just the one with a budget: "so much a day, so much by
+            the end" is the same useful sentence when no budget has been set at all. Hidden
+            while the period's first read is in flight, like everything else on the card. */}
+        {!pending && pace !== null ? (
+          <Text
+            variant="caption"
+            numberOfLines={1}
+            color={overBudgetPace ? colors.warning : colors.textSecondary}>
+            {t('expenses_pace', {
+              perDay: money(pace.perDay),
+              projected: money(pace.projected),
+            })}
+          </Text>
+        ) : null}
       </Card>
     </PressableScale>
   );

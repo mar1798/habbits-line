@@ -4,7 +4,7 @@
  * be tested without one.
  */
 
-import { periodStartFor } from './period';
+import { periodDays, periodDaysElapsed, periodStartFor } from './period';
 
 /** The fields of an expense every calculation here reads. */
 export interface ExpenseItem {
@@ -140,6 +140,46 @@ export function categoryTotals(expenses: ExpenseItem[], total: number): Category
  */
 export function budgetRemainder(budget: number | null, spent: number): number | null {
   return budget === null ? null : budget - spent;
+}
+
+export interface SpendingPace {
+  /** Spent per day so far, rounded to whole units. */
+  perDay: number;
+  /** What the period ends at if the pace holds, rounded to whole units. */
+  projected: number;
+}
+
+/**
+ * The pace of a period being lived through: what a day has cost on average, and what the
+ * period ends at if that holds. Both are derived from what is already in the database —
+ * no field, no history, no background job.
+ *
+ * Null for a period that is not the current one: a closed period's "forecast" is just its
+ * total said twice, and a future one has no days behind it to average over. Null on an
+ * empty period too — "0 per day" is a line that says nothing, and the projection built on
+ * it would promise a month of spending nothing.
+ *
+ * The average is deliberately over *elapsed days*, not over days with expenses: the
+ * question the card answers is whether the budget lasts to the end of the period, and days
+ * that cost nothing are part of that answer.
+ */
+export function spendingPace(
+  spent: number,
+  periodStart: string,
+  periodEnd: string,
+  todayDate: string
+): SpendingPace | null {
+  if (spent <= 0) return null;
+  if (todayDate < periodStart || todayDate > periodEnd) return null;
+
+  const elapsed = periodDaysElapsed(periodStart, periodEnd, todayDate);
+  if (elapsed <= 0) return null;
+
+  const perDay = spent / elapsed;
+  return {
+    perDay: Math.round(perDay),
+    projected: Math.round(perDay * periodDays(periodStart, periodEnd)),
+  };
 }
 
 /** The fields of an expense `quickEntries` reads. */

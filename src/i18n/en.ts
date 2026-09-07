@@ -101,6 +101,7 @@ export const en: Record<keyof typeof ru, string> = {
   expenses_open_budget: 'Change the budget for this period',
   expenses_bar_label: '{spent} of {total} spent',
   expenses_bar_label_no_budget: '{spent} spent',
+  expenses_pace: '{perDay} a day · {projected} by the end of the period',
   expenses_empty_day: 'Nothing was spent on this day',
   expenses_quick_title: 'Quick add',
   expenses_quick_hint: 'Writes the expense right away, without the form',
