@@ -154,6 +154,8 @@ export const en: Record<keyof typeof ru, string> = {
   stats_weekdays_empty: 'Nothing was scheduled on these days',
   stats_weekday_summary: '{day}: {closed} of {scheduled} {days} closed',
   stats_weekday_summary_empty: '{day}: no scheduled days',
+  stats_recovery_breaks: 'Slips',
+  stats_recovery_average: 'Average recovery',
   stats_expenses: 'Expenses',
   stats_expenses_current: 'This period',
   stats_expenses_history: 'Past periods',
@@ -278,6 +280,7 @@ export const enPlurals: Record<keyof typeof ruPlurals, { one: string; other: str
   times: { one: 'time', other: 'times' },
   expenses: { one: 'expense', other: 'expenses' },
   reminders: { one: 'reminder', other: 'reminders' },
+  breaks: { one: 'slip', other: 'slips' },
 };
 
 export const enWeekdays: WeekdayLabels = {

@@ -9,6 +9,7 @@ import { ExpenseSummary } from '@/components/stats/expense-summary';
 import { HabitRange } from '@/components/stats/habit-range';
 import { Heatmap } from '@/components/stats/heatmap';
 import { RateCard } from '@/components/stats/rate-card';
+import { RecoveryCard } from '@/components/stats/recovery-card';
 import { StreakCard } from '@/components/stats/streak-card';
 import { WeekdayCard } from '@/components/stats/weekday-card';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -24,6 +25,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { useTodayKey } from '@/hooks/use-today-key';
 import {
   computeCompletionRate,
+  computeRecovery,
   computeStreaks,
   computeWeekdayStats,
   toHabitSeries,
@@ -136,6 +138,7 @@ export default function StatsScreen() {
   const streaks = computeStreaks(series, today);
   const rate7 = computeCompletionRate(series, today, 7);
   const rate30 = computeCompletionRate(series, today, 30);
+  const recovery = computeRecovery(series, today);
   const weekdays = useMemo(
     () => computeWeekdayStats(series, today, WEEKDAY_WINDOW_DAYS),
     [series, today]
@@ -270,6 +273,8 @@ export default function StatsScreen() {
                   expense block gives its subsections. */}
               <View style={styles.habitsSection}>
                 <StreakCard current={streaks.current} best={streaks.best} />
+                {/* Only once a slip has been recovered from: see `RecoveryCard`. */}
+                {recovery.breaks > 0 ? <RecoveryCard recovery={recovery} /> : null}
                 <RateCard rate7={rate7} rate30={rate30} color={accentColor} />
                 <WeekdayCard
                   stats={weekdays}

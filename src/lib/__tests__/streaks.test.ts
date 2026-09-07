@@ -2,6 +2,7 @@ import { daysToMask } from '../schedule';
 import {
   computeCompletionRate,
   computeRangeStats,
+  computeRecovery,
   computeStreaks,
   computeWeekdayStats,
   dayCompletionRatio,
@@ -383,5 +384,69 @@ describe('computeWeekdayStats', () => {
       28
     );
     expect(stats[MONDAY].scheduled).toBe(1);
+  });
+});
+
+describe('computeRecovery', () => {
+  it('measures a run of missed days between two closed ones', () => {
+    // Mon closed, Tue and Wed missed, Thu closed again.
+    const counts = { '2026-08-24': 1, '2026-08-27': 1 };
+    expect(computeRecovery(series(counts, EVERY_DAY), '2026-08-31')).toEqual({
+      breaks: 1,
+      averageDays: 2,
+      longestDays: 2,
+    });
+  });
+
+  it('averages several slips and keeps the longest', () => {
+    // Closed Mon, missed Tue, closed Wed, missed Thu+Fri+Sat, closed Sun.
+    const counts = { '2026-08-24': 1, '2026-08-26': 1, '2026-08-30': 1 };
+    expect(computeRecovery(series(counts, EVERY_DAY), '2026-08-31')).toEqual({
+      breaks: 2,
+      averageDays: 2,
+      longestDays: 3,
+    });
+  });
+
+  it('an unrecovered gap is not a recovery time yet', () => {
+    const counts = { '2026-08-24': 1 };
+    expect(computeRecovery(series(counts, EVERY_DAY), '2026-08-31')).toEqual({
+      breaks: 0,
+      averageDays: null,
+      longestDays: 0,
+    });
+  });
+
+  it('days before the first closed one are a late start, not a slip', () => {
+    // 08-24 has a partial mark (target 2), so the walk starts there with a miss.
+    const counts = { '2026-08-24': 1, '2026-08-26': 2 };
+    expect(computeRecovery(series(counts, EVERY_DAY, 2), '2026-08-26')).toEqual({
+      breaks: 0,
+      averageDays: null,
+      longestDays: 0,
+    });
+  });
+
+  it('counts missed scheduled days, not calendar days', () => {
+    // Mon/Wed/Fri: Friday missed, Monday closed — one missed day across a weekend.
+    const counts = { '2026-08-26': 1, '2026-08-31': 1 };
+    expect(computeRecovery(series(counts, MON_WED_FRI), '2026-08-31')).toEqual({
+      breaks: 1,
+      averageDays: 1,
+      longestDays: 1,
+    });
+  });
+
+  it('an open today is not a miss', () => {
+    const counts = { '2026-08-24': 1, '2026-08-26': 1 };
+    expect(computeRecovery(series(counts, EVERY_DAY), '2026-08-27').breaks).toBe(1);
+  });
+
+  it('no entries at all gives no slips', () => {
+    expect(computeRecovery(series({}, EVERY_DAY), '2026-08-31')).toEqual({
+      breaks: 0,
+      averageDays: null,
+      longestDays: 0,
+    });
   });
 });
