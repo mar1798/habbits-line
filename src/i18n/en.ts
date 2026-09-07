@@ -207,6 +207,9 @@ export const en: Record<keyof typeof ru, string> = {
   settings_import: 'Import',
   settings_data_hint:
     'Export saves your habits, marks, categories, expenses and settings to a backup file. Import restores them from one, replacing the current data.',
+  settings_backup_never: 'No backup yet — deleting the app would take the data with it.',
+  settings_backup_last: 'Last backup: {date}.',
+  settings_backup_stale: 'Last backup: {date}, {count} {days} ago — time for a new one.',
   settings_habits: 'Habits',
   settings_habits_add: 'Add habit',
   settings_archive: 'Archive',

@@ -1,8 +1,9 @@
+import { format } from 'date-fns/format';
 import Constants from 'expo-constants';
 import { router, useIsFocused } from 'expo-router';
 import { SFSymbol, SymbolView } from 'expo-symbols';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, Linking, StyleSheet, View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 
@@ -24,6 +25,7 @@ import { countExpensesByCategory } from '@/db/expense-categories-repo';
 import type { ExpenseCategoryRow, HabitRow } from '@/db/types';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
+import { useTodayKey } from '@/hooks/use-today-key';
 import type { Language, MessageKey } from '@/i18n';
 import { showActionSheet } from '@/lib/action-sheet';
 import type { ActionSheetAction } from '@/lib/action-sheet';
@@ -33,7 +35,9 @@ import {
   importBackupAsync,
   pickBackupFileAsync,
 } from '@/lib/backup';
+import { backupStatus } from '@/lib/backup-status';
 import { categoryName, FALLBACK_CATEGORY } from '@/lib/category-name';
+import { parseDateKey } from '@/lib/date';
 import {
   getScheduledCountAsync,
   NOTIFICATION_WARNING_THRESHOLD,
@@ -111,8 +115,9 @@ type Row =
 
 export default function SettingsScreen() {
   const { colors, scheme } = useTheme();
-  const { t, plural } = useI18n();
+  const { t, plural, locale } = useI18n();
   const isFocused = useIsFocused();
+  const todayDate = useTodayKey();
   const permission = useNotificationPermissionStatus();
   const [scheduledCount, setScheduledCount] = useState(0);
   const [busy, setBusy] = useState<'export' | 'import' | null>(null);
@@ -145,6 +150,8 @@ export default function SettingsScreen() {
   const language = useSettingsStore((state) => state.language);
   const setLanguage = useSettingsStore((state) => state.setLanguage);
   const loadSettings = useSettingsStore((state) => state.load);
+  const lastExportAt = useSettingsStore((state) => state.lastExportAt);
+  const markExported = useSettingsStore((state) => state.markExported);
 
   // Includes archived habits — the only screen that needs the full list, so the
   // scope lives on the shared store rather than a local query. That also fixes
@@ -351,10 +358,51 @@ export default function SettingsScreen() {
     }
   };
 
+  /**
+   * The backup hint under the two data buttons. `hasData` keeps a fresh install quiet:
+   * there is nothing to lose yet, and a warning on the first launch warns about an
+   * emptiness the user can see. Expenses count as data as much as habits do, and their
+   * counts are already on this screen for the delete rules, so this costs no query.
+   */
+  const hasData = habits.length > 0 || Object.values(expenseCounts).some((count) => count > 0);
+  const backup = useMemo(
+    () => backupStatus(lastExportAt, todayDate, hasData),
+    [hasData, lastExportAt, todayDate]
+  );
+
+  const backupHint = useMemo(() => {
+    switch (backup.kind) {
+      case 'idle':
+        return null;
+      case 'never':
+        return { text: t('settings_backup_never'), warn: true };
+      default: {
+        // With the year, unlike every other date in the app: this line is read precisely
+        // when the last export is old enough to have happened in a different one.
+        const date = format(parseDateKey(backup.date), 'd MMM yyyy', { locale });
+        return backup.kind === 'stale'
+          ? {
+              text: t('settings_backup_stale', {
+                date,
+                count: backup.days,
+                days: plural('days', backup.days),
+              }),
+              warn: true,
+            }
+          : { text: t('settings_backup_last', { date }), warn: false };
+      }
+    }
+  }, [backup, locale, plural, t]);
+
   const handleExport = async () => {
     setBusy('export');
     try {
       await exportBackupAsync(db);
+      // After the share sheet, and with its own catch: the export did happen, and a row
+      // that failed to write must not be reported as a failed export.
+      await markExported(db).catch((error) =>
+        console.warn('Failed to record the export date', error)
+      );
     } catch (error) {
       console.warn('Export failed', error);
       Alert.alert(
@@ -559,6 +607,14 @@ export default function SettingsScreen() {
               <Text variant="caption" color={colors.textSecondary}>
                 {t('settings_data_hint')}
               </Text>
+              {backupHint ? (
+                <Text
+                  variant="caption"
+                  color={backupHint.warn ? colors.warning : colors.textSecondary}
+                >
+                  {backupHint.text}
+                </Text>
+              ) : null}
             </View>
 
             {/* The habit rows are the FlatList's `data`, so nothing but this margin sits
