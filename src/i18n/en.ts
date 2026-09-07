@@ -142,8 +142,6 @@ export const en: Record<keyof typeof ru, string> = {
   stats_all: 'All',
   stats_habits: 'Habits',
   stats_heatmap: 'Marks calendar',
-  stats_heatmap_quarter: '3 months',
-  stats_heatmap_year: 'Year',
   stats_heatmap_month: '{month}: {closed} of {scheduled} scheduled days closed',
   stats_heatmap_month_empty: '{month}: no scheduled days',
   rate_no_scheduled: 'Not scheduled',
