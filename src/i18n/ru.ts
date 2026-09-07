@@ -112,6 +112,7 @@ export const ru = {
   expenses_open_budget: 'Изменить бюджет периода',
   expenses_bar_label: 'Потрачено {spent} из {total}',
   expenses_bar_label_no_budget: 'Потрачено {spent}',
+  expenses_pace: 'В день {perDay} · к концу периода {projected}',
   expenses_empty_day: 'В этот день расходов не было',
   expenses_quick_title: 'Быстрый ввод',
   expenses_quick_hint: 'Записывает расход сразу, без формы',

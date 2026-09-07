@@ -59,10 +59,35 @@ export function shiftPeriod(periodStart: string, delta: number): string {
   return toDateKey(new Date(date.getFullYear(), date.getMonth() + delta, date.getDate()));
 }
 
+/** Days between two date keys, counting both ends. Negative when `to` precedes `from`. */
+function daysInclusive(from: string, to: string): number {
+  return differenceInCalendarDays(parseDateKey(to), parseDateKey(from)) + 1;
+}
+
+/** Days in a period given both its bounds, counting both ends. */
+export function periodDays(periodStart: string, periodEnd: string): number {
+  return daysInclusive(periodStart, periodEnd);
+}
+
+/**
+ * How much of the period `todayDate` has already lived through, counting today itself —
+ * the denominator of "spent per day so far". Zero before the period opens, its full length
+ * once it has closed, so a caller that hands it a past period gets the average over the
+ * whole thing rather than a division by a number of days that never elapsed.
+ */
+export function periodDaysElapsed(
+  periodStart: string,
+  periodEnd: string,
+  todayDate: string
+): number {
+  if (todayDate < periodStart) return 0;
+  if (todayDate > periodEnd) return periodDays(periodStart, periodEnd);
+  return daysInclusive(periodStart, todayDate);
+}
+
 /** Days in the period starting at `periodStart`, counting both ends. */
 export function periodLength(periodStart: string, startDay: number): number {
-  const end = periodEndFor(periodStart, startDay);
-  return differenceInCalendarDays(parseDateKey(end), parseDateKey(periodStart)) + 1;
+  return daysInclusive(periodStart, periodEndFor(periodStart, startDay));
 }
 
 /**

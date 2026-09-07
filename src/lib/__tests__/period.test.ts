@@ -4,6 +4,8 @@ import {
   MAX_PERIOD_START_DAY,
   MIN_PERIOD_START_DAY,
   parsePeriodStartDay,
+  periodDays,
+  periodDaysElapsed,
   periodEndFor,
   periodLength,
   periodStartDayOf,
@@ -127,5 +129,29 @@ describe('periodStartDayOf', () => {
       expect(periodStartDayOf(periodStartFor('2026-02-15', day))).toBe(day);
       expect(periodStartDayOf(periodStartFor('2026-08-31', day))).toBe(day);
     }
+  });
+});
+
+describe('periodDays', () => {
+  it('counts both ends of a period', () => {
+    expect(periodDays('2026-08-06', '2026-09-05')).toBe(31);
+    expect(periodDays('2026-02-01', '2026-02-28')).toBe(28);
+    expect(periodDays('2026-08-06', '2026-08-06')).toBe(1);
+  });
+});
+
+describe('periodDaysElapsed', () => {
+  it('counts today itself', () => {
+    expect(periodDaysElapsed('2026-08-06', '2026-09-05', '2026-08-06')).toBe(1);
+    expect(periodDaysElapsed('2026-08-06', '2026-09-05', '2026-08-10')).toBe(5);
+  });
+
+  it('gives the whole period once it has closed', () => {
+    expect(periodDaysElapsed('2026-08-06', '2026-09-05', '2026-09-05')).toBe(31);
+    expect(periodDaysElapsed('2026-08-06', '2026-09-05', '2026-12-01')).toBe(31);
+  });
+
+  it('gives nothing for a period that has not opened yet', () => {
+    expect(periodDaysElapsed('2026-08-06', '2026-09-05', '2026-08-05')).toBe(0);
   });
 });
