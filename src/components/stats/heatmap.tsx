@@ -138,6 +138,26 @@ export function Heatmap({ series, color, todayDate }: HeatmapProps) {
   const monthWidth = (width - MONTH_GAP * (MONTHS_VISIBLE - 1)) / MONTHS_VISIBLE;
 
   /**
+   * Where the strip is allowed to come to rest: one offset per whole month it can start
+   * on, from January at the far left to the last three months at the far right. Snapping
+   * to these is what keeps a month whole — free scrolling parks the strip mid-month, and
+   * a grid sliced down the middle of a week reads as a rendering bug rather than as
+   * something to swipe.
+   *
+   * The last offset is exactly the end of the content — twelve months minus the three
+   * that fit is nine steps — so the right edge is a resting place like any other, with no
+   * short final step that would bounce the strip back.
+   */
+  const snapOffsets = useMemo(
+    () =>
+      Array.from(
+        { length: MONTHS - MONTHS_VISIBLE + 1 },
+        (_, index) => index * (monthWidth + MONTH_GAP)
+      ),
+    [monthWidth]
+  );
+
+  /**
    * Opens on the last three months, with the rest of the year behind the left edge: the
    * recent end is the one being read, and a strip that opened on a January nobody asked
    * for would need a swipe before it said anything.
@@ -147,8 +167,8 @@ export function Heatmap({ series, color, todayDate }: HeatmapProps) {
    * which would yank the strip back to the end under a user who had scrolled away.
    */
   const contentOffset = useMemo(
-    () => ({ x: Math.max(monthWidth * MONTHS + MONTH_GAP * (MONTHS - 1) - width, 0), y: 0 }),
-    [monthWidth, width]
+    () => ({ x: snapOffsets[snapOffsets.length - 1] ?? 0, y: 0 }),
+    [snapOffsets]
   );
 
   /**
@@ -232,6 +252,10 @@ export function Heatmap({ series, color, todayDate }: HeatmapProps) {
             // it has a ceiling by construction, so there is nothing here to virtualise.
             showsHorizontalScrollIndicator={false}
             contentOffset={contentOffset}
+            snapToOffsets={snapOffsets}
+            // Snapping without this still decelerates across several months first, which
+            // reads as the strip drifting to a stop and then correcting itself.
+            decelerationRate="fast"
             contentContainerStyle={styles.strip}>
             {months.map((month) => (
               <View
