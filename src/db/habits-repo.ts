@@ -25,6 +25,12 @@ export async function listHabits(
   );
 }
 
+/** One habit by id, archived or not; `null` when the row is gone. */
+export async function getHabit(db: SQLiteDatabase, id: string): Promise<HabitRow | null> {
+  const row = await db.getFirstAsync<HabitRow>('SELECT * FROM habits WHERE id = ?', id);
+  return row ?? null;
+}
+
 export async function createHabit(db: SQLiteDatabase, input: HabitInput): Promise<HabitRow> {
   const id = generateId();
   const now = new Date().toISOString();

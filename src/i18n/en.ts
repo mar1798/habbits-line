@@ -77,6 +77,7 @@ export const en: Record<keyof typeof ru, string> = {
   reminder_denied:
     'Notifications are turned off in iOS Settings — the time will be saved, but no reminder will arrive',
   notification_body: 'Don’t forget to mark this habit today',
+  notification_action_mark: 'Mark',
 
   expenses_title: 'Expenses',
   expenses_add: 'Add expense',

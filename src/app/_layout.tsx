@@ -15,7 +15,7 @@ import { DatabaseProvider } from '@/db/provider';
 import { useI18n } from '@/hooks/use-i18n';
 import { useNavigationTheme, useTheme } from '@/hooks/use-theme';
 // Importing this module also registers the foreground notification handler.
-import { useReminderSync } from '@/lib/notifications';
+import { applyReminderMark, MARK_ACTION_ID, useReminderSync } from '@/lib/notifications';
 import { useSettingsStore } from '@/store/settings-store';
 
 /**
@@ -92,21 +92,35 @@ function RootStack() {
       });
   }, [db, loadSettings]);
 
-  // A tap opens "Today" from both cold start and background: getLastNotificationResponse
-  // covers the cold-start case, which the response listener alone would miss entirely.
-  // It keeps returning that same response on every later launch, so it is cleared once
-  // handled — otherwise a single tap would redirect every cold start from then on.
+  // A tap opens "Today" and the banner's "Mark" button writes the mark instead, from
+  // both cold start and background: getLastNotificationResponse covers the cold-start
+  // case, which the response listener alone would miss entirely — and for the mark it is
+  // the only path there is, since without a background task (expo-task-manager) a press
+  // that lands while the app is not running is not delivered until the next launch.
+  //
+  // The stored response is cleared in both branches, not just after the cold-start read:
+  // it keeps being returned on every later launch, so leaving it would redirect every
+  // cold start from then on — and, worse, apply the same mark a second time.
   useEffect(() => {
-    const goToToday = () => router.navigate('/');
-
-    if (Notifications.getLastNotificationResponse()) {
-      goToToday();
+    const handle = (response: Notifications.NotificationResponse) => {
       Notifications.clearLastNotificationResponse();
+      if (response.actionIdentifier === MARK_ACTION_ID) {
+        applyReminderMark(db, response).catch((error) =>
+          console.error('Failed to mark a habit from its reminder', error)
+        );
+        return;
+      }
+      router.navigate('/');
+    };
+
+    const last = Notifications.getLastNotificationResponse();
+    if (last) {
+      handle(last);
     }
 
-    const subscription = Notifications.addNotificationResponseReceivedListener(goToToday);
+    const subscription = Notifications.addNotificationResponseReceivedListener(handle);
     return () => subscription.remove();
-  }, []);
+  }, [db]);
 
   // Repairs a schedule that iOS refused while the permission was denied, once it is
   // granted (and re-asserts it at launch). Lives here because the root stack is the one

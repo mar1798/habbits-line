@@ -87,6 +87,7 @@ export const ru = {
   reminder_denied:
     'Уведомления запрещены в настройках iOS — время сохранится, но напоминание не придёт',
   notification_body: 'Не забудьте отметить привычку сегодня',
+  notification_action_mark: 'Отметить',
 
   // Expenses screen.
   expenses_title: 'Расходы',

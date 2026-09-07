@@ -3,11 +3,13 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 
-import { listHabits } from '@/db/habits-repo';
+import { getEntry, setEntryCount } from '@/db/entries-repo';
+import { getHabit, listHabits } from '@/db/habits-repo';
 import type { HabitRow } from '@/db/types';
 import { translate } from '@/i18n';
-import { isValidTimeOfDay } from '@/lib/date';
+import { isValidTimeOfDay, toDateKey, todayKey } from '@/lib/date';
 import { bitToAppleWeekday, maskToDays } from '@/lib/schedule';
+import { useEntriesStore } from '@/store/entries-store';
 import { useSettingsStore } from '@/store/settings-store';
 
 /** Warn in settings when the scheduled count nears iOS's ~64-request ceiling. */
@@ -101,6 +103,34 @@ export function useNotificationPermissionStatus(): PermissionStatus {
 }
 
 /**
+ * The category carrying the banner's "Mark" button. iOS matches a delivered notification
+ * to it by this string, so it must not contain `:` or `-` — the docs single those two out
+ * as characters that silently break the match.
+ */
+export const REMINDER_CATEGORY_ID = 'habitreminder';
+
+/** `actionIdentifier` of a response that came from that button rather than from a tap. */
+export const MARK_ACTION_ID = 'mark';
+
+/**
+ * (Re)declares the category. Like a notification's body, the button title is read by iOS
+ * from what was registered, so a language switch has to run this again — which it does,
+ * through the same full recompute that rewrites the bodies.
+ */
+async function registerReminderCategoryAsync(): Promise<void> {
+  const { language } = useSettingsStore.getState();
+  await Notifications.setNotificationCategoryAsync(REMINDER_CATEGORY_ID, [
+    {
+      identifier: MARK_ACTION_ID,
+      buttonTitle: translate(language, 'notification_action_mark'),
+      // The whole point of the button is to save the trip into the app; foregrounding
+      // would put that trip back.
+      options: { opensAppToForeground: false },
+    },
+  ]);
+}
+
+/**
  * The body is baked into the trigger at scheduling time, so it is written in the
  * language selected right now — which is why changing the language recomputes the whole
  * schedule (see `setLanguage`). This module lives outside the component tree, so it
@@ -111,6 +141,7 @@ function buildContent(habit: HabitRow): Notifications.NotificationContentInput {
   return {
     title: `${habit.emoji} ${habit.name}`,
     body: translate(language, 'notification_body'),
+    categoryIdentifier: REMINDER_CATEGORY_ID,
     data: { habitId: habit.id },
   };
 }
@@ -194,6 +225,14 @@ export function scheduleAllReminders(
       return 0;
     }
 
+    // Failing to declare the category costs the button, not the reminders — so it is
+    // logged and stepped over rather than taking the whole recompute down.
+    try {
+      await registerReminderCategoryAsync();
+    } catch (error) {
+      console.warn('Failed to register the reminder notification category', error);
+    }
+
     let scheduledCount = 0;
     for (const habit of withReminders) {
       scheduledCount += await scheduleForHabit(habit);
@@ -211,6 +250,48 @@ export function scheduleAllReminders(
 
 export async function getScheduledCountAsync(): Promise<number> {
   return (await Notifications.getAllScheduledNotificationsAsync()).length;
+}
+
+/**
+ * Writes the mark behind the banner's "Mark" button: one step towards the habit's
+ * target, never the wrap back to 0 that the check button does — a banner offers no way
+ * to see that a press has just cleared the day, so the action only ever adds.
+ *
+ * Dated by when the reminder was *delivered*, not by today. With no background task
+ * registered (that would mean `expo-task-manager`), a press that lands while the app is
+ * not running is only seen at the next launch, through `getLastNotificationResponse` —
+ * which can be days later, and `todayKey()` would then mark the wrong day.
+ *
+ * `notification.date` is seconds on iOS (`timeIntervalSince1970`, no `* 1000` in the
+ * native record) even though the type is the same `number` Android fills with
+ * milliseconds. This app is iOS-only; anything unusable falls back to today.
+ */
+export async function applyReminderMark(
+  db: SQLiteDatabase,
+  response: Notifications.NotificationResponse
+): Promise<void> {
+  const habitId = response.notification.request.content.data?.habitId;
+  if (typeof habitId !== 'string') return;
+
+  const deliveredAt = response.notification.date;
+  const date =
+    Number.isFinite(deliveredAt) && deliveredAt > 0
+      ? toDateKey(new Date(deliveredAt * 1000))
+      : todayKey();
+
+  // The habit can have been deleted or archived between the reminder being delivered
+  // and the press being handled.
+  const habit = await getHabit(db, habitId);
+  if (habit === null || habit.archived_at !== null) return;
+
+  const current = (await getEntry(db, habitId, date))?.count ?? 0;
+  if (current >= habit.target_per_day) return;
+  await setEntryCount(db, habitId, date, current + 1);
+
+  // The write went around the entries store, so the visible week has to be re-read —
+  // the same reason an import ends with a reload. A no-op while no week is loaded yet,
+  // which is the cold-start case: the screen reads the row itself when it mounts.
+  await useEntriesStore.getState().reload(db);
 }
 
 /**
