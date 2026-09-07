@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { spacing, typography } from '@/constants/design-tokens';
+import { useScaledSize } from '@/hooks/use-font-scale';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 import type { RecoveryStats } from '@/lib/streaks';
@@ -23,6 +24,7 @@ type RecoveryCardProps = {
 export function RecoveryCard({ recovery }: RecoveryCardProps) {
   const { colors } = useTheme();
   const { t, plural } = useI18n();
+  const valueHeight = useScaledSize(typography.title1.lineHeight);
 
   // Whole days: `plural` truncates its argument, so «2.5 день» is what a fraction would
   // print. The average is over runs of at least one missed day, so it never rounds to 0.
@@ -37,7 +39,7 @@ export function RecoveryCard({ recovery }: RecoveryCardProps) {
             {t('stats_recovery_breaks')}
           </Text>
         </View>
-        <View style={styles.value}>
+        <View style={[styles.value, { height: valueHeight }]}>
           <Text variant="title1">{recovery.breaks}</Text>
         </View>
         <Text variant="caption" color={colors.textSecondary}>
@@ -51,7 +53,7 @@ export function RecoveryCard({ recovery }: RecoveryCardProps) {
             {t('stats_recovery_average')}
           </Text>
         </View>
-        <View style={styles.value}>
+        <View style={[styles.value, { height: valueHeight }]}>
           <Text variant="title1">{average}</Text>
         </View>
         <Text variant="caption" color={colors.textSecondary}>
@@ -70,10 +72,9 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: spacing.xs,
   },
-  // Same trick as the streak card: a box the height of the number, filled from the
-  // bottom, keeps the two captions on one baseline.
+  // Same trick as the streak card, height and all: a box the height of the number,
+  // filled from the bottom, keeps the two captions on one baseline.
   value: {
-    height: typography.title1.lineHeight,
     justifyContent: 'flex-end',
   },
   divider: {

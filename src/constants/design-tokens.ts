@@ -261,3 +261,50 @@ export function shadow(level: ShadowLevel, colors: ThemeColors) {
     shadowOpacity: opacity,
   };
 }
+
+/**
+ * Dynamic Type, clamped. The system text size is honoured, but only between 1.0 and
+ * 1.3: below 1.0 the app would shrink below the sizes the design system was drawn at,
+ * and above 1.3 the two-column rows — emoji, name, check button — stop fitting the
+ * width of a phone at all. iOS offers multipliers up to ~3.1 through the accessibility
+ * sizes, so the ceiling is what makes the layout verifiable at its upper bound.
+ *
+ * Every text size in the app goes through `scaleTypography`, so the clamp holds in one
+ * place; sizes that are not text but have to grow with it (an emoji tile, a caret) call
+ * `useFontScale` directly.
+ */
+export const MIN_FONT_SCALE = 1;
+export const MAX_FONT_SCALE = 1.3;
+
+export function clampFontScale(raw: number): number {
+  if (!Number.isFinite(raw)) return MIN_FONT_SCALE;
+  return Math.min(Math.max(raw, MIN_FONT_SCALE), MAX_FONT_SCALE);
+}
+
+type ScaledTypography = { fontSize: number; lineHeight: number };
+
+const scaledCache = new Map<string, ScaledTypography>();
+
+/**
+ * Font and line height for a variant at a given scale, rounded to whole points.
+ *
+ * Scaling by hand rather than through `allowFontScaling` because RN only offers a
+ * ceiling (`maxFontSizeMultiplier`) and not a floor, and because the line height set on
+ * each variant has to move with the font size — left alone it would clip a wrapped
+ * name at 1.3. Results are cached: there are eight variants and a handful of distinct
+ * scales in a session, and a stable object keeps the style array identical between
+ * renders.
+ */
+export function scaleTypography(variant: keyof typeof typography, scale: number) {
+  const key = `${variant}:${scale}`;
+  const hit = scaledCache.get(key);
+  if (hit) return hit;
+
+  const base = typography[variant];
+  const next: ScaledTypography = {
+    fontSize: Math.round(base.fontSize * scale),
+    lineHeight: Math.round(base.lineHeight * scale),
+  };
+  scaledCache.set(key, next);
+  return next;
+}

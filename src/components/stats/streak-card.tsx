@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { spacing, typography } from '@/constants/design-tokens';
+import { useScaledSize } from '@/hooks/use-font-scale';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -15,6 +16,7 @@ type StreakCardProps = {
 export function StreakCard({ current, best }: StreakCardProps) {
   const { colors } = useTheme();
   const { t, plural } = useI18n();
+  const valueHeight = useScaledSize(typography.display.lineHeight);
 
   return (
     <Card style={styles.card}>
@@ -25,7 +27,7 @@ export function StreakCard({ current, best }: StreakCardProps) {
             {t('streak_current')}
           </Text>
         </View>
-        <View style={styles.value}>
+        <View style={[styles.value, { height: valueHeight }]}>
           <Text variant="display">{current}</Text>
         </View>
         <Text variant="caption" color={colors.textSecondary}>
@@ -39,7 +41,7 @@ export function StreakCard({ current, best }: StreakCardProps) {
             {t('streak_best')}
           </Text>
         </View>
-        <View style={styles.value}>
+        <View style={[styles.value, { height: valueHeight }]}>
           <Text variant="title1">{best}</Text>
         </View>
         <Text variant="caption" color={colors.textSecondary}>
@@ -60,9 +62,9 @@ const styles = StyleSheet.create({
   },
   // The two numbers are deliberately different sizes, and left to their own line heights
   // they put the "days" captions under them on different baselines. A box the height of
-  // the taller one, filled from the bottom, keeps the two columns in step.
+  // the taller one, filled from the bottom, keeps the two columns in step. The height
+  // comes from the component, scaled with the type it has to hold.
   value: {
-    height: typography.display.lineHeight,
     justifyContent: 'flex-end',
   },
   divider: {

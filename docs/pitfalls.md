@@ -117,3 +117,14 @@ Metro не делает tree-shaking: `import { format } from 'date-fns'` зат
 
 Включён в `app.json`. Ручные `useMemo` / `useCallback` не добавляем без замеренной
 проблемы — компилятор уже это делает.
+
+## Фиксированная высота под текст ломается на Dynamic Type
+
+Текст масштабируется до 1.3 (см. `clampFontScale`), а `height: 40` — нет. Коробка,
+внутри которой лежит `Text`, либо задаётся через `useScaledSize` (карточки стрика и
+восстановления, ширина под «100%» на «Сегодня»), либо живёт на `minHeight` и растёт
+сама. Проверять — `xcrun simctl ui booted content_size extra-extra-extra-large`
+(множитель 1.353, то есть ровно верхняя граница) и `content_size large` обратно.
+
+`TextInput` при этом получает только `fontSize`: с явным `lineHeight` iOS обрезает
+собственный текст поля.

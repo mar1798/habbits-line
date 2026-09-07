@@ -18,6 +18,7 @@ import {
 } from '@/constants/design-tokens';
 import { DEFAULT_CATEGORY_EMOJI } from '@/constants/emoji';
 import type { ExpenseCategoryInput } from '@/db/expense-categories-repo';
+import { useScaledFontSize } from '@/hooks/use-font-scale';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 import { isNameTakenByAnother } from '@/lib/name-match';
@@ -49,6 +50,7 @@ export function CategoryForm({
 }: CategoryFormProps) {
   const { colors } = useTheme();
   const { t } = useI18n();
+  const inputFontSize = useScaledFontSize('body');
   // A stored color_key outside the palette (an older build, an import file) is pulled
   // back onto violet here, so the picker always has a selected swatch and saving rewrites
   // the unknown key instead of preserving it.
@@ -94,10 +96,12 @@ export function CategoryForm({
           placeholderTextColor={colors.textTertiary}
           returnKeyType="done"
           autoFocus={initialValues.name === ''}
-          // Same rule as components/ui/text.tsx: sizes are fixed by the design system.
+          // The size is already scaled by hand, like every `Text` in the app — RN would
+          // otherwise apply the system multiplier a second time on top of it.
           allowFontScaling={false}
           style={[
             styles.input,
+            { fontSize: inputFontSize },
             {
               backgroundColor: colors.surfaceAlt,
               color: colors.textPrimary,
@@ -143,10 +147,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: spacing.md,
-    // Body type from the tokens, minus its lineHeight: on iOS a TextInput with an
-    // explicit lineHeight clips its own text vertically.
+    // Body type from the tokens, minus its size and lineHeight: the size is scaled by
+    // the component, and on iOS a TextInput with an explicit lineHeight clips its own
+    // text vertically.
     fontFamily,
-    fontSize: typography.body.fontSize,
     fontWeight: typography.body.fontWeight,
   },
   submit: {

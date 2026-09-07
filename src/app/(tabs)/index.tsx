@@ -18,6 +18,7 @@ import {
   type HabitTemplate,
 } from '@/constants/habit-templates';
 import type { HabitRow } from '@/db/types';
+import { useScaledSize } from '@/hooks/use-font-scale';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTodayKey } from '@/hooks/use-today-key';
 import {
@@ -38,6 +39,8 @@ const NO_COUNTS: Record<string, number> = {};
 export default function TodayScreen() {
   const db = useSQLiteContext();
   const { t } = useI18n();
+  // Wide enough for "100%" at the top of the Dynamic Type range.
+  const percentWidth = useScaledSize(40);
 
   const habits = useHabitsStore((state) => state.habits);
   const habitsLoaded = useHabitsStore((state) => state.loaded);
@@ -266,7 +269,7 @@ export default function TodayScreen() {
           <View style={styles.progressBar}>
             <ProgressBar progress={dayProgress} />
           </View>
-          <Text variant="callout" style={styles.progressPercent}>
+          <Text variant="callout" style={[styles.progressPercent, { width: percentWidth }]}>
             {dayPercent}%
           </Text>
         </View>
@@ -339,8 +342,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   progressPercent: {
-    // Fixed width so the bar does not jump sideways as the label goes 9% → 100%.
-    width: 40,
+    // Width is reserved by the screen — fixed, so the bar does not jump sideways as the
+    // label goes 9% → 100%, and scaled, so "100%" still fits on one line at the top of
+    // the Dynamic Type range.
     textAlign: 'right',
   },
   list: {

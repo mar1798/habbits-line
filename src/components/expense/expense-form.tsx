@@ -20,6 +20,7 @@ import {
   typography,
 } from '@/constants/design-tokens';
 import type { ExpenseInput } from '@/db/expenses-repo';
+import { useScaledFontSize } from '@/hooks/use-font-scale';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 import { normalizeAmountInput } from '@/lib/money';
@@ -47,6 +48,7 @@ export function ExpenseForm({ initialValues, submitLabel, onSubmit }: ExpenseFor
   const db = useSQLiteContext();
   const { colors } = useTheme();
   const { t } = useI18n();
+  const inputFontSize = useScaledFontSize('body');
 
   const categories = useExpenseCategoriesStore((state) => state.categories);
   const loadCategories = useExpenseCategoriesStore((state) => state.load);
@@ -162,10 +164,12 @@ export function ExpenseForm({ initialValues, submitLabel, onSubmit }: ExpenseFor
             returnKeyType="done"
             maxLength={MAX_NOTE_LENGTH}
             accessibilityLabel={t('expense_form_note')}
-            // Same rule as components/ui/text.tsx: sizes are fixed by the design system.
+            // The size is already scaled by hand, like every `Text` in the app — RN would
+            // otherwise apply the system multiplier a second time on top of it.
             allowFontScaling={false}
             style={[
               styles.note,
+              { fontSize: inputFontSize },
               {
                 backgroundColor: colors.surfaceAlt,
                 color: colors.textPrimary,
@@ -216,10 +220,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: spacing.md,
-    // Body type from the tokens, minus its lineHeight, like the name field of the
-    // category form: on iOS a TextInput with an explicit lineHeight clips its own text.
+    // Body type from the tokens, minus its size and lineHeight, like the name field of
+    // the category form: the size is scaled by the component, and on iOS a TextInput
+    // with an explicit lineHeight clips its own text.
     fontFamily,
-    fontSize: typography.body.fontSize,
     fontWeight: typography.body.fontWeight,
   },
   submit: {
