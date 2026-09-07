@@ -98,6 +98,9 @@ export const ru = {
   reminder_denied:
     'Уведомления запрещены в настройках iOS — время сохранится, но напоминание не придёт',
   notification_body: 'Не забудьте отметить привычку сегодня',
+  // Заголовок общего напоминания: у нескольких привычек в одно время одно уведомление на
+  // всех, см. lib/reminder-plan.ts. Сами названия идут в тексте баннера.
+  notification_group_title: '{count} {habits} сегодня',
   notification_action_mark: 'Отметить',
 
   // Expenses screen.
@@ -334,6 +337,7 @@ export const ruPlurals = {
   times: { one: 'раз', few: 'раза', many: 'раз' },
   expenses: { one: 'расход', few: 'расхода', many: 'расходов' },
   reminders: { one: 'напоминание', few: 'напоминания', many: 'напоминаний' },
+  habits: { one: 'привычка', few: 'привычки', many: 'привычек' },
   breaks: { one: 'срыв', few: 'срыва', many: 'срывов' },
 } as const;
 
