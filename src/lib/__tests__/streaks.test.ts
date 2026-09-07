@@ -3,6 +3,7 @@ import {
   computeCompletionRate,
   computeRangeStats,
   computeStreaks,
+  computeWeekdayStats,
   dayCompletionRatio,
   type HabitSeries,
   tallyDay,
@@ -337,5 +338,50 @@ describe('computeStreaks with a malformed history', () => {
     const habit = series(entryCounts, EVERY_DAY);
     expect(() => computeStreaks(habit, '2026-08-29')).not.toThrow();
     expect(computeStreaks(habit, '2026-08-29')).toEqual({ current: 0, best: 0 });
+  });
+});
+
+describe('computeWeekdayStats', () => {
+  // 2026-08-24 is a Monday, so the window below covers exactly four whole weeks.
+  const MONDAY = 0;
+  const FRIDAY = 4;
+
+  it('splits the window into seven Monday-first buckets', () => {
+    const stats = computeWeekdayStats(series({}, EVERY_DAY), '2026-08-30', 28);
+    expect(stats).toHaveLength(7);
+    expect(stats.every((day) => day.scheduled === 4)).toBe(true);
+  });
+
+  it('rates each weekday on its own scheduled days', () => {
+    // Every Monday closed, every Friday missed.
+    const counts = {
+      '2026-08-03': 1,
+      '2026-08-10': 1,
+      '2026-08-17': 1,
+      '2026-08-24': 1,
+    };
+    const stats = computeWeekdayStats(series(counts, MON_WED_FRI), '2026-08-30', 28);
+    expect(stats[MONDAY]).toEqual({ scheduled: 4, closed: 4, rate: 1 });
+    expect(stats[FRIDAY]).toEqual({ scheduled: 4, closed: 0, rate: 0 });
+  });
+
+  it('is null, not 0, for a weekday the habit is never scheduled on', () => {
+    const stats = computeWeekdayStats(series({}, MON_WED_FRI), '2026-08-30', 28);
+    expect(stats[1]).toEqual({ scheduled: 0, closed: 0, rate: null });
+  });
+
+  it('a bonus mark on an unscheduled weekday stays out of every bucket', () => {
+    const stats = computeWeekdayStats(series({ '2026-08-25': 1 }, MON_WED_FRI), '2026-08-30', 28);
+    expect(stats[1].scheduled).toBe(0);
+    expect(stats[1].closed).toBe(0);
+  });
+
+  it('does not count days before the habit started', () => {
+    const stats = computeWeekdayStats(
+      series({}, EVERY_DAY, 1, '2026-08-24'),
+      '2026-08-30',
+      28
+    );
+    expect(stats[MONDAY].scheduled).toBe(1);
   });
 });

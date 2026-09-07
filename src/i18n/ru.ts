@@ -167,6 +167,13 @@ export const ru = {
   streak_best: 'Лучший',
   rate_7_days: 'За 7 дней',
   rate_30_days: 'За 30 дней',
+  stats_weekdays: 'По дням недели',
+  stats_weekdays_window: 'За последние {count} {days}',
+  stats_weekdays_empty: 'В эти дни ничего не было запланировано',
+  // То же, что и у месяцев хитмапа: столбик несёт смысл высотой и цветом, вслух это не
+  // читается.
+  stats_weekday_summary: '{day}: закрыто {closed} из {scheduled} {days}',
+  stats_weekday_summary_empty: '{day}: запланированных дней нет',
   stats_expenses: 'Расходы',
   stats_expenses_current: 'Текущий период',
   stats_expenses_history: 'Прошлые периоды',
@@ -314,9 +321,12 @@ export type WeekdayLabels = {
   short: Seven<string>;
   /** Single letters for the heatmap's column headers. */
   initial: Seven<string>;
+  /** Full names, for what VoiceOver reads out where the UI shows an abbreviation. */
+  full: Seven<string>;
 };
 
 export const ruWeekdays: WeekdayLabels = {
   short: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
   initial: ['П', 'В', 'С', 'Ч', 'П', 'С', 'В'],
+  full: ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'],
 };

@@ -23,7 +23,7 @@ export function daysToMask(days: number[]): number {
  * the two weekday numberings — the third, iOS's 1 = Sunday, is bitToAppleWeekday
  * below.
  */
-function bitForNativeWeekday(nativeWeekday: number): number {
+export function bitForNativeWeekday(nativeWeekday: number): number {
   return (nativeWeekday + 6) % 7;
 }
 
