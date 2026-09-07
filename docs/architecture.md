@@ -33,8 +33,8 @@ src/
   i18n/           ru.ts — источник ключей, en.ts типизирован по нему, plural.ts
   store/          habits, entries, settings, expense-categories, expenses
   lib/            date, date-range, schedule, streaks, period, money, expenses,
-                  notifications, backup, name-match, category-name, haptics,
-                  action-sheet, id  (+ __tests__)
+                  notifications, reminder-plan, backup, name-match, category-name,
+                  haptics, action-sheet, id  (+ __tests__)
   hooks/          use-theme, use-i18n, use-money, use-font-scale, use-today-key,
                   use-taken-names
 ```

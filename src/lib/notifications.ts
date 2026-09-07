@@ -6,9 +6,10 @@ import { AppState } from 'react-native';
 import { getEntry, setEntryCount } from '@/db/entries-repo';
 import { getHabit, listHabits } from '@/db/habits-repo';
 import type { HabitRow } from '@/db/types';
-import { translate } from '@/i18n';
+import { pluralize, translate } from '@/i18n';
 import { isValidTimeOfDay, toDateKey, todayKey } from '@/lib/date';
-import { bitToAppleWeekday, maskToDays } from '@/lib/schedule';
+import { buildReminderPlans, type ReminderHabit, type ReminderPlan } from '@/lib/reminder-plan';
+import { bitToAppleWeekday } from '@/lib/schedule';
 import { useEntriesStore } from '@/store/entries-store';
 import { useSettingsStore } from '@/store/settings-store';
 
@@ -135,58 +136,86 @@ async function registerReminderCategoryAsync(): Promise<void> {
  * language selected right now — which is why changing the language recomputes the whole
  * schedule (see `setLanguage`). This module lives outside the component tree, so it
  * reads the store directly instead of going through `useI18n`.
+ *
+ * A plan covering several habits gets a joint notification and, deliberately, **no**
+ * category: the banner's "Mark" button writes one habit's entry, and a banner naming
+ * three habits gives it nothing to write. Its `data` carries no `habitId` for the same
+ * reason — `applyReminderMark` steps over a response without one.
  */
-function buildContent(habit: HabitRow): Notifications.NotificationContentInput {
+function buildContent(plan: ReminderPlan): Notifications.NotificationContentInput {
   const { language } = useSettingsStore.getState();
+  const [first] = plan.subjects;
+
+  if (plan.subjects.length === 1) {
+    return {
+      title: `${first.emoji} ${first.name}`,
+      body: translate(language, 'notification_body'),
+      categoryIdentifier: REMINDER_CATEGORY_ID,
+      data: { habitId: first.id },
+    };
+  }
+
   return {
-    title: `${habit.emoji} ${habit.name}`,
-    body: translate(language, 'notification_body'),
-    categoryIdentifier: REMINDER_CATEGORY_ID,
-    data: { habitId: habit.id },
+    title: translate(language, 'notification_group_title', {
+      count: plan.subjects.length,
+      habits: pluralize(language, 'habits', plan.subjects.length),
+    }),
+    // The names themselves, not a count repeated: the banner is what has to say which
+    // habits are due, and there is no room for a line each.
+    body: plan.subjects.map((subject) => `${subject.emoji} ${subject.name}`).join(' · '),
   };
 }
 
 /**
- * One habit's reminders. A full 7-day schedule collapses to a single DAILY trigger
- * instead of seven WEEKLY/CALENDAR ones — see the iOS ~64-scheduled-notification
- * ceiling in PLAN.md. Returns how many notifications it scheduled, for the caller's
- * running total.
+ * One plan, one request: a DAILY trigger when it fires every day, a repeating CALENDAR
+ * one on its weekday otherwise. How the plans were grouped — and why that is what keeps
+ * the app under the iOS ceiling — is in lib/reminder-plan.ts.
  */
-async function scheduleForHabit(habit: HabitRow): Promise<number> {
-  const reminderTime = habit.reminder_time;
-  // Import validates this shape, but a row written by an older build could still hold
-  // something else, and a NaN hour aborts the whole recompute — taking every habit
-  // after this one down with it. Skipping one habit's reminders is the smaller loss.
-  if (reminderTime === null || !isValidTimeOfDay(reminderTime)) {
-    console.warn(`Skipping reminders for habit ${habit.id}: bad reminder_time`);
-    return 0;
-  }
+async function scheduleForPlan(plan: ReminderPlan): Promise<void> {
+  const content = buildContent(plan);
 
-  const [hour, minute] = reminderTime.split(':').map(Number);
-  const days = maskToDays(habit.schedule_mask);
-  const content = buildContent(habit);
+  await Notifications.scheduleNotificationAsync({
+    content,
+    trigger:
+      plan.bit === null
+        ? {
+            type: Notifications.SchedulableTriggerInputTypes.DAILY,
+            hour: plan.hour,
+            minute: plan.minute,
+          }
+        : {
+            type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+            weekday: bitToAppleWeekday(plan.bit),
+            hour: plan.hour,
+            minute: plan.minute,
+            repeats: true,
+          },
+  });
+}
 
-  if (days.length === 7) {
-    await Notifications.scheduleNotificationAsync({
-      content,
-      trigger: { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour, minute },
+/**
+ * The habits that can actually be reminded about. Import validates the shape, but a row
+ * written by an older build could still hold something else, and a NaN hour aborts the
+ * whole recompute — taking every habit after this one down with it. Skipping one habit's
+ * reminders is the smaller loss.
+ */
+function remindableHabits(habits: HabitRow[]): ReminderHabit[] {
+  const remindable: ReminderHabit[] = [];
+  for (const habit of habits) {
+    if (habit.reminder_time === null) continue;
+    if (!isValidTimeOfDay(habit.reminder_time)) {
+      console.warn(`Skipping reminders for habit ${habit.id}: bad reminder_time`);
+      continue;
+    }
+    remindable.push({
+      id: habit.id,
+      name: habit.name,
+      emoji: habit.emoji,
+      reminder_time: habit.reminder_time,
+      schedule_mask: habit.schedule_mask,
     });
-    return 1;
   }
-
-  for (const bit of days) {
-    await Notifications.scheduleNotificationAsync({
-      content,
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
-        weekday: bitToAppleWeekday(bit),
-        hour,
-        minute,
-        repeats: true,
-      },
-    });
-  }
-  return days.length;
+  return remindable;
 }
 
 // Serializes full recomputes: two saves in quick succession, or a save racing an
@@ -210,10 +239,10 @@ export function scheduleAllReminders(
 ): Promise<number> {
   const run = async () => {
     const habits = await listHabits(db, { includeArchived: false });
-    const withReminders = habits.filter((habit) => habit.reminder_time !== null);
+    const plans = buildReminderPlans(remindableHabits(habits));
 
     await Notifications.cancelAllScheduledNotificationsAsync();
-    if (withReminders.length === 0) {
+    if (plans.length === 0) {
       return 0;
     }
 
@@ -233,11 +262,10 @@ export function scheduleAllReminders(
       console.warn('Failed to register the reminder notification category', error);
     }
 
-    let scheduledCount = 0;
-    for (const habit of withReminders) {
-      scheduledCount += await scheduleForHabit(habit);
+    for (const plan of plans) {
+      await scheduleForPlan(plan);
     }
-    return scheduledCount;
+    return plans.length;
   };
 
   const result = schedulingChain.then(run, run);

@@ -88,6 +88,7 @@ export const en: Record<keyof typeof ru, string> = {
   reminder_denied:
     'Notifications are turned off in iOS Settings — the time will be saved, but no reminder will arrive',
   notification_body: 'Don’t forget to mark this habit today',
+  notification_group_title: '{count} {habits} today',
   notification_action_mark: 'Mark',
 
   expenses_title: 'Expenses',
@@ -303,6 +304,7 @@ export const enPlurals: Record<keyof typeof ruPlurals, { one: string; other: str
   times: { one: 'time', other: 'times' },
   expenses: { one: 'expense', other: 'expenses' },
   reminders: { one: 'reminder', other: 'reminders' },
+  habits: { one: 'habit', other: 'habits' },
   breaks: { one: 'slip', other: 'slips' },
 };
 
