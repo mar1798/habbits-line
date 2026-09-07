@@ -10,7 +10,8 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { Text } from '@/components/ui/text';
-import { minHitSlop, radius, spacing, typography } from '@/constants/design-tokens';
+import { minHitSlop, radius, spacing } from '@/constants/design-tokens';
+import { useScaledFontSize } from '@/hooks/use-font-scale';
 import { useTheme } from '@/hooks/use-theme';
 import { formatAmount, MAX_AMOUNT_DIGITS, normalizeAmountInput } from '@/lib/money';
 
@@ -52,6 +53,7 @@ export function AmountInput({
   autoFocus,
 }: AmountInputProps) {
   const { colors } = useTheme();
+  const caretHeight = useScaledFontSize('title1');
   const inputRef = useRef<TextInput>(null);
   const [focused, setFocused] = useState(false);
 
@@ -74,7 +76,7 @@ export function AmountInput({
       <Text variant="title1" color={text === '' ? colors.textTertiary : colors.textPrimary}>
         {text === '' ? placeholder : text}
       </Text>
-      {focused ? <Caret color={colors.accent} /> : null}
+      {focused ? <Caret color={colors.accent} height={caretHeight} /> : null}
 
       <TextInput
         ref={inputRef}
@@ -92,7 +94,8 @@ export function AmountInput({
         // was taken back out a frame later.
         maxLength={MAX_AMOUNT_DIGITS}
         autoFocus={autoFocus}
-        // Same rule as components/ui/text.tsx: sizes are fixed by the design system.
+        // The field's text is the `Text` above; this input is never drawn, so its own
+        // size has nothing to follow.
         allowFontScaling={false}
         accessibilityLabel={accessibilityLabel}
         caretHidden
@@ -106,7 +109,7 @@ export function AmountInput({
  * Stands in for the caret the invisible input cannot show. Blinking is what says the
  * field is focused; with reduced motion on it stays solid rather than disappearing.
  */
-function Caret({ color }: { color: string }) {
+function Caret({ color, height }: { color: string; height: number }) {
   const reducedMotion = useReducedMotion();
   const opacity = useSharedValue(1);
 
@@ -118,7 +121,7 @@ function Caret({ color }: { color: string }) {
 
   const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
-  return <Animated.View style={[styles.caret, animatedStyle, { backgroundColor: color }]} />;
+  return <Animated.View style={[styles.caret, animatedStyle, { backgroundColor: color, height }]} />;
 }
 
 const styles = StyleSheet.create({
@@ -141,7 +144,8 @@ const styles = StyleSheet.create({
   },
   caret: {
     width: 2,
-    height: typography.title1.fontSize,
+    // Height comes from the caller: it tracks the digits beside it, which grow with
+    // Dynamic Type.
     borderRadius: 1,
   },
 });

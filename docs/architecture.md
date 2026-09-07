@@ -35,7 +35,7 @@ src/
   lib/            date, date-range, schedule, streaks, period, money, expenses,
                   notifications, backup, name-match, category-name, haptics,
                   action-sheet, id  (+ __tests__)
-  hooks/          use-theme, use-i18n, use-today-key, use-taken-names
+  hooks/          use-theme, use-i18n, use-font-scale, use-today-key, use-taken-names
 ```
 
 ## Соглашения
@@ -44,8 +44,12 @@ src/
   радиусов и размеров шрифта в компонентах.
 - **Тема** — `use-theme`; цвет привычки и категории хранится ключом палитры, чтобы
   меняться вместе с темой.
-- **Текст** — только `components/ui/text.tsx`: там `allowFontScaling: false`, шрифт
-  намеренно не масштабируется системным Dynamic Type.
+- **Текст** — только `components/ui/text.tsx`. Системный Dynamic Type учитывается, но
+  зажат в 1.0–1.3 (`clampFontScale` в токенах): размер и `lineHeight` варианта умножаются
+  на множитель вручную, `allowFontScaling` остаётся выключенным — RN умеет только потолок
+  (`maxFontSizeMultiplier`) и не трогает `lineHeight`. Не-текстовые размеры, которые обязаны
+  расти вместе с текстом (коробка под число, ширина колонки, каретка), берут множитель
+  из `use-font-scale`.
 - **Иконки** — SF Symbols через `expo-symbols`.
 - **Списки** — `FlatList`, не `ScrollView` + `.map`.
 - **Анимации** — Reanimated на UI-потоке, только `transform` / `opacity`.
