@@ -174,6 +174,8 @@ export const ru = {
   // читается.
   stats_weekday_summary: '{day}: закрыто {closed} из {scheduled} {days}',
   stats_weekday_summary_empty: '{day}: запланированных дней нет',
+  stats_recovery_breaks: 'Срывы',
+  stats_recovery_average: 'Возврат в среднем',
   stats_expenses: 'Расходы',
   stats_expenses_current: 'Текущий период',
   stats_expenses_history: 'Прошлые периоды',
@@ -307,6 +309,7 @@ export const ruPlurals = {
   times: { one: 'раз', few: 'раза', many: 'раз' },
   expenses: { one: 'расход', few: 'расхода', many: 'расходов' },
   reminders: { one: 'напоминание', few: 'напоминания', many: 'напоминаний' },
+  breaks: { one: 'срыв', few: 'срыва', many: 'срывов' },
 } as const;
 
 type Seven<T> = readonly [T, T, T, T, T, T, T];

@@ -129,6 +129,24 @@ export interface Streaks {
 }
 
 /**
+ * Earliest day any of the series has a row for, or null when none of them has one.
+ *
+ * The scans that walk a whole history start here rather than at the earliest start date:
+ * a scheduled day before the first entry has no row, so it reads as not closed, and both
+ * a streak and a run of misses begin at the same place either way — while an unreadable
+ * `created_at` leaves a start date in 1970 that would make the walk decades long.
+ */
+function firstEntryDate(series: HabitSeries[]): string | null {
+  let from: string | null = null;
+  for (const habit of series) {
+    for (const date of Object.keys(habit.counts)) {
+      if (from === null || date < from) from = date;
+    }
+  }
+  return from;
+}
+
+/**
  * Current and best streak, counted only over days that have at least one scheduled
  * habit. A day counts when *every* habit scheduled on it is closed, so for a single
  * habit this is its own streak and for the whole list it's the "everything done" streak.
@@ -141,12 +159,7 @@ export interface Streaks {
  * keeps the walk short.
  */
 export function computeStreaks(series: HabitSeries[], today: string): Streaks {
-  let from: string | null = null;
-  for (const habit of series) {
-    for (const date of Object.keys(habit.counts)) {
-      if (from === null || date < from) from = date;
-    }
-  }
+  const from = firstEntryDate(series);
   if (from === null) {
     return { current: 0, best: 0 };
   }
@@ -262,4 +275,61 @@ export function computeWeekdayStats(
     closed,
     rate: scheduled === 0 ? null : closed / scheduled,
   }));
+}
+
+export interface RecoveryStats {
+  /** Runs of missed days that fell out of a closed day and ended on another one. */
+  breaks: number;
+  /** Mean length of those runs in missed days; null when there are none. */
+  averageDays: number | null;
+  /** The longest of them; 0 when there are none. */
+  longestDays: number;
+}
+
+/**
+ * How long it takes to come back after a slip: over the same days a streak is counted on,
+ * every run of missed days between two closed ones, averaged.
+ *
+ * A run only counts once it has been recovered from — the days since the last closed one
+ * are not a recovery time yet, they are the current gap, and averaging them in would make
+ * the number fall the longer the user stays away. A run before the first closed day is not
+ * a slip either: nothing had been established to fall from, which is the difference between
+ * "started late" and "gave up for a week".
+ *
+ * Counted in missed *scheduled* days, the unit every other habit statistic uses: for a
+ * Mon/Wed/Fri habit, skipping Friday and closing Monday is one day missed, not three.
+ */
+export function computeRecovery(series: HabitSeries[], today: string): RecoveryStats {
+  const from = firstEntryDate(series);
+  if (from === null) {
+    return { breaks: 0, averageDays: null, longestDays: 0 };
+  }
+
+  let seenClosed = false;
+  let running = 0;
+  let breaks = 0;
+  let missed = 0;
+  let longestDays = 0;
+
+  forEachDateKey(from, today, (date, dayOfWeek) => {
+    const { scheduled, closed } = tallyDay(series, date, dayOfWeek);
+    if (scheduled === 0) return;
+
+    if (closed === scheduled) {
+      if (running > 0) {
+        breaks += 1;
+        missed += running;
+        longestDays = Math.max(longestDays, running);
+      }
+      running = 0;
+      seenClosed = true;
+      return;
+    }
+
+    // Today is still open, not yet missed — the same rule `computeStreaks` walks by.
+    if (date === today) return;
+    if (seenClosed) running += 1;
+  });
+
+  return { breaks, averageDays: breaks === 0 ? null : missed / breaks, longestDays };
 }
