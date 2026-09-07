@@ -6,10 +6,10 @@ import { Text } from '@/components/ui/text';
 import { minHitSlop, radius, resolveExpenseColor, spacing } from '@/constants/design-tokens';
 import type { ExpenseCategoryRow } from '@/db/types';
 import { useI18n } from '@/hooks/use-i18n';
+import { useMoney } from '@/hooks/use-money';
 import { useTheme } from '@/hooks/use-theme';
 import { categoryName } from '@/lib/category-name';
 import type { QuickEntry } from '@/lib/expenses';
-import { formatAmount } from '@/lib/money';
 
 type QuickAddProps = {
   /** Offers from `quickEntries`, in the order they are shown. */
@@ -32,6 +32,7 @@ type QuickAddProps = {
 export function QuickAdd({ entries, categories, onSelect }: QuickAddProps) {
   const { colors, scheme } = useTheme();
   const { t } = useI18n();
+  const money = useMoney();
   const [pending, setPending] = useState<string | null>(null);
 
   // An archived category is not offered, exactly as in the expense form's grid: the row
@@ -76,7 +77,7 @@ export function QuickAdd({ entries, categories, onSelect }: QuickAddProps) {
           const key = `${entry.categoryId}-${entry.amount}`;
           // The chip shows an emoji and a number; the label has to say what they mean,
           // and the description is part of what the tap is about to write.
-          const label = [categoryName(category.name, t), formatAmount(entry.amount), entry.note]
+          const label = [categoryName(category.name, t), money(entry.amount), entry.note]
             .filter(Boolean)
             .join(', ');
 
@@ -90,7 +91,7 @@ export function QuickAdd({ entries, categories, onSelect }: QuickAddProps) {
               // Same tint as the emoji bubble of the row this chip is about to create.
               style={[styles.chip, { backgroundColor: `${accentColor}33` }]}>
               <Text variant="body">{category.emoji}</Text>
-              <Text variant="callout">{formatAmount(entry.amount)}</Text>
+              <Text variant="callout">{money(entry.amount)}</Text>
             </PressableScale>
           );
         })}

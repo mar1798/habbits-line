@@ -13,9 +13,9 @@ import * as categoriesRepo from '@/db/expense-categories-repo';
 import * as expensesRepo from '@/db/expenses-repo';
 import type { ExpenseCategoryRow, ExpenseRow } from '@/db/types';
 import { useI18n } from '@/hooks/use-i18n';
+import { useMoney } from '@/hooks/use-money';
 import { useTheme } from '@/hooks/use-theme';
 import { categoryTotals, sumAmounts } from '@/lib/expenses';
-import { formatAmount } from '@/lib/money';
 import { periodEndFor, periodStartFor, shiftPeriod } from '@/lib/period';
 import { useSettingsStore } from '@/store/settings-store';
 
@@ -45,6 +45,7 @@ export function ExpenseSummary({ todayDate }: ExpenseSummaryProps) {
   const db = useSQLiteContext();
   const { colors } = useTheme();
   const { t, locale } = useI18n();
+  const money = useMoney();
   const isFocused = useIsFocused();
   const periodStartDay = useSettingsStore((state) => state.periodStartDay);
 
@@ -125,7 +126,7 @@ export function ExpenseSummary({ todayDate }: ExpenseSummaryProps) {
         <Text variant="caption" color={colors.textSecondary}>
           {t('stats_expenses_current')}
         </Text>
-        <Text variant="display">{formatAmount(currentTotal)}</Text>
+        <Text variant="display">{money(currentTotal)}</Text>
         <Text variant="caption" color={colors.textSecondary}>
           {periodLabel(currentStart, currentEnd, todayDate, locale)}
         </Text>
@@ -157,7 +158,7 @@ export function ExpenseSummary({ todayDate }: ExpenseSummaryProps) {
                   {periodLabel(period.start, period.end, todayDate, locale)}
                 </Text>
                 <Text variant="callout" style={styles.rowAmount}>
-                  {formatAmount(period.amount)}
+                  {money(period.amount)}
                 </Text>
               </View>
             ))}

@@ -6,18 +6,88 @@ const GROUP_SEPARATOR = ' ';
 const GROUP_SIZE = 3;
 
 /**
- * An amount as it is shown anywhere in the app: whole units, digits grouped, a leading
- * minus when the budget is overspent. There are no fractional units and no currency
- * symbol — the app deliberately shows "just a number".
- *
- * Written by hand rather than through `Intl.NumberFormat`: with no currency there is
- * nothing to localize, and ICU behaviour on Hermes depends on how the runtime was built,
- * which would have to be verified separately on every SDK bump. This stays pure and tested.
+ * A no-break space between the number and its currency symbol: the pair is one token and
+ * must never break across lines. Wider than the group separator above on purpose — the
+ * gap before the symbol reads as a word boundary, the ones inside the number do not.
  */
-export function formatAmount(value: number): string {
-  if (!Number.isFinite(value)) return '0';
+const CURRENCY_GAP = '\u00a0';
 
-  const whole = Math.trunc(value);
+/** Which side of the number the currency symbol is written on. */
+export type CurrencyPosition = 'prefix' | 'suffix';
+
+export const CURRENCY_POSITIONS: readonly CurrencyPosition[] = ['prefix', 'suffix'];
+
+/**
+ * The ruble sign after the number: the app's default language is Russian, the same reason
+ * the starter categories are seeded in Russian. It is a preference, not a locale — the
+ * symbol is free text and clearing it brings back the bare number this app used to show.
+ */
+export const DEFAULT_CURRENCY_SYMBOL = '\u20bd';
+export const DEFAULT_CURRENCY_POSITION: CurrencyPosition = 'suffix';
+
+/**
+ * Three characters covers every symbol ('$', '₽', '€'), the three-letter codes people
+ * write instead ('USD'), and the short words some currencies are written with ('грн').
+ * Past that the symbol starts competing with the amount for the width of the card.
+ */
+export const MAX_CURRENCY_SYMBOL_LENGTH = 3;
+
+export interface Currency {
+  /** Free text, `''` when the app should show the bare number. */
+  symbol: string;
+  position: CurrencyPosition;
+}
+
+/** The bare number — what `formatAmount` shows when no symbol is set. */
+export const NO_CURRENCY: Currency = { symbol: '', position: DEFAULT_CURRENCY_POSITION };
+
+/**
+ * What the currency field keeps of what was typed: no whitespace, no control characters,
+ * at most `MAX_CURRENCY_SYMBOL_LENGTH` characters.
+ *
+ * Whitespace goes because the gap between number and symbol is the formatter's to write —
+ * a symbol typed as " ₽" would double it — and a symbol of nothing but spaces would look
+ * cleared while still being stored. Sliced by code point rather than by UTF-16 unit, so a
+ * symbol outside the basic plane is not cut in half into a replacement character.
+ */
+export function normalizeCurrencySymbol(text: string): string {
+  const cleaned = text.replace(/[\s\u0000-\u001f\u007f]/g, '');
+  return Array.from(cleaned).slice(0, MAX_CURRENCY_SYMBOL_LENGTH).join('');
+}
+
+/** Reads the `currency_position` setting; anything unparseable falls back to the suffix. */
+export function parseCurrencyPosition(value: string | null): CurrencyPosition {
+  return CURRENCY_POSITIONS.includes(value as CurrencyPosition)
+    ? (value as CurrencyPosition)
+    : DEFAULT_CURRENCY_POSITION;
+}
+
+/**
+ * An amount as it is shown anywhere in the app: whole units, digits grouped, a leading
+ * minus when the budget is overspent, and the currency symbol the user set — on the side
+ * they chose, or nowhere at all while they have set none.
+ *
+ * Written by hand rather than through `Intl.NumberFormat`: ICU behaviour on Hermes depends
+ * on how the runtime was built, which would have to be verified separately on every SDK
+ * bump, and a currency the user typed by hand is not an ISO code ICU would know anyway.
+ * This stays pure and tested.
+ *
+ * The symbol is a display detail and never touches what is stored: amounts are integers in
+ * one unspoken unit, exactly as they were before there was a symbol to print.
+ */
+export function formatAmount(value: number, currency: Currency = NO_CURRENCY): string {
+  const number = groupDigits(Number.isFinite(value) ? Math.trunc(value) : 0);
+  if (currency.symbol === '') return number;
+  if (currency.position === 'suffix') return `${number}${CURRENCY_GAP}${currency.symbol}`;
+
+  // The minus belongs to the amount, not to the symbol: "-$5", never "$-5". Split by hand
+  // rather than through `replace`, whose replacement string would read a `$` in the
+  // user-typed symbol as a capture reference.
+  const negative = number.startsWith('-');
+  return `${negative ? '-' : ''}${currency.symbol}${negative ? number.slice(1) : number}`;
+}
+
+function groupDigits(whole: number): string {
   const digits = String(Math.abs(whole));
 
   let grouped = '';
