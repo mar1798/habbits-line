@@ -13,6 +13,7 @@ import type {
   HabitRow,
 } from '@/db/types';
 import type { MessageParams } from '@/i18n';
+import { LAST_EXPORT_AT_KEY } from '@/lib/backup-status';
 import { isValidDateKey, isValidTimeOfDay, todayKey } from '@/lib/date';
 
 /**
@@ -226,6 +227,7 @@ function isReadableVersion(version: number): boolean {
 
 /** Writes the full database to a JSON file in cache and opens the share sheet for it. */
 export async function exportBackupAsync(db: SQLiteDatabase): Promise<void> {
+  const exportedOn = todayKey();
   const habits = await db.getAllAsync<HabitRow>('SELECT * FROM habits ORDER BY sort_order ASC');
   const entries = await db.getAllAsync<EntryRow>('SELECT * FROM entries');
   const expenseCategories = await db.getAllAsync<ExpenseCategoryRow>(
@@ -235,6 +237,14 @@ export async function exportBackupAsync(db: SQLiteDatabase): Promise<void> {
   const expenseBudgets = await db.getAllAsync<ExpenseBudgetRow>('SELECT * FROM expense_budgets');
   const settings = await db.getAllAsync<AppSettingRow>('SELECT * FROM app_settings');
 
+  // The file carries the date of *this* export, not the one before it. The row in the
+  // database is only written once the share sheet is done with (see the caller), so the
+  // copy read above is always one export behind — and a file restored on a new device
+  // would otherwise say the data was last backed up before the very backup being read.
+  const exportedSettings = settings
+    .filter((setting) => setting.key !== LAST_EXPORT_AT_KEY)
+    .concat({ key: LAST_EXPORT_AT_KEY, value: exportedOn });
+
   const backup: BackupFile = {
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
@@ -243,7 +253,7 @@ export async function exportBackupAsync(db: SQLiteDatabase): Promise<void> {
     expense_categories: expenseCategories,
     expenses,
     expense_budgets: expenseBudgets,
-    settings,
+    settings: exportedSettings,
   };
 
   // Checked before writing: there is no point leaving a file in the cache that nothing
@@ -256,7 +266,7 @@ export async function exportBackupAsync(db: SQLiteDatabase): Promise<void> {
   // overwriting today's file keeps a tap-happy afternoon from filling the cache with
   // near-identical copies. The local day, not `exportedAt` — that field is a UTC instant,
   // and slicing it named yesterday's file for anyone exporting after their UTC midnight.
-  const file = new File(Paths.cache, `habits-backup-${todayKey()}.json`);
+  const file = new File(Paths.cache, `habits-backup-${exportedOn}.json`);
   file.create({ overwrite: true });
   file.write(JSON.stringify(backup, null, 2));
 

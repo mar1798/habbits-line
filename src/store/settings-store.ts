@@ -3,6 +3,8 @@ import { create } from 'zustand';
 
 import * as settingsRepo from '@/db/settings-repo';
 import { parseLanguage, type Language, DEFAULT_LANGUAGE } from '@/i18n';
+import { LAST_EXPORT_AT_KEY } from '@/lib/backup-status';
+import { todayKey } from '@/lib/date';
 import { clampPeriodStartDay, DEFAULT_PERIOD_START_DAY, parsePeriodStartDay } from '@/lib/period';
 
 /** 'system' follows the OS appearance; the other two override it. */
@@ -24,11 +26,17 @@ interface SettingsState {
   language: Language;
   /** Day of month an expense period opens on, 1..28. */
   periodStartDay: number;
+  /**
+   * Date key of the last successful export, or null if there has never been one. Read
+   * as-is — `backupStatus` is what decides whether the value is a usable day.
+   */
+  lastExportAt: string | null;
   loaded: boolean;
   load: (db: SQLiteDatabase) => Promise<void>;
   setThemeMode: (db: SQLiteDatabase, mode: ThemeMode) => Promise<void>;
   setLanguage: (db: SQLiteDatabase, language: Language) => Promise<void>;
   setPeriodStartDay: (db: SQLiteDatabase, day: number) => Promise<void>;
+  markExported: (db: SQLiteDatabase) => Promise<void>;
 }
 
 /**
@@ -40,18 +48,22 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   themeMode: 'system',
   language: DEFAULT_LANGUAGE,
   periodStartDay: DEFAULT_PERIOD_START_DAY,
+  lastExportAt: null,
   loaded: false,
 
   load: async (db) => {
-    const [storedTheme, storedLanguage, storedPeriodStartDay] = await Promise.all([
-      settingsRepo.getSetting(db, THEME_MODE_KEY),
-      settingsRepo.getSetting(db, LANGUAGE_KEY),
-      settingsRepo.getSetting(db, PERIOD_START_DAY_KEY),
-    ]);
+    const [storedTheme, storedLanguage, storedPeriodStartDay, storedLastExportAt] =
+      await Promise.all([
+        settingsRepo.getSetting(db, THEME_MODE_KEY),
+        settingsRepo.getSetting(db, LANGUAGE_KEY),
+        settingsRepo.getSetting(db, PERIOD_START_DAY_KEY),
+        settingsRepo.getSetting(db, LAST_EXPORT_AT_KEY),
+      ]);
     set({
       themeMode: parseThemeMode(storedTheme),
       language: parseLanguage(storedLanguage),
       periodStartDay: parsePeriodStartDay(storedPeriodStartDay),
+      lastExportAt: storedLastExportAt,
       loaded: true,
     });
   },
@@ -115,5 +127,24 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       set({ periodStartDay: previous });
       throw error;
     }
+  },
+
+  /**
+   * Stamps today onto the backup hint. Called after the share sheet is done with, not
+   * before it opens: an export that never produced a file must not reset the reminder.
+   *
+   * The share sheet cannot tell us whether the file was actually saved somewhere — a
+   * cancelled sheet resolves exactly like a saved one — so this is as close to "there is
+   * a backup" as the app can get. Erring towards silence on a cancel would be worse: the
+   * user did open the sheet, and a hint that keeps warning after a real export is the
+   * one that gets ignored.
+   *
+   * `todayKey()`, not the file's `exportedAt`: that field is a UTC instant, and the hint
+   * counts local days.
+   */
+  markExported: async (db) => {
+    const key = todayKey();
+    set({ lastExportAt: key });
+    await settingsRepo.setSetting(db, LAST_EXPORT_AT_KEY, key);
   },
 }));
