@@ -157,7 +157,10 @@ export const ru = {
   stats_empty_subtitle: 'Статистика появится, когда вы начнёте отмечать привычки',
   stats_all: 'Все',
   stats_habits: 'Привычки',
-  stats_last_3_months: 'Последние 3 месяца',
+  stats_heatmap: 'Календарь отметок',
+  // Названия диапазонов сидят на кнопках рядом с заголовком, поэтому они короткие.
+  stats_heatmap_quarter: '3 месяца',
+  stats_heatmap_year: 'Год',
   // Read out instead of the month's grid of squares: the cells carry their meaning in
   // colour alone, which VoiceOver has no way to convey.
   stats_heatmap_month: '{month}: закрыто {closed} из {scheduled} запланированных дней',

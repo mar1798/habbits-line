@@ -281,10 +281,7 @@ export default function StatsScreen() {
                   windowDays={WEEKDAY_WINDOW_DAYS}
                   color={accentColor}
                 />
-                <View style={styles.heatmapSection}>
-                  <Text variant="headline">{t('stats_last_3_months')}</Text>
-                  <Heatmap series={series} color={accentColor} todayDate={today} />
-                </View>
+                <Heatmap series={series} color={accentColor} todayDate={today} />
                 <HabitRange todayDate={today} series={series} color={accentColor} />
               </View>
               {/* Below the habit blocks, and outside the crossfade's reason to exist: the
@@ -359,8 +356,5 @@ const styles = StyleSheet.create({
   },
   habitsSection: {
     gap: spacing.md,
-  },
-  heatmapSection: {
-    gap: spacing.sm,
   },
 });
