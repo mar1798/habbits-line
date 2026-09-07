@@ -47,6 +47,17 @@ export const ru = {
   today_nothing_subtitle: 'Выберите другой день или измените расписание привычки',
   today_mark_failed: 'Не удалось сохранить отметку',
 
+  // Habit templates on the empty "Today" screen.
+  today_templates_title: 'Или начните с готового',
+  today_templates_hint: 'Создаёт привычку с этими настройками',
+  today_templates_failed: 'Не удалось создать привычку',
+  today_template_water: 'Вода',
+  today_template_steps: 'Шаги',
+  today_template_reading: 'Чтение',
+  today_template_vitamins: 'Витамины',
+  today_template_exercise: 'Зарядка',
+  today_template_meditation: 'Медитация',
+
   // Day strip.
   day_strip_prev_week: 'Предыдущая неделя',
   day_strip_next_week: 'Следующая неделя',

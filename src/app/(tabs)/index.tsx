@@ -6,12 +6,17 @@ import { Alert, FlatList, StyleSheet, View } from 'react-native';
 import { DayStrip } from '@/components/ui/day-strip';
 import { Confetti, ConfettiHandle } from '@/components/habit/confetti';
 import { HabitCard } from '@/components/habit/habit-card';
+import { HabitTemplates } from '@/components/habit/habit-templates';
 import { ProgressBar } from '@/components/habit/progress-bar';
 import { EmptyState } from '@/components/ui/empty-state';
 import { IconButton } from '@/components/ui/icon-button';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { spacing } from '@/constants/design-tokens';
+import {
+  HABIT_TEMPLATE_SCHEDULE_MASK,
+  type HabitTemplate,
+} from '@/constants/habit-templates';
 import type { HabitRow } from '@/db/types';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTodayKey } from '@/hooks/use-today-key';
@@ -38,6 +43,7 @@ export default function TodayScreen() {
   const habitsLoaded = useHabitsStore((state) => state.loaded);
   const loadHabits = useHabitsStore((state) => state.load);
   const archiveHabit = useHabitsStore((state) => state.archive);
+  const createHabit = useHabitsStore((state) => state.create);
 
   const counts = useEntriesStore((state) => state.counts);
   const loadedCounts = useEntriesStore((state) => state.loadedCounts);
@@ -191,6 +197,32 @@ export default function TodayScreen() {
   };
 
   /**
+   * One tap on a starter template: the habit is created straight away rather than
+   * opening the form prefilled, because a template that still needs a save is not a
+   * shorter path to the first habit than the "+" already is. Everything it sets is
+   * editable afterwards from the card's menu.
+   *
+   * Resolves either way — HabitTemplates awaits this to release its double-tap guard,
+   * and a rejection would leave the chips inert until the screen remounted.
+   */
+  const handleCreateFromTemplate = async (template: HabitTemplate) => {
+    try {
+      await createHabit(db, {
+        name: t(template.nameKey),
+        emoji: template.emoji,
+        colorKey: template.colorKey,
+        targetPerDay: template.targetPerDay,
+        scheduleMask: HABIT_TEMPLATE_SCHEDULE_MASK,
+        reminderTime: null,
+      });
+      haptics.success();
+    } catch (error) {
+      console.error('Failed to create habit from template', error);
+      Alert.alert(t('today_templates_failed'), t('try_again'));
+    }
+  };
+
+  /**
    * Archiving from the card's context menu. The rejection is swallowed rather than
    * left floating: unhandled, it shows up as a Metro warning for a failure the user
    * can only retry anyway.
@@ -259,13 +291,25 @@ export default function TodayScreen() {
       ) : habitsLoaded ? (
         // Gated on the load: the store is empty for a frame on a cold start, and an
         // ungated empty state greets every launch with "no habits yet".
-        <EmptyState
-          icon="checkmark.circle"
-          title={t(activeHabits.length === 0 ? 'empty_no_habits' : 'today_nothing_title')}
-          subtitle={t(
-            activeHabits.length === 0 ? 'today_empty_subtitle' : 'today_nothing_subtitle'
-          )}
-        />
+        activeHabits.length === 0 ? (
+          // First run. The empty state keeps the centre of the screen and the starter
+          // templates sit under it, so the "+" above is still the answer for anyone who
+          // knows what they came to add.
+          <>
+            <EmptyState
+              icon="checkmark.circle"
+              title={t('empty_no_habits')}
+              subtitle={t('today_empty_subtitle')}
+            />
+            <HabitTemplates onSelect={handleCreateFromTemplate} />
+          </>
+        ) : (
+          <EmptyState
+            icon="checkmark.circle"
+            title={t('today_nothing_title')}
+            subtitle={t('today_nothing_subtitle')}
+          />
+        )
       ) : null}
 
       <Confetti ref={confettiRef} />

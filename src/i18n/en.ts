@@ -41,6 +41,17 @@ export const en: Record<keyof typeof ru, string> = {
   today_nothing_subtitle: 'Pick another day or change the habit’s schedule',
   today_mark_failed: 'Could not save the mark',
 
+  // Habit templates on the empty "Today" screen.
+  today_templates_title: 'Or start with a ready-made one',
+  today_templates_hint: 'Creates a habit with these settings',
+  today_templates_failed: 'Could not create the habit',
+  today_template_water: 'Water',
+  today_template_steps: 'Steps',
+  today_template_reading: 'Reading',
+  today_template_vitamins: 'Vitamins',
+  today_template_exercise: 'Exercise',
+  today_template_meditation: 'Meditation',
+
   day_strip_prev_week: 'Previous week',
   day_strip_next_week: 'Next week',
 
