@@ -10,12 +10,6 @@ import { periodStartDayOf } from '@/lib/period';
 interface ExpensesState {
   /** Every expense of the loaded period, ordered as the repo returns them. */
   expenses: ExpenseRow[];
-  /**
-   * The last `RECENT_EXPENSES_LIMIT` expenses across every period, newest first — what the
-   * quick-add row is derived from. Kept apart from `expenses` because it deliberately
-   * reaches outside the loaded period, and it is only ever read as a whole.
-   */
-  recent: ExpenseRow[];
   /** Bounds of the loaded period, inclusive; null until the first load. */
   period: { start: string; end: string } | null;
   /** Budget in force for the loaded period — its own or inherited. Null when none applies. */
@@ -28,7 +22,6 @@ interface ExpensesState {
   ownBudget: number | null;
   loaded: boolean;
   loadPeriod: (db: SQLiteDatabase, start: string, end: string) => Promise<void>;
-  loadRecent: (db: SQLiteDatabase) => Promise<void>;
   ensurePeriod: (db: SQLiteDatabase, start: string, end: string) => Promise<void>;
   reload: (db: SQLiteDatabase) => Promise<void>;
   create: (db: SQLiteDatabase, input: expensesRepo.ExpenseInput) => Promise<void>;
@@ -60,7 +53,6 @@ function sortExpenses(expenses: ExpenseRow[]): ExpenseRow[] {
  */
 export const useExpensesStore = create<ExpensesState>((set, get) => ({
   expenses: [],
-  recent: [],
   period: null,
   budget: null,
   ownBudget: null,
@@ -83,15 +75,6 @@ export const useExpensesStore = create<ExpensesState>((set, get) => ({
     });
   },
 
-  /**
-   * Re-reads the quick-add history. The mutations below keep it in step themselves, so
-   * this only has to run on focus: for an import replacing the table under a mounted tab,
-   * and for the rows a period the store never loaded still has to offer.
-   */
-  loadRecent: async (db) => {
-    set({ recent: await expensesRepo.listRecentExpenses(db) });
-  },
-
   /** Loads only when the requested period is not the one already in the store. */
   ensurePeriod: async (db, start, end) => {
     const period = get().period;
@@ -107,7 +90,7 @@ export const useExpensesStore = create<ExpensesState>((set, get) => ({
   reload: async (db) => {
     const period = get().period;
     if (!period) return;
-    await Promise.all([get().loadPeriod(db, period.start, period.end), get().loadRecent(db)]);
+    await get().loadPeriod(db, period.start, period.end);
   },
 
   /**
@@ -137,17 +120,6 @@ export const useExpensesStore = create<ExpensesState>((set, get) => ({
 
     try {
       const created = await expensesRepo.createExpense(db, input);
-      // The quick-add history is patched on success only, never from the placeholder: it
-      // is what the next chip writes, and a chip appearing under the finger that is still
-      // saving would shift the ones beside it mid-tap. Sorted rather than prepended — an
-      // expense written into a day the strip was paged back to is not the newest one, and
-      // the head of this list is what "repeat the last expense" reads.
-      set((state) => ({
-        recent: sortExpenses([created, ...state.recent]).slice(
-          0,
-          expensesRepo.RECENT_EXPENSES_LIMIT
-        ),
-      }));
       if (visible) {
         set((state) => ({
           expenses: sortExpenses(
@@ -186,21 +158,6 @@ export const useExpensesStore = create<ExpensesState>((set, get) => ({
 
     try {
       await expensesRepo.updateExpense(db, id, input);
-      set((state) => ({
-        recent: sortExpenses(
-          state.recent.map((expense) =>
-            expense.id === id
-              ? {
-                  ...expense,
-                  category_id: input.categoryId,
-                  amount: input.amount,
-                  date: input.date,
-                  note: input.note,
-                }
-              : expense
-          )
-        ),
-      }));
       haptics.success();
     } catch (error) {
       set({ expenses: previous });
@@ -214,10 +171,6 @@ export const useExpensesStore = create<ExpensesState>((set, get) => ({
 
     try {
       await expensesRepo.deleteExpense(db, id);
-      // Dropped rather than refilled from the database: the window being one row shorter
-      // until the next focus costs nothing, and a deleted expense has to stop being
-      // offered at once.
-      set((state) => ({ recent: state.recent.filter((expense) => expense.id !== id) }));
       haptics.warning();
     } catch (error) {
       set({ expenses: previous });
