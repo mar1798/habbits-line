@@ -149,6 +149,11 @@ export const en: Record<keyof typeof ru, string> = {
   streak_best: 'Best',
   rate_7_days: 'Last 7 days',
   rate_30_days: 'Last 30 days',
+  stats_weekdays: 'By weekday',
+  stats_weekdays_window: 'Over the last {count} {days}',
+  stats_weekdays_empty: 'Nothing was scheduled on these days',
+  stats_weekday_summary: '{day}: {closed} of {scheduled} {days} closed',
+  stats_weekday_summary_empty: '{day}: no scheduled days',
   stats_expenses: 'Expenses',
   stats_expenses_current: 'This period',
   stats_expenses_history: 'Past periods',
@@ -278,4 +283,5 @@ export const enPlurals: Record<keyof typeof ruPlurals, { one: string; other: str
 export const enWeekdays: WeekdayLabels = {
   short: ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'],
   initial: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
+  full: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
 };

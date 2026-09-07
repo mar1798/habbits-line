@@ -1,5 +1,5 @@
-import { forEachDateKey, shiftDateKey, timestampDateKey } from './date';
-import { isScheduledOnWeekday } from './schedule';
+import { DAYS_IN_WEEK, forEachDateKey, shiftDateKey, timestampDateKey } from './date';
+import { bitForNativeWeekday, isScheduledOnWeekday } from './schedule';
 
 /**
  * count / target, clamped to 0..1 — the one shared rule for how "done" a day is.
@@ -223,4 +223,43 @@ export function computeRangeStats(series: HabitSeries[], start: string, end: str
   });
 
   return { scheduled, closed, rate: scheduled === 0 ? null : closed / scheduled };
+}
+
+/** How one weekday of the week did over a window. Index in the array is the `schedule_mask` bit. */
+export interface WeekdayStats {
+  scheduled: number;
+  closed: number;
+  /** Null when the weekday held no scheduled day at all — see `computeCompletionRate`. */
+  rate: number | null;
+}
+
+/**
+ * The same rate as `computeCompletionRate`, split into the seven weekdays instead of
+ * summed — what turns "83% over 30 days" into "every Friday goes".
+ *
+ * Bounded by a window rather than walking the whole history: the answer is about how the
+ * user lives now, and a Friday abandoned two years ago should not still be dragging the
+ * bar down. Indexed Monday-first to match `schedule_mask` bit 0, so the weekday labels,
+ * the picker and this chart all read in the same order.
+ */
+export function computeWeekdayStats(
+  series: HabitSeries[],
+  today: string,
+  windowDays: number
+): WeekdayStats[] {
+  const buckets = Array.from({ length: DAYS_IN_WEEK }, () => ({ scheduled: 0, closed: 0 }));
+
+  forEachDateKey(shiftDateKey(today, -(windowDays - 1)), today, (date, dayOfWeek) => {
+    const tally = tallyDay(series, date, dayOfWeek);
+    if (tally.scheduled === 0) return;
+    const bucket = buckets[bitForNativeWeekday(dayOfWeek)];
+    bucket.scheduled += tally.scheduled;
+    bucket.closed += tally.closed;
+  });
+
+  return buckets.map(({ scheduled, closed }) => ({
+    scheduled,
+    closed,
+    rate: scheduled === 0 ? null : closed / scheduled,
+  }));
 }

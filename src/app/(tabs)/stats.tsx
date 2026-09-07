@@ -10,6 +10,7 @@ import { HabitRange } from '@/components/stats/habit-range';
 import { Heatmap } from '@/components/stats/heatmap';
 import { RateCard } from '@/components/stats/rate-card';
 import { StreakCard } from '@/components/stats/streak-card';
+import { WeekdayCard } from '@/components/stats/weekday-card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { Screen } from '@/components/ui/screen';
@@ -21,7 +22,20 @@ import type { EntryRow, HabitRow } from '@/db/types';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 import { useTodayKey } from '@/hooks/use-today-key';
-import { computeCompletionRate, computeStreaks, toHabitSeries } from '@/lib/streaks';
+import {
+  computeCompletionRate,
+  computeStreaks,
+  computeWeekdayStats,
+  toHabitSeries,
+} from '@/lib/streaks';
+
+/**
+ * Window the weekday breakdown is counted over. Roughly three months gives every weekday
+ * about a dozen samples — enough for one bad Friday to read as a habit rather than as an
+ * accident, and recent enough that a weekday abandoned a year ago is not still being held
+ * against the user.
+ */
+const WEEKDAY_WINDOW_DAYS = 90;
 
 /**
  * The selection standing for "all habits at once". Habit ids are uuids, so this can
@@ -122,6 +136,10 @@ export default function StatsScreen() {
   const streaks = computeStreaks(series, today);
   const rate7 = computeCompletionRate(series, today, 7);
   const rate30 = computeCompletionRate(series, today, 30);
+  const weekdays = useMemo(
+    () => computeWeekdayStats(series, today, WEEKDAY_WINDOW_DAYS),
+    [series, today]
+  );
 
   const accentColor = selectedHabit
     ? resolveHabitColor(selectedHabit.color_key, scheme)
@@ -253,6 +271,11 @@ export default function StatsScreen() {
               <View style={styles.habitsSection}>
                 <StreakCard current={streaks.current} best={streaks.best} />
                 <RateCard rate7={rate7} rate30={rate30} color={accentColor} />
+                <WeekdayCard
+                  stats={weekdays}
+                  windowDays={WEEKDAY_WINDOW_DAYS}
+                  color={accentColor}
+                />
                 <View style={styles.heatmapSection}>
                   <Text variant="headline">{t('stats_last_3_months')}</Text>
                   <Heatmap series={series} color={accentColor} todayDate={today} />
