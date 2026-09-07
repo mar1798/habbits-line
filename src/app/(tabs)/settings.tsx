@@ -4,7 +4,7 @@ import { router, useIsFocused } from 'expo-router';
 import { SFSymbol, SymbolView } from 'expo-symbols';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, Linking, StyleSheet, View } from 'react-native';
+import { Alert, FlatList, Linking, StyleSheet, TextInput, View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 
 import { Button } from '@/components/ui/button';
@@ -15,14 +15,17 @@ import { PressableScale } from '@/components/ui/pressable-scale';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import {
+  fontFamily,
   minHitSlop,
   radius,
   resolveExpenseColor,
   resolveHabitColor,
   spacing,
+  typography,
 } from '@/constants/design-tokens';
 import { countExpensesByCategory } from '@/db/expense-categories-repo';
 import type { ExpenseCategoryRow, HabitRow } from '@/db/types';
+import { useScaledFontSize } from '@/hooks/use-font-scale';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 import { useTodayKey } from '@/hooks/use-today-key';
@@ -38,6 +41,11 @@ import {
 import { backupStatus } from '@/lib/backup-status';
 import { categoryName, FALLBACK_CATEGORY } from '@/lib/category-name';
 import { parseDateKey } from '@/lib/date';
+import {
+  formatAmount,
+  MAX_CURRENCY_SYMBOL_LENGTH,
+  type CurrencyPosition,
+} from '@/lib/money';
 import {
   getScheduledCountAsync,
   NOTIFICATION_WARNING_THRESHOLD,
@@ -65,6 +73,14 @@ const LANGUAGE_OPTIONS: { language: Language; labelKey: MessageKey }[] = [
   { language: 'ru', labelKey: 'language_ru' },
   { language: 'en', labelKey: 'language_en' },
 ];
+
+const CURRENCY_POSITION_OPTIONS: { position: CurrencyPosition; labelKey: MessageKey }[] = [
+  { position: 'prefix', labelKey: 'settings_currency_prefix' },
+  { position: 'suffix', labelKey: 'settings_currency_suffix' },
+];
+
+/** The amount the hint under the currency field is written with. */
+const CURRENCY_EXAMPLE_AMOUNT = 1250;
 
 /**
  * Read from the manifest embedded in the build, not from `expo-application`: that would
@@ -116,6 +132,7 @@ type Row =
 export default function SettingsScreen() {
   const { colors, scheme } = useTheme();
   const { t, plural, locale } = useI18n();
+  const inputFontSize = useScaledFontSize('body');
   const isFocused = useIsFocused();
   const todayDate = useTodayKey();
   const permission = useNotificationPermissionStatus();
@@ -150,6 +167,8 @@ export default function SettingsScreen() {
   const language = useSettingsStore((state) => state.language);
   const setLanguage = useSettingsStore((state) => state.setLanguage);
   const loadSettings = useSettingsStore((state) => state.load);
+  const currency = useSettingsStore((state) => state.currency);
+  const setCurrency = useSettingsStore((state) => state.setCurrency);
   const lastExportAt = useSettingsStore((state) => state.lastExportAt);
   const markExported = useSettingsStore((state) => state.markExported);
 
@@ -581,6 +600,73 @@ export default function SettingsScreen() {
                   />
                 ))}
               </View>
+            </View>
+
+            {/* Under the language, above the data block: it is a preference like the two
+                above it, and it changes nothing but how a number is written. The amounts
+                themselves stay whole units of one unspoken currency — see money.ts. */}
+            <View style={styles.group}>
+              <Text variant="title2">{t('settings_currency')}</Text>
+              <View style={styles.currencyRow}>
+                <TextInput
+                  value={currency.symbol}
+                  // Written on every keystroke rather than on blur: the store applies the
+                  // symbol synchronously, so the example below and every amount on the
+                  // other tabs follow the field as it is typed — and a field that is at
+                  // most three characters long cannot make this a chatty write. Leaving
+                  // the screen is not an event a text field can be relied on to get.
+                  onChangeText={(symbol) => {
+                    setCurrency(db, { ...currency, symbol }).catch((error) =>
+                      console.warn('Failed to save the currency symbol', error)
+                    );
+                  }}
+                  placeholder={t('settings_currency_placeholder')}
+                  placeholderTextColor={colors.textTertiary}
+                  returnKeyType="done"
+                  accessibilityLabel={t('settings_currency_symbol')}
+                  // Scaled by hand like every other field in the app — RN would otherwise
+                  // apply the system multiplier a second time on top of it.
+                  allowFontScaling={false}
+                  // The store normalizes anyway; this stops the field from showing a
+                  // fourth character for the frame before it is taken back out.
+                  maxLength={MAX_CURRENCY_SYMBOL_LENGTH}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  style={[
+                    styles.currencyInput,
+                    { fontSize: inputFontSize },
+                    {
+                      backgroundColor: colors.surfaceAlt,
+                      color: colors.textPrimary,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.segmented,
+                    styles.currencyPosition,
+                    { backgroundColor: colors.surfaceAlt },
+                  ]}>
+                  {CURRENCY_POSITION_OPTIONS.map((option) => (
+                    <Segment
+                      key={option.position}
+                      label={t(option.labelKey)}
+                      isSelected={option.position === currency.position}
+                      onPress={() => {
+                        setCurrency(db, { ...currency, position: option.position }).catch(
+                          (error) => console.warn('Failed to save the currency position', error)
+                        );
+                      }}
+                    />
+                  ))}
+                </View>
+              </View>
+              <Text variant="caption" color={colors.textSecondary}>
+                {t('settings_currency_hint', {
+                  example: formatAmount(CURRENCY_EXAMPLE_AMOUNT, currency),
+                })}
+              </Text>
             </View>
 
             <View style={styles.group}>
@@ -1072,6 +1158,28 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     minHeight: minHitSlop,
     borderRadius: radius.pill,
+  },
+  currencyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  currencyInput: {
+    // Wide enough for three characters and the padding around them, and no wider: the
+    // field is not where the eye should land in this row.
+    width: 88,
+    textAlign: 'center',
+    minHeight: minHitSlop,
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.md,
+    // Body type from the tokens, minus its size and lineHeight — same reason as the
+    // category form's name field.
+    fontFamily,
+    fontWeight: typography.body.fontWeight,
+  },
+  currencyPosition: {
+    flex: 1,
   },
   dataButtons: {
     flexDirection: 'row',

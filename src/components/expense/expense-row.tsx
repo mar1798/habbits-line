@@ -6,10 +6,10 @@ import { Text } from '@/components/ui/text';
 import { radius, resolveExpenseColor, spacing } from '@/constants/design-tokens';
 import type { ExpenseCategoryRow, ExpenseRow as ExpenseRowData } from '@/db/types';
 import { useI18n } from '@/hooks/use-i18n';
+import { useMoney } from '@/hooks/use-money';
 import { useTheme } from '@/hooks/use-theme';
 import { showActionSheet } from '@/lib/action-sheet';
 import { categoryName } from '@/lib/category-name';
-import { formatAmount } from '@/lib/money';
 
 type ExpenseRowProps = {
   expense: ExpenseRowData;
@@ -26,6 +26,7 @@ type ExpenseRowProps = {
 export function ExpenseRow({ expense, category, onEdit, onDelete }: ExpenseRowProps) {
   const { colors, scheme } = useTheme();
   const { t } = useI18n();
+  const money = useMoney();
   const accentColor = resolveExpenseColor(category?.color_key ?? '', scheme);
 
   const openMenu = () => {
@@ -55,7 +56,7 @@ export function ExpenseRow({ expense, category, onEdit, onDelete }: ExpenseRowPr
   // that name is what the hint is for. The emoji is left out; the category names it.
   const label = [
     category ? categoryName(category.name, t) : '—',
-    formatAmount(expense.amount),
+    money(expense.amount),
     expense.note || null,
     category?.archived_at ? t('settings_archived_badge') : null,
   ]
@@ -101,7 +102,7 @@ export function ExpenseRow({ expense, category, onEdit, onDelete }: ExpenseRowPr
             </Text>
           ) : null}
         </View>
-        <Text variant="headline">{formatAmount(expense.amount)}</Text>
+        <Text variant="headline">{money(expense.amount)}</Text>
       </Card>
     </PressableScale>
   );

@@ -15,11 +15,11 @@ import { minHitSlop, radius, spacing } from '@/constants/design-tokens';
 import * as expensesRepo from '@/db/expenses-repo';
 import type { ExpenseCategoryRow, ExpenseRow } from '@/db/types';
 import { useI18n } from '@/hooks/use-i18n';
+import { useMoney } from '@/hooks/use-money';
 import { useTheme } from '@/hooks/use-theme';
 import { parseDateKey } from '@/lib/date';
 import type { DateRange } from '@/lib/date-range';
 import { categoryTotals, sumAmounts } from '@/lib/expenses';
-import { formatAmount } from '@/lib/money';
 
 /** Stable identity so the sums below don't rebuild on every render before a range is picked. */
 const NO_EXPENSES: ExpenseRow[] = [];
@@ -45,6 +45,7 @@ export function ExpenseRange({ todayDate, categories }: ExpenseRangeProps) {
   const db = useSQLiteContext();
   const { colors } = useTheme();
   const { t, plural, locale } = useI18n();
+  const money = useMoney();
   const isFocused = useIsFocused();
 
   const [expanded, setExpanded] = useState(false);
@@ -139,7 +140,7 @@ export function ExpenseRange({ todayDate, categories }: ExpenseRangeProps) {
                 card does: without it every new range paints a total of 0 first and then
                 pops to the real sum. */}
             <Text variant="title1" color={isPending ? 'transparent' : undefined}>
-              {formatAmount(total)}
+              {money(total)}
             </Text>
             <Text variant="caption" color={colors.textSecondary}>
               {t('stats_expenses_range_days', {

@@ -16,6 +16,7 @@ import { Text } from '@/components/ui/text';
 import { resolveExpenseColor, spacing } from '@/constants/design-tokens';
 import type { ExpenseRow as ExpenseRowData } from '@/db/types';
 import { useI18n } from '@/hooks/use-i18n';
+import { useMoney } from '@/hooks/use-money';
 import { useTheme } from '@/hooks/use-theme';
 import { useTodayKey } from '@/hooks/use-today-key';
 import { parseDateKey, shiftDateKey, weekDates, weekStartKey } from '@/lib/date';
@@ -27,7 +28,6 @@ import {
   sumAmounts,
   type QuickEntry,
 } from '@/lib/expenses';
-import { formatAmount } from '@/lib/money';
 import { periodEndFor, periodStartFor } from '@/lib/period';
 import { useExpenseCategoriesStore } from '@/store/expense-categories-store';
 import { useExpensesStore } from '@/store/expenses-store';
@@ -47,6 +47,7 @@ export default function ExpensesScreen() {
   const db = useSQLiteContext();
   const { scheme } = useTheme();
   const { t } = useI18n();
+  const money = useMoney();
   const isFocused = useIsFocused();
 
   const loadedExpenses = useExpensesStore((state) => state.expenses);
@@ -265,10 +266,10 @@ export default function ExpensesScreen() {
                 segments={segments}
                 accessibilityLabel={
                   budget === null
-                    ? t('expenses_bar_label_no_budget', { spent: formatAmount(spent) })
+                    ? t('expenses_bar_label_no_budget', { spent: money(spent) })
                     : t('expenses_bar_label', {
-                        spent: formatAmount(spent),
-                        total: formatAmount(budget),
+                        spent: money(spent),
+                        total: money(budget),
                       })
                 }
               />

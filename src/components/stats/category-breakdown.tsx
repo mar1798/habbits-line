@@ -5,10 +5,10 @@ import { Text } from '@/components/ui/text';
 import { radius, resolveExpenseColor, spacing } from '@/constants/design-tokens';
 import type { ExpenseCategoryRow } from '@/db/types';
 import { useI18n } from '@/hooks/use-i18n';
+import { useMoney } from '@/hooks/use-money';
 import { useTheme } from '@/hooks/use-theme';
 import { categoryName } from '@/lib/category-name';
 import type { CategoryTotal } from '@/lib/expenses';
-import { formatAmount } from '@/lib/money';
 
 type CategoryBreakdownProps = {
   /** Per-category sums, largest first — from `categoryTotals`. */
@@ -28,6 +28,7 @@ type CategoryBreakdownProps = {
 export function CategoryBreakdown({ breakdown, categories }: CategoryBreakdownProps) {
   const { colors, scheme } = useTheme();
   const { t } = useI18n();
+  const money = useMoney();
 
   return (
     <Card style={styles.rows}>
@@ -48,7 +49,7 @@ export function CategoryBreakdown({ breakdown, categories }: CategoryBreakdownPr
               {Math.round(entry.share * 100)}%
             </Text>
             <Text variant="callout" style={styles.rowAmount}>
-              {formatAmount(entry.amount)}
+              {money(entry.amount)}
             </Text>
           </View>
         );

@@ -241,6 +241,12 @@ export const ru = {
   // still recognises the one they want.
   language_ru: 'Русский',
   language_en: 'English',
+  settings_currency: 'Валюта',
+  settings_currency_symbol: 'Символ',
+  settings_currency_placeholder: '₽',
+  settings_currency_prefix: 'Слева',
+  settings_currency_suffix: 'Справа',
+  settings_currency_hint: 'До трёх символов. Пустое поле — только число. Пример: {example}',
   settings_data: 'Данные',
   settings_export: 'Экспорт',
   settings_import: 'Импорт',
