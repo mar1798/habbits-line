@@ -19,7 +19,7 @@ expo-sqlite ──► src/db/*-repo.ts ──► src/store/*-store.ts ──► 
 src/
   app/            маршруты expo-router
                   (tabs)/index    — «Сегодня»: полоса дат, карточки привычек
-                  (tabs)/expenses — траты периода, баланс, полоса по категориям
+                  (tabs)/expenses — траты периода, баланс, полоса категорий, быстрый ввод
                   (tabs)/stats    — стрики, срывы, проценты, дни недели, хитмап, блок трат
                   (tabs)/settings — тема, язык, категории, экспорт/импорт, уведомления
                   habit/new|[id], expense/new|[id]|budget,

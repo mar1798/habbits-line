@@ -88,3 +88,23 @@ export async function updateExpense(
 export async function deleteExpense(db: SQLiteDatabase, id: string): Promise<void> {
   await db.runAsync('DELETE FROM expenses WHERE id = ?', id);
 }
+
+/**
+ * How much history the quick-add row is derived from. Sixty rows is a few weeks of normal
+ * use — long enough that a weekly purchase still ranks, short enough that a template
+ * dropped a month ago stops being offered and that the read stays a bounded index scan.
+ */
+export const RECENT_EXPENSES_LIMIT = 60;
+
+/**
+ * The last `RECENT_EXPENSES_LIMIT` expenses across every period, newest first.
+ *
+ * Deliberately not the loaded period: the quick-add row is worth most on the first day of
+ * a new period, exactly when that period is still empty and has nothing to suggest.
+ */
+export async function listRecentExpenses(db: SQLiteDatabase): Promise<ExpenseRow[]> {
+  return db.getAllAsync<ExpenseRow>(
+    'SELECT * FROM expenses ORDER BY date DESC, created_at DESC LIMIT ?',
+    RECENT_EXPENSES_LIMIT
+  );
+}

@@ -113,6 +113,8 @@ export const ru = {
   expenses_bar_label: 'Потрачено {spent} из {total}',
   expenses_bar_label_no_budget: 'Потрачено {spent}',
   expenses_empty_day: 'В этот день расходов не было',
+  expenses_quick_title: 'Быстрый ввод',
+  expenses_quick_hint: 'Записывает расход сразу, без формы',
   expense_delete_title: 'Удалить расход?',
   expense_delete_message: 'Расход будет удалён без возможности восстановления.',
 

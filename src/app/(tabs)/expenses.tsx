@@ -6,6 +6,7 @@ import { Alert, FlatList, StyleSheet, View } from 'react-native';
 import { BalanceCard } from '@/components/expense/balance-card';
 import { ExpenseBar, type ExpenseBarSegment } from '@/components/expense/expense-bar';
 import { ExpenseRow } from '@/components/expense/expense-row';
+import { QuickAdd } from '@/components/expense/quick-add';
 import { Button } from '@/components/ui/button';
 import { DayStrip } from '@/components/ui/day-strip';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -18,7 +19,14 @@ import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 import { useTodayKey } from '@/hooks/use-today-key';
 import { parseDateKey, shiftDateKey, weekDates, weekStartKey } from '@/lib/date';
-import { barTotal, categoryTotals, expensesOnDate, sumAmounts } from '@/lib/expenses';
+import {
+  barTotal,
+  categoryTotals,
+  expensesOnDate,
+  quickEntries,
+  sumAmounts,
+  type QuickEntry,
+} from '@/lib/expenses';
 import { formatAmount } from '@/lib/money';
 import { periodEndFor, periodStartFor } from '@/lib/period';
 import { useExpenseCategoriesStore } from '@/store/expense-categories-store';
@@ -27,6 +35,13 @@ import { useSettingsStore } from '@/store/settings-store';
 
 /** Stable identity for "the store isn't holding this period yet" — see `loaded` below. */
 const NO_EXPENSES: ExpenseRowData[] = [];
+
+/**
+ * How many chips the quick-add row offers. Four fit one line on the narrowest phone, and
+ * the row is only worth having while all of it is visible at a glance — a fifth chip that
+ * wrapped onto its own line would cost more room than the tap it saves.
+ */
+const MAX_QUICK_ENTRIES = 4;
 
 export default function ExpensesScreen() {
   const db = useSQLiteContext();
@@ -39,6 +54,9 @@ export default function ExpensesScreen() {
   const loadedPeriod = useExpensesStore((state) => state.period);
   const ensurePeriod = useExpensesStore((state) => state.ensurePeriod);
   const removeExpense = useExpensesStore((state) => state.remove);
+  const createExpense = useExpensesStore((state) => state.create);
+  const recentExpenses = useExpensesStore((state) => state.recent);
+  const loadRecent = useExpensesStore((state) => state.loadRecent);
 
   // Archived categories included: an expense written into one before it was archived
   // still has to show its name and color in the day list. The grid in the expense modal
@@ -108,6 +126,16 @@ export default function ExpensesScreen() {
     );
   }, [db, ensurePeriod, isFocused, periodStartDay, selectedDate]);
 
+  /**
+   * The quick-add history spans every period, so it does not follow the strip. Re-read on
+   * focus for the same reason the period is: an import replaces the whole table while
+   * this tab stays mounted.
+   */
+  useEffect(() => {
+    if (!isFocused) return;
+    loadRecent(db).catch((error) => console.warn('Failed to load recent expenses', error));
+  }, [db, isFocused, loadRecent]);
+
   const periodStart = periodStartFor(selectedDate, periodStartDay);
   const periodEnd = periodEndFor(selectedDate, periodStartDay);
 
@@ -138,6 +166,11 @@ export default function ExpensesScreen() {
     [categories, expenses, scheme, total]
   );
 
+  const quickAddEntries = useMemo(
+    () => quickEntries(recentExpenses, MAX_QUICK_ENTRIES),
+    [recentExpenses]
+  );
+
   const dayExpenses = useMemo(
     () => expensesOnDate(expenses, selectedDate),
     [expenses, selectedDate]
@@ -149,6 +182,25 @@ export default function ExpensesScreen() {
 
   const openNewExpense = () => {
     router.push({ pathname: '/expense/new', params: { date: selectedDate } });
+  };
+
+  /**
+   * Writes the chip's expense on the day the strip is on. No confirmation and no undo
+   * beyond the row's own menu: a step in front of a one-tap entry hands back the taps it
+   * exists to save.
+   */
+  const handleQuickAdd = async (entry: QuickEntry) => {
+    try {
+      await createExpense(db, {
+        categoryId: entry.categoryId,
+        amount: entry.amount,
+        date: selectedDate,
+        note: entry.note,
+      });
+    } catch (error) {
+      console.error('Failed to write a quick expense', error);
+      Alert.alert(t('expense_form_save_failed'), t('try_again'));
+    }
   };
 
   const confirmDelete = (expense: ExpenseRowData) => {
@@ -226,6 +278,16 @@ export default function ExpensesScreen() {
                 onPress={openNewExpense}
                 disabled={!canAdd}
               />
+
+              {/* Hidden on a future day for the reason the buttons above are disabled
+                  there: a plan is not a spend, and nothing can be written into one. */}
+              {canAdd ? (
+                <QuickAdd
+                  entries={quickAddEntries}
+                  categories={categories}
+                  onSelect={handleQuickAdd}
+                />
+              ) : null}
             </View>
           </View>
         }

@@ -3,9 +3,11 @@ import {
   budgetRemainder,
   categoryTotals,
   expensesOnDate,
+  quickEntries,
   resolveBudget,
   sumAmounts,
   type ExpenseItem,
+  type QuickEntryItem,
 } from '../expenses';
 
 function expense(category: string, amount: number, date = '2026-08-10'): ExpenseItem {
@@ -153,5 +155,120 @@ describe('barTotal / budgetRemainder', () => {
 
   it('has no remainder to show when no budget applies', () => {
     expect(budgetRemainder(null, 2000)).toBeNull();
+  });
+});
+
+describe('quickEntries', () => {
+  // Newest first, the order the repository reads in and the one the function requires.
+  function recent(pairs: [string, number, string?][]): QuickEntryItem[] {
+    return pairs.map(([category, amount, note]) => ({
+      category_id: category,
+      amount,
+      note: note ?? null,
+    }));
+  }
+
+  it('collapses repeats of one category and amount into a single offer', () => {
+    const entries = quickEntries(
+      recent([
+        ['food', 200],
+        ['food', 200],
+        ['food', 200],
+      ]),
+      4
+    );
+    expect(entries).toEqual([{ categoryId: 'food', amount: 200, note: null, count: 3 }]);
+  });
+
+  // Same category, different amounts are different offers: the amount is what the chip
+  // writes, and "Food" alone would still need the form to say how much.
+  it('keeps amounts of one category apart', () => {
+    const entries = quickEntries(
+      recent([
+        ['food', 200],
+        ['food', 450],
+      ]),
+      4
+    );
+    expect(entries.map((entry) => entry.amount)).toEqual([200, 450]);
+  });
+
+  // The head of the row is "repeat the last expense", so a one-off bought an hour ago
+  // outranks the pair spent every day this month.
+  it('keeps the newest pair first however rare it is', () => {
+    const entries = quickEntries(
+      recent([
+        ['home', 999],
+        ['food', 200],
+        ['food', 200],
+        ['food', 200],
+      ]),
+      4
+    );
+    expect(entries[0]).toEqual({ categoryId: 'home', amount: 999, note: null, count: 1 });
+    expect(entries[1]?.categoryId).toBe('food');
+  });
+
+  it('ranks the rest by how often they repeat, ties broken by recency', () => {
+    const entries = quickEntries(
+      recent([
+        ['taxi', 300],
+        ['bus', 60],
+        ['food', 200],
+        ['food', 200],
+        ['bus', 60],
+        ['bus', 60],
+      ]),
+      4
+    );
+    expect(entries.map((entry) => entry.categoryId)).toEqual(['taxi', 'bus', 'food']);
+    expect(entries.map((entry) => entry.count)).toEqual([1, 3, 2]);
+  });
+
+  // A tie between two pairs seen once each goes to the one seen more recently — the list
+  // is newest first, so that is the one met first.
+  it('breaks an equal count by recency', () => {
+    const entries = quickEntries(
+      recent([
+        ['home', 100],
+        ['food', 200],
+        ['taxi', 300],
+      ]),
+      3
+    );
+    expect(entries.map((entry) => entry.categoryId)).toEqual(['home', 'food', 'taxi']);
+  });
+
+  // The description is not part of the key, or two chips reading "200" would sit side by
+  // side. The pair carries the latest one, which is what the tap writes.
+  it('takes the description of the latest expense in the pair', () => {
+    const entries = quickEntries(
+      recent([
+        ['food', 200, 'coffee'],
+        ['food', 200, 'tea'],
+      ]),
+      4
+    );
+    expect(entries).toEqual([{ categoryId: 'food', amount: 200, note: 'coffee', count: 2 }]);
+  });
+
+  it('cuts the row down to the limit', () => {
+    const entries = quickEntries(
+      recent([
+        ['a', 1],
+        ['b', 2],
+        ['c', 3],
+        ['d', 4],
+        ['e', 5],
+      ]),
+      3
+    );
+    expect(entries).toHaveLength(3);
+  });
+
+  // A fresh install has no history, and the row is simply not shown.
+  it('offers nothing on an empty history or a limit of zero', () => {
+    expect(quickEntries([], 4)).toEqual([]);
+    expect(quickEntries(recent([['food', 200]]), 0)).toEqual([]);
   });
 });

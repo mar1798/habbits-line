@@ -102,6 +102,8 @@ export const en: Record<keyof typeof ru, string> = {
   expenses_bar_label: '{spent} of {total} spent',
   expenses_bar_label_no_budget: '{spent} spent',
   expenses_empty_day: 'Nothing was spent on this day',
+  expenses_quick_title: 'Quick add',
+  expenses_quick_hint: 'Writes the expense right away, without the form',
   expense_delete_title: 'Delete this expense?',
   expense_delete_message: 'The expense will be deleted permanently.',
 
