@@ -73,6 +73,13 @@ export const ru = {
   menu_archive: 'Архивировать',
   menu_unarchive: 'Разархивировать',
 
+  // Swipe actions. Deliberately shorter than the `menu_*` labels above: these sit under
+  // an icon in a column about 76pt wide, where "Разархивировать" cannot be broken.
+  swipe_edit: 'Изменить',
+  swipe_archive: 'В архив',
+  swipe_unarchive: 'Из архива',
+  swipe_delete: 'Удалить',
+
   // Habit form.
   habit_form_create: 'Создать',
   habit_form_save: 'Сохранить',
@@ -263,8 +270,6 @@ export const ru = {
   settings_habits_add: 'Добавить привычку',
   settings_archive: 'Архив',
   settings_archived_badge: 'Архивная',
-  settings_habit_menu: 'Меню «{name}»',
-  settings_category_menu: 'Меню «{name}»',
   settings_move_up: 'Переместить вверх',
   settings_move_down: 'Переместить вниз',
   settings_edit_habit: 'Изменить «{name}»',

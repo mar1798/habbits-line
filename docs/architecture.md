@@ -24,7 +24,8 @@ src/
                   (tabs)/settings — тема, язык, категории, экспорт/импорт, уведомления
                   habit/new|[id], expense/new|[id]|budget,
                   expense-category/new|[id] — модалки
-  components/     ui/*    — примитивы (text, button, card, screen, day-strip…)
+  components/     ui/*    — примитивы (text, button, card, screen, day-strip,
+                            swipe-row…)
                   habit/*, expense/*, stats/* — доменные
   constants/      design-tokens.ts — единственный источник цветов, отступов, радиусов,
                                      типографики, теней и таймингов
@@ -34,7 +35,7 @@ src/
   store/          habits, entries, settings, expense-categories, expenses
   lib/            date, date-range, schedule, streaks, period, money, expenses,
                   notifications, reminder-plan, backup, name-match, category-name,
-                  haptics, action-sheet, id  (+ __tests__)
+                  haptics, id  (+ __tests__)
   hooks/          use-theme, use-i18n, use-money, use-font-scale, use-today-key,
                   use-taken-names
 ```
