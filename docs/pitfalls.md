@@ -128,3 +128,19 @@ Metro не делает tree-shaking: `import { format } from 'date-fns'` зат
 
 `TextInput` при этом получает только `fontSize`: с явным `lineHeight` iOS обрезает
 собственный текст поля.
+
+## Плагин `expo-notifications` ломает подпись на устройство
+
+Конфиг-плагин `expo-notifications` добавляет в entitlements `aps-environment` — то есть
+capability Push Notifications, которой у нас нет и не будет: напоминания только локальные.
+Provisioning-профиль без Push роняет сборку на устройство:
+
+```
+Provisioning Profile "…" does not support the Push Notifications capability.
+Entitlements file defines the value "aps-environment" which is not registered for profile
+```
+
+Поэтому плагина нет в `plugins` в `app.json` — сам пакет и локальные уведомления от этого
+не страдают, плагин на iOS отвечает только за `aps-environment`, кастомные звуки и
+`remote-notification`. Если `aps-environment` уже попал в
+`ios/HabbitsLine/HabbitsLine.entitlements`, prebuild его не удалит — ключ вычищается руками.

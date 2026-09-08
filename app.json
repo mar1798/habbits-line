@@ -31,8 +31,7 @@
           }
         }
       ],
-      "expo-sqlite",
-      "expo-notifications"
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,
