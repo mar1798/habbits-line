@@ -15,7 +15,7 @@ import type { ExpenseCategoryRow, ExpenseRow } from '@/db/types';
 import { useI18n } from '@/hooks/use-i18n';
 import { useMoney } from '@/hooks/use-money';
 import { useTheme } from '@/hooks/use-theme';
-import { categoryTotals, sumAmounts } from '@/lib/expenses';
+import { categoryTotals, spendingPerDay, sumAmounts } from '@/lib/expenses';
 import { periodEndFor, periodStartFor, shiftPeriod } from '@/lib/period';
 import { useSettingsStore } from '@/store/settings-store';
 
@@ -103,6 +103,9 @@ export function ExpenseSummary({ todayDate }: ExpenseSummaryProps) {
     [currentExpenses, currentTotal]
   );
 
+  // Only ever a number while the period is the one being lived through — see `spendingPerDay`.
+  const perDay = spendingPerDay(currentTotal, currentStart, currentEnd, todayDate);
+
   /** Past periods that actually hold expenses, newest first — an unused month is not history. */
   const history = useMemo(() => {
     const periods: { start: string; end: string; amount: number }[] = [];
@@ -131,6 +134,18 @@ export function ExpenseSummary({ todayDate }: ExpenseSummaryProps) {
           {periodLabel(currentStart, currentEnd, todayDate, locale)}
         </Text>
       </Card>
+
+      {/* Under the period's total, because it is that total divided by the days behind
+          it: the same money, told as what a day of this period has cost. Gone in an empty
+          period, where the card above already says everything there is to say. */}
+      {perDay !== null ? (
+        <Card style={styles.perDay}>
+          <Text variant="caption" color={colors.textSecondary}>
+            {t('stats_expenses_per_day')}
+          </Text>
+          <Text variant="title2">{money(perDay)}</Text>
+        </Card>
+      ) : null}
 
       <View style={styles.block}>
         <Text variant="headline">{t('stats_expenses_by_category')}</Text>
@@ -174,6 +189,9 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   total: {
+    gap: spacing.xs,
+  },
+  perDay: {
     gap: spacing.xs,
   },
   block: {

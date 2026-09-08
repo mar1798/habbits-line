@@ -4,7 +4,7 @@ import {
   categoryTotals,
   expensesOnDate,
   resolveBudget,
-  spendingPace,
+  spendingPerDay,
   sumAmounts,
   type ExpenseItem,
 } from '../expenses';
@@ -157,29 +157,29 @@ describe('barTotal / budgetRemainder', () => {
   });
 });
 
-describe('spendingPace', () => {
+describe('spendingPerDay', () => {
   const start = '2026-08-06';
   const end = '2026-09-05'; // 31 days.
 
   it('averages over the days that have elapsed, empty ones included', () => {
     // Five days in, 1000 spent — 200 a day, whether it went in one day or five.
-    expect(spendingPace(1000, start, end, '2026-08-10')).toEqual({ perDay: 200, projected: 6200 });
+    expect(spendingPerDay(1000, start, end, '2026-08-10')).toBe(200);
   });
 
   it('counts the first day of a period as a whole day', () => {
-    expect(spendingPace(300, start, end, start)).toEqual({ perDay: 300, projected: 9300 });
+    expect(spendingPerDay(300, start, end, start)).toBe(300);
   });
 
-  it('lands on the total itself on the last day of the period', () => {
-    expect(spendingPace(3100, start, end, end)).toEqual({ perDay: 100, projected: 3100 });
+  it('divides by the whole period on its last day', () => {
+    expect(spendingPerDay(3100, start, end, end)).toBe(100);
   });
 
   it('says nothing about a period that is not the current one', () => {
-    expect(spendingPace(1000, start, end, '2026-09-06')).toBeNull();
-    expect(spendingPace(1000, start, end, '2026-08-05')).toBeNull();
+    expect(spendingPerDay(1000, start, end, '2026-09-06')).toBeNull();
+    expect(spendingPerDay(1000, start, end, '2026-08-05')).toBeNull();
   });
 
   it('says nothing about a period nothing was spent in', () => {
-    expect(spendingPace(0, start, end, '2026-08-10')).toBeNull();
+    expect(spendingPerDay(0, start, end, '2026-08-10')).toBeNull();
   });
 });

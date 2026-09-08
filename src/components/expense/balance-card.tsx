@@ -11,7 +11,7 @@ import { useI18n } from '@/hooks/use-i18n';
 import { useMoney } from '@/hooks/use-money';
 import { useTheme } from '@/hooks/use-theme';
 import { parseDateKey } from '@/lib/date';
-import { budgetRemainder, spendingPace } from '@/lib/expenses';
+import { budgetRemainder } from '@/lib/expenses';
 
 /**
  * Names the period the card is showing: "6 авг. — 5 сент.", or "26 дек. 2026 — 25 янв. 2027"
@@ -66,13 +66,6 @@ export function BalanceCard({
   const money = useMoney();
   const remainder = budgetRemainder(budget, spent);
   const isOverspent = remainder !== null && remainder < 0;
-
-  // Only ever set for the period that is actually running — see `spendingPace`.
-  const pace = spendingPace(spent, periodStart, periodEnd, todayDate);
-  // The forecast is the half of the line worth colouring: an average per day is neutral,
-  // "this ends above the budget" is the warning, and it is worth having before the
-  // remainder has gone negative — which is the whole point of a forecast.
-  const overBudgetPace = pace !== null && budget !== null && pace.projected > budget;
 
   return (
     <PressableScale
@@ -131,21 +124,6 @@ export function BalanceCard({
             </View>
           </View>
         )}
-
-        {/* Under both branches, not just the one with a budget: "so much a day, so much by
-            the end" is the same useful sentence when no budget has been set at all. Hidden
-            while the period's first read is in flight, like everything else on the card. */}
-        {!pending && pace !== null ? (
-          <Text
-            variant="caption"
-            numberOfLines={1}
-            color={overBudgetPace ? colors.warning : colors.textSecondary}>
-            {t('expenses_pace', {
-              perDay: money(pace.perDay),
-              projected: money(pace.projected),
-            })}
-          </Text>
-        ) : null}
       </Card>
     </PressableScale>
   );
