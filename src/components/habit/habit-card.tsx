@@ -1,14 +1,12 @@
 import { type AccessibilityActionEvent, StyleSheet, View } from 'react-native';
 
 import { CheckButton } from '@/components/habit/check-button';
-import { Card } from '@/components/ui/card';
-import { PressableScale } from '@/components/ui/pressable-scale';
+import { SwipeRow, type SwipeAction } from '@/components/ui/swipe-row';
 import { Text } from '@/components/ui/text';
 import { radius, resolveHabitColor, spacing } from '@/constants/design-tokens';
 import type { HabitRow } from '@/db/types';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
-import { showActionSheet } from '@/lib/action-sheet';
 
 type HabitCardProps = {
   habit: HabitRow;
@@ -25,22 +23,10 @@ export function HabitCard({ habit, count, disabled, onToggle, onEdit, onArchive 
   const { t, plural } = useI18n();
   const accentColor = resolveHabitColor(habit.color_key, scheme);
 
-  const openMenu = () => {
-    showActionSheet(
-      {
-        scheme,
-        cancelLabel: t('cancel'),
-        actions: [
-          { id: 'edit', title: t('menu_edit') },
-          { id: 'archive', title: t('menu_archive') },
-        ],
-      },
-      (id) => {
-        if (id === 'edit') onEdit();
-        if (id === 'archive') onArchive();
-      }
-    );
-  };
+  const actions: SwipeAction[] = [
+    { id: 'edit', label: t('swipe_edit'), icon: 'square.and.pencil', tone: 'accent', onPress: onEdit },
+    { id: 'archive', label: t('swipe_archive'), icon: 'archivebox', tone: 'neutral', onPress: onArchive },
+  ];
 
   const handleAccessibilityAction = (event: AccessibilityActionEvent) => {
     if (event.nativeEvent.actionName === 'edit') onEdit();
@@ -48,21 +34,18 @@ export function HabitCard({ habit, count, disabled, onToggle, onEdit, onArchive 
   };
 
   return (
-    // No onPress: a tap over the check button is claimed by its own Pressable before this
-    // one ever sees it, and elsewhere on the card a plain tap has never done anything —
-    // long press opening the menu is the only behavior this wrapper adds.
-    //
-    // accessible={false} because an accessibility element hides its whole subtree on iOS:
-    // with the default the card exported as one merged element and CheckButton — the only
-    // control on the screen that does anything — could not be focused or activated.
-    <PressableScale style={styles.wrapper} onLongPress={openMenu} accessible={false}>
-      <Card style={styles.card}>
+    // A short swipe to the left uncovers edit and archive. The card has no plain tap of
+    // its own: over the check button the tap belongs to that button, and elsewhere on the
+    // card there has never been anything for it to do.
+    <SwipeRow actions={actions} elevated>
+      <View style={styles.card}>
         <View style={[styles.emoji, { backgroundColor: `${accentColor}33` }]}>
           <Text variant="headline">{habit.emoji}</Text>
         </View>
-        {/* The long press has no accessible equivalent, so the menu is offered here as
-            custom actions — on this View rather than on the wrapper, where accessible={false}
-            would swallow them silently. */}
+        {/* The swipe has no accessible equivalent, so the actions are offered here as
+            custom actions — on the info block, which is an accessibility element of its
+            own and leaves CheckButton, the one control on the screen that does anything,
+            reachable beside it. */}
         <View
           style={styles.info}
           accessible
@@ -94,19 +77,19 @@ export function HabitCard({ habit, count, disabled, onToggle, onEdit, onArchive 
           color={accentColor}
           onPress={onToggle}
         />
-      </Card>
-    </PressableScale>
+      </View>
+    </SwipeRow>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    width: '100%',
-  },
+  // The surface itself is drawn by SwipeRow, which has to clip it; this is the padding
+  // and the layout that used to come with Card.
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+    padding: spacing.lg,
   },
   emoji: {
     width: 40,

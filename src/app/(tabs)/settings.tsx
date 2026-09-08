@@ -13,6 +13,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { IconButton } from '@/components/ui/icon-button';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { Screen } from '@/components/ui/screen';
+import { SwipeRow, type SwipeAction } from '@/components/ui/swipe-row';
 import { Text } from '@/components/ui/text';
 import {
   fontFamily,
@@ -30,8 +31,6 @@ import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 import { useTodayKey } from '@/hooks/use-today-key';
 import type { Language, MessageKey } from '@/i18n';
-import { showActionSheet } from '@/lib/action-sheet';
-import type { ActionSheetAction } from '@/lib/action-sheet';
 import {
   BackupError,
   exportBackupAsync,
@@ -838,86 +837,89 @@ export default function SettingsScreen() {
           const isArchived = habit.archived_at !== null;
           const accentColor = resolveHabitColor(habit.color_key, scheme);
 
-          return (
-            // The row itself is a plain View: the arrows and the menu are pressables of
-            // their own, and nesting them inside a row-wide one made a disabled arrow
-            // fall through to the row and open the edit modal, while the menu's native
-            // trigger competed with the row for the same tap. Only the name area opens
-            // the form.
-            <View
-              style={[
-                styles.row,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-              ]}>
-              <PressableScale
-                onPress={() => router.push({ pathname: '/habit/[id]', params: { id: habit.id } })}
-                accessibilityRole="button"
-                accessibilityLabel={t('settings_edit_habit', { name: habit.name })}
-                style={styles.main}>
-                <View style={[styles.emoji, { backgroundColor: `${accentColor}33` }]}>
-                  <Text variant="headline">{habit.emoji}</Text>
-                </View>
-                <View style={styles.info}>
-                  <Text
-                    variant="body"
-                    numberOfLines={1}
-                    color={isArchived ? colors.textSecondary : undefined}>
-                    {habit.name}
-                  </Text>
-                  {isArchived ? (
-                    <Text variant="caption" color={colors.textTertiary}>
-                      {t('settings_archived_badge')}
-                    </Text>
-                  ) : null}
-                </View>
-              </PressableScale>
-
-              {!isArchived ? (
-                <View style={styles.arrows}>
-                  <IconButton
-                    name="chevron.up"
-                    accessibilityLabel={t('settings_move_up')}
-                    size={16}
-                    disabled={isFirst}
-                    onPress={() => moveHabit(habit.id, -1)}
-                  />
-                  <IconButton
-                    name="chevron.down"
-                    accessibilityLabel={t('settings_move_down')}
-                    size={16}
-                    disabled={isLast}
-                    onPress={() => moveHabit(habit.id, 1)}
-                  />
-                </View>
-              ) : null}
-
-              <PressableScale
-                accessibilityRole="button"
-                accessibilityLabel={t('settings_habit_menu', { name: habit.name })}
-                onPress={() =>
-                  showActionSheet(
-                    {
-                      scheme,
-                      cancelLabel: t('cancel'),
-                      actions: isArchived
-                        ? [
-                            { id: 'edit', title: t('menu_edit') },
-                            { id: 'unarchive', title: t('menu_unarchive') },
-                            { id: 'delete', title: t('delete'), destructive: true },
-                          ]
-                        : [
-                            { id: 'edit', title: t('menu_edit') },
-                            { id: 'archive', title: t('menu_archive') },
-                            { id: 'delete', title: t('delete'), destructive: true },
-                          ],
-                    },
-                    handleMenuAction(habit)
-                  )
+          const actions: SwipeAction[] = [
+            {
+              id: 'edit',
+              label: t('swipe_edit'),
+              icon: 'square.and.pencil',
+              tone: 'accent',
+              onPress: () => handleMenuAction(habit)('edit'),
+            },
+            isArchived
+              ? {
+                  id: 'unarchive',
+                  label: t('swipe_unarchive'),
+                  icon: 'tray.and.arrow.up',
+                  tone: 'neutral',
+                  onPress: () => handleMenuAction(habit)('unarchive'),
                 }
-                style={[styles.moreButton, { backgroundColor: colors.surfaceAlt }]}>
-                <SymbolView name="ellipsis" size={18} tintColor={colors.textPrimary} />
-              </PressableScale>
-            </View>
+              : {
+                  id: 'archive',
+                  label: t('swipe_archive'),
+                  icon: 'archivebox',
+                  tone: 'neutral',
+                  onPress: () => handleMenuAction(habit)('archive'),
+                },
+            {
+              id: 'delete',
+              label: t('swipe_delete'),
+              icon: 'trash',
+              tone: 'danger',
+              onPress: () => handleMenuAction(habit)('delete'),
+            },
+          ];
+
+          return (
+            // The row inside the swipe is a plain View: the arrows are pressables of
+            // their own, and nesting them inside a row-wide one made a disabled arrow
+            // fall through to the row and open the edit modal. Only the name area opens
+            // the form.
+            <SwipeRow actions={actions} style={styles.rowSpacing}>
+              <View style={styles.row}>
+                <PressableScale
+                  onPress={() => router.push({ pathname: '/habit/[id]', params: { id: habit.id } })}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('settings_edit_habit', { name: habit.name })}
+                  style={styles.main}>
+                  <View style={[styles.emoji, { backgroundColor: `${accentColor}33` }]}>
+                    <Text variant="headline">{habit.emoji}</Text>
+                  </View>
+                  <View style={styles.info}>
+                    <Text
+                      variant="body"
+                      numberOfLines={1}
+                      color={isArchived ? colors.textSecondary : undefined}>
+                      {habit.name}
+                    </Text>
+                    {isArchived ? (
+                      <Text variant="caption" color={colors.textTertiary}>
+                        {t('settings_archived_badge')}
+                      </Text>
+                    ) : null}
+                  </View>
+                </PressableScale>
+
+                {!isArchived ? (
+                  <View style={styles.arrows}>
+                    <IconButton
+                      name="chevron.up"
+                      accessibilityLabel={t('settings_move_up')}
+                      size={16}
+                      disabled={isFirst}
+                      onPress={() => moveHabit(habit.id, -1)}
+                    />
+                    <IconButton
+                      name="chevron.down"
+                      accessibilityLabel={t('settings_move_down')}
+                      size={16}
+                      disabled={isLast}
+                      onPress={() => moveHabit(habit.id, 1)}
+                    />
+                  </View>
+                ) : null}
+
+              </View>
+            </SwipeRow>
           );
         }}
       />
@@ -1040,54 +1042,74 @@ function CategoryRow({
 
   const canDelete = count === 0 || category.name !== FALLBACK_CATEGORY.name;
 
-  const actions: ActionSheetAction[] = [
-    { id: 'edit', title: t('menu_edit') },
+  const actions: SwipeAction[] = [
+    {
+      id: 'edit',
+      label: t('swipe_edit'),
+      icon: 'square.and.pencil',
+      tone: 'accent',
+      onPress: () => onPressAction('edit'),
+    },
     isArchived
-      ? { id: 'unarchive', title: t('menu_unarchive') }
-      : { id: 'archive', title: t('menu_archive') },
-    ...(canDelete ? [{ id: 'delete', title: t('delete'), destructive: true }] : []),
+      ? {
+          id: 'unarchive',
+          label: t('swipe_unarchive'),
+          icon: 'tray.and.arrow.up',
+          tone: 'neutral',
+          onPress: () => onPressAction('unarchive'),
+        }
+      : {
+          id: 'archive',
+          label: t('swipe_archive'),
+          icon: 'archivebox',
+          tone: 'neutral',
+          onPress: () => onPressAction('archive'),
+        },
+    ...(canDelete
+      ? [
+          {
+            id: 'delete',
+            label: t('swipe_delete'),
+            icon: 'trash' as const,
+            tone: 'danger' as const,
+            onPress: () => onPressAction('delete'),
+          },
+        ]
+      : []),
   ];
 
   return (
-    <View style={[styles.categoryRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <PressableScale
-        onPress={() =>
-          router.push({ pathname: '/expense-category/[id]', params: { id: category.id } })
-        }
-        accessibilityRole="button"
-        accessibilityLabel={t('settings_edit_category', { name: categoryName(category.name, t) })}
-        style={styles.main}>
-        <View style={[styles.emoji, { backgroundColor: `${accentColor}33` }]}>
-          <Text variant="headline">{category.emoji}</Text>
-        </View>
-        <View style={styles.info}>
-          <Text variant="body" numberOfLines={1} color={isArchived ? colors.textSecondary : undefined}>
-            {categoryName(category.name, t)}
-          </Text>
-          {isArchived ? (
-            <Text variant="caption" color={colors.textTertiary}>
-              {t('settings_archived_badge')}
+    <SwipeRow actions={actions}>
+      <View style={styles.categoryRow}>
+        <PressableScale
+          onPress={() =>
+            router.push({ pathname: '/expense-category/[id]', params: { id: category.id } })
+          }
+          accessibilityRole="button"
+          accessibilityLabel={t('settings_edit_category', { name: categoryName(category.name, t) })}
+          style={styles.main}>
+          <View style={[styles.emoji, { backgroundColor: `${accentColor}33` }]}>
+            <Text variant="headline">{category.emoji}</Text>
+          </View>
+          <View style={styles.info}>
+            <Text variant="body" numberOfLines={1} color={isArchived ? colors.textSecondary : undefined}>
+              {categoryName(category.name, t)}
             </Text>
-          ) : null}
-          {/* Unconditional, zero included: hiding the line on an empty category made
-              every row in the list a different height, and the count is what says how
-              much would move to "Прочее" if the row were deleted. */}
-          <Text variant="caption" color={colors.textTertiary}>
-            {t('settings_category_expenses', { count, expenses: plural('expenses', count) })}
-          </Text>
-        </View>
-      </PressableScale>
-
-      <PressableScale
-        accessibilityRole="button"
-        accessibilityLabel={t('settings_category_menu', { name: categoryName(category.name, t) })}
-        onPress={() =>
-          showActionSheet({ scheme, cancelLabel: t('cancel'), actions }, onPressAction)
-        }
-        style={[styles.moreButton, { backgroundColor: colors.surfaceAlt }]}>
-        <SymbolView name="ellipsis" size={18} tintColor={colors.textPrimary} />
-      </PressableScale>
-    </View>
+            {isArchived ? (
+              <Text variant="caption" color={colors.textTertiary}>
+                {t('settings_archived_badge')}
+              </Text>
+            ) : null}
+            {/* Unconditional, zero included: hiding the line on an empty category made
+                every row in the list a different height, and the count is what says how
+                much would move to "Прочее" if the row were deleted. */}
+            <Text variant="caption" color={colors.textTertiary}>
+              {t('settings_category_expenses', { count, expenses: plural('expenses', count) })}
+            </Text>
+          </View>
+        </PressableScale>
+      </View>
+    </SwipeRow>
   );
 }
 
@@ -1195,15 +1217,17 @@ const styles = StyleSheet.create({
   listEmpty: {
     flexGrow: 1,
   },
+  // The surface — background, border, corner radius — is drawn by SwipeRow, which has to
+  // clip it; the row itself is only the layout inside.
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    padding: spacing.md,
+  },
+  rowSpacing: {
     marginHorizontal: spacing.lg,
     marginBottom: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
   },
   emoji: {
     width: 40,
@@ -1262,8 +1286,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     padding: spacing.md,
-    borderRadius: radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
   },
   archiveHeader: {
     flexDirection: 'row',
@@ -1288,12 +1310,5 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
-  },
-  moreButton: {
-    width: minHitSlop,
-    height: minHitSlop,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

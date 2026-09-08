@@ -1,14 +1,13 @@
 import { type AccessibilityActionEvent, StyleSheet, View } from 'react-native';
 
-import { Card } from '@/components/ui/card';
 import { PressableScale } from '@/components/ui/pressable-scale';
+import { SwipeRow, type SwipeAction } from '@/components/ui/swipe-row';
 import { Text } from '@/components/ui/text';
 import { radius, resolveExpenseColor, spacing } from '@/constants/design-tokens';
 import type { ExpenseCategoryRow, ExpenseRow as ExpenseRowData } from '@/db/types';
 import { useI18n } from '@/hooks/use-i18n';
 import { useMoney } from '@/hooks/use-money';
 import { useTheme } from '@/hooks/use-theme';
-import { showActionSheet } from '@/lib/action-sheet';
 import { categoryName } from '@/lib/category-name';
 
 type ExpenseRowProps = {
@@ -29,22 +28,10 @@ export function ExpenseRow({ expense, category, onEdit, onDelete }: ExpenseRowPr
   const money = useMoney();
   const accentColor = resolveExpenseColor(category?.color_key ?? '', scheme);
 
-  const openMenu = () => {
-    showActionSheet(
-      {
-        scheme,
-        cancelLabel: t('cancel'),
-        actions: [
-          { id: 'edit', title: t('menu_edit') },
-          { id: 'delete', title: t('delete'), destructive: true },
-        ],
-      },
-      (id) => {
-        if (id === 'edit') onEdit();
-        if (id === 'delete') onDelete();
-      }
-    );
-  };
+  const actions: SwipeAction[] = [
+    { id: 'edit', label: t('swipe_edit'), icon: 'square.and.pencil', tone: 'accent', onPress: onEdit },
+    { id: 'delete', label: t('swipe_delete'), icon: 'trash', tone: 'danger', onPress: onDelete },
+  ];
 
   const handleAccessibilityAction = (event: AccessibilityActionEvent) => {
     if (event.nativeEvent.actionName === 'edit') onEdit();
@@ -64,22 +51,21 @@ export function ExpenseRow({ expense, category, onEdit, onDelete }: ExpenseRowPr
     .join(', ');
 
   return (
-    // A plain tap edits, and the long press opens the menu — the only visible affordance
-    // this row has, since nothing about it says "hold me". The menu has no gesture a
-    // screen reader can make, so it is offered as custom actions too.
-    <PressableScale
-      style={styles.wrapper}
-      onPress={onEdit}
-      onLongPress={openMenu}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityHint={t('expense_edit_title')}
-      accessibilityActions={[
-        { name: 'edit', label: t('menu_edit') },
-        { name: 'delete', label: t('delete') },
-      ]}
-      onAccessibilityAction={handleAccessibilityAction}>
-      <Card style={styles.card}>
+    // A plain tap edits, and a short swipe to the left uncovers the rest. The swipe is
+    // not a gesture a screen reader can make, so the same two actions are offered as
+    // custom actions here.
+    <SwipeRow actions={actions} elevated>
+      <PressableScale
+        style={styles.card}
+        onPress={onEdit}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityHint={t('expense_edit_title')}
+        accessibilityActions={[
+          { name: 'edit', label: t('menu_edit') },
+          { name: 'delete', label: t('delete') },
+        ]}
+        onAccessibilityAction={handleAccessibilityAction}>
         <View style={[styles.emoji, { backgroundColor: `${accentColor}33` }]}>
           <Text variant="headline">{category?.emoji ?? '📦'}</Text>
         </View>
@@ -103,19 +89,19 @@ export function ExpenseRow({ expense, category, onEdit, onDelete }: ExpenseRowPr
           ) : null}
         </View>
         <Text variant="headline">{money(expense.amount)}</Text>
-      </Card>
-    </PressableScale>
+      </PressableScale>
+    </SwipeRow>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    width: '100%',
-  },
+  // The surface itself is drawn by SwipeRow, which has to clip it; this is the padding
+  // and the layout that used to come with Card.
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+    padding: spacing.lg,
   },
   emoji: {
     width: 40,

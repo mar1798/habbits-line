@@ -64,6 +64,11 @@ export const en: Record<keyof typeof ru, string> = {
   menu_archive: 'Archive',
   menu_unarchive: 'Unarchive',
 
+  swipe_edit: 'Edit',
+  swipe_archive: 'Archive',
+  swipe_unarchive: 'Restore',
+  swipe_delete: 'Delete',
+
   habit_form_create: 'Create',
   habit_form_save: 'Save',
   habit_form_save_failed: 'Could not save',
@@ -233,8 +238,6 @@ export const en: Record<keyof typeof ru, string> = {
   settings_habits_add: 'Add habit',
   settings_archive: 'Archive',
   settings_archived_badge: 'Archived',
-  settings_habit_menu: 'Menu for {name}',
-  settings_category_menu: 'Menu for {name}',
   settings_move_up: 'Move up',
   settings_move_down: 'Move down',
   settings_edit_habit: 'Edit “{name}”',
