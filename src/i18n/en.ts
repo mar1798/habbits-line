@@ -62,7 +62,6 @@ export const en: Record<keyof typeof ru, string> = {
   habit_card_target: 'Goal: {count} {times} a day',
   menu_edit: 'Edit',
   menu_archive: 'Archive',
-  menu_unarchive: 'Unarchive',
 
   swipe_edit: 'Edit',
   swipe_archive: 'Archive',
