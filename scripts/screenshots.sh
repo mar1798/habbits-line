@@ -16,23 +16,33 @@
 # The whole run, once per release:
 #
 #   npx expo run:ios --device "iPhone 17 Pro Max"     # Debug, with Metro up
-#   ./scripts/screenshots.sh prepare                  # seed + plant + pin the status bar
+#   ./scripts/screenshots.sh prepare ru               # seed + plant + pin the status bar
 #
 #   # then, for each of the four tabs, in src/app/(tabs)/_layout.tsx:
 #   #   1. add, inside TabsLayout:  useEffect(() => { router.replace('/stats') }, [])
 #   #      (import { router } from 'expo-router' and { useEffect } from 'react')
 #   #   2. save, wait for Fast Refresh
-#   #   3. ./scripts/screenshots.sh shoot 03-stats
+#   #   3. ./scripts/screenshots.sh shoot 03-stats ru
 #   #   4. change the route, repeat: '/' -> 01-habits, '/expenses' -> 02-expenses,
 #   #      '/stats' -> 03-stats, '/settings' -> 04-settings
 #   # finally:  git checkout "src/app/(tabs)/_layout.tsx"
 #
 #   ./scripts/screenshots.sh finish                   # release the status bar override
 #
-# Usage: scripts/screenshots.sh <prepare|shoot <name>|finish> [device-name]
+#   # then the same four frames again for the other language:
+#   ./scripts/screenshots.sh prepare en
+#   ...
+#   ./scripts/screenshots.sh shoot 03-stats en
+#
+# The App Store wants a set per localization, so every run is for one language: `prepare`
+# seeds the database in it and the frames land in `assets/store/screenshots/<language>/`.
+# Doing the other language means running `prepare` again — the language is a row in the
+# database, and it is read once at launch.
+#
+# Usage: scripts/screenshots.sh <prepare|shoot <name>|finish> [ru|en] [device-name]
 set -euo pipefail
 
-MODE="${1:?usage: screenshots.sh <prepare|shoot <name>|finish> [device]}"
+MODE="${1:?usage: screenshots.sh <prepare|shoot <name>|finish> [ru|en] [device]}"
 BUNDLE_ID="com.mar1798.habbits-line"
 OUT_DIR="assets/store/screenshots"
 # 6.9" is the only iPhone size the App Store requires; this device produces it natively.
@@ -42,9 +52,17 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 case "$MODE" in
-  shoot) NAME="${2:?usage: screenshots.sh shoot <name>}"; DEVICE="${3:-iPhone 17 Pro Max}" ;;
-  *)     DEVICE="${2:-iPhone 17 Pro Max}" ;;
+  shoot) NAME="${2:?usage: screenshots.sh shoot <name> [ru|en]}"
+         LANGUAGE="${3:-ru}"; DEVICE="${4:-iPhone 17 Pro Max}" ;;
+  *)     LANGUAGE="${2:-ru}"; DEVICE="${3:-iPhone 17 Pro Max}" ;;
 esac
+
+case "$LANGUAGE" in
+  ru|en) ;;
+  *) echo "unknown language: $LANGUAGE (expected ru or en)" >&2; exit 1 ;;
+esac
+
+OUT_DIR="$OUT_DIR/$LANGUAGE"
 
 log() { printf '  %s\n' "$*"; }
 
@@ -63,19 +81,19 @@ raise SystemExit(f"no available simulator named {name!r}")
 
 case "$MODE" in
   prepare)
-    log "device: $DEVICE ($UDID)"
+    log "device: $DEVICE ($UDID), language: $LANGUAGE"
     xcrun simctl boot "$UDID" 2>/dev/null || true
     xcrun simctl bootstatus "$UDID" -b >/dev/null
 
     # Seed first, then plant: the app must not be running while its database is replaced.
     xcrun simctl terminate "$UDID" "$BUNDLE_ID" 2>/dev/null || true
-    node scripts/seed-demo-db.mjs .expo/demo/habits.db
+    node scripts/seed-demo-db.mjs ".expo/demo/habits-$LANGUAGE.db" "$LANGUAGE"
     CONTAINER="$(xcrun simctl get_app_container "$UDID" "$BUNDLE_ID" data)"
     mkdir -p "$CONTAINER/Documents/SQLite"
     rm -f "$CONTAINER/Documents/SQLite/habits.db" \
           "$CONTAINER/Documents/SQLite/habits.db-wal" \
           "$CONTAINER/Documents/SQLite/habits.db-shm"
-    cp .expo/demo/habits.db "$CONTAINER/Documents/SQLite/habits.db"
+    cp ".expo/demo/habits-$LANGUAGE.db" "$CONTAINER/Documents/SQLite/habits.db"
     log "demo database planted"
 
     # The status bar is in every frame, so it is pinned rather than left to show whatever
@@ -86,7 +104,7 @@ case "$MODE" in
 
     xcrun simctl launch "$UDID" "$BUNDLE_ID" >/dev/null
     mkdir -p "$OUT_DIR"
-    log "ready — set the tab in (tabs)/_layout.tsx, then: $0 shoot <name>"
+    log "ready — set the tab in (tabs)/_layout.tsx, then: $0 shoot <name> $LANGUAGE"
     ;;
 
   shoot)
