@@ -71,7 +71,6 @@ export const ru = {
   habit_card_target: 'Цель: {count} {times} в день',
   menu_edit: 'Изменить',
   menu_archive: 'Архивировать',
-  menu_unarchive: 'Разархивировать',
 
   // Swipe actions. Deliberately shorter than the `menu_*` labels above: these sit under
   // an icon in a column about 76pt wide, where "Разархивировать" cannot be broken.
