@@ -13,13 +13,37 @@
  * A new migration means updating this script too — a mismatch shows up as an empty
  * screen, not as an error.
  *
- * Usage: node scripts/seed-demo-db.mjs [output.db]
+ * The App Store wants a set per localization, so the database is built per language:
+ * the second argument picks it. Habit names are user data and are written in that
+ * language; category names are not — the eight starters are matched back by their
+ * Russian name in lib/category-name.ts and translated at render time, so they stay
+ * Russian in the file whatever the UI language is.
+ *
+ * Usage: node scripts/seed-demo-db.mjs [output.db] [ru|en]
  */
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, rmSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
 const OUT = resolve(process.argv[2] ?? 'build/demo/habits.db');
+
+const LANGUAGE = process.argv[3] ?? 'ru';
+if (LANGUAGE !== 'ru' && LANGUAGE !== 'en') {
+  throw new Error(`unknown language '${LANGUAGE}' — expected 'ru' or 'en'`);
+}
+
+/**
+ * The money the screenshots are taken in. The symbol is a setting rather than a locale,
+ * so it is written explicitly instead of left to the default.
+ *
+ * `scale` divides the generated amounts: the same spending that reads as an ordinary
+ * month in rubles would read as a fortune in dollars, and a store screenshot has to look
+ * like a plausible month to the person looking at it.
+ */
+const MONEY = {
+  ru: { symbol: '\u20bd', position: 'suffix', scale: 1, budget: 15000 },
+  en: { symbol: '$', position: 'prefix', scale: 0.1, budget: 1500 },
+}[LANGUAGE];
 
 /** Deterministic PRNG — the same seed gives the same sequence on every run. */
 function mulberry32(seed) {
@@ -59,7 +83,9 @@ const q = (value) => (value === null ? 'NULL' : `'${String(value).replace(/'/g, 
 const TS = '2026-01-01T00:00:00.000Z';
 const EVERY_DAY = 127;
 const WEEKDAYS = 0b0011111; // Mon-Fri
-const HISTORY_DAYS = 180;
+// A full year of history: the heatmap draws twelve months and the statistics screen lists
+// twelve periods, so anything shorter shows up as a blank half of both.
+const HISTORY_DAYS = 365;
 
 /**
  * `rate` is how often the habit gets done on a day it is scheduled; `recentStreak` is how
@@ -67,11 +93,11 @@ const HISTORY_DAYS = 180;
  * number instead of a zero.
  */
 const HABITS = [
-  { id: 'demo-habit-1', name: 'Зарядка', emoji: '💪', colorKey: 'violet', mask: EVERY_DAY, reminder: '07:30', rate: 0.9, recentStreak: 12 },
-  { id: 'demo-habit-2', name: 'Чтение', emoji: '📚', colorKey: 'indigo', mask: EVERY_DAY, reminder: '21:00', rate: 0.82, recentStreak: 7 },
-  { id: 'demo-habit-3', name: 'Вода', emoji: '💧', colorKey: 'sky', mask: EVERY_DAY, reminder: null, rate: 0.95, recentStreak: 24 },
-  { id: 'demo-habit-4', name: 'Английский', emoji: '🗣️', colorKey: 'teal', mask: WEEKDAYS, reminder: '19:00', rate: 0.76, recentStreak: 4 },
-  { id: 'demo-habit-5', name: 'Прогулка', emoji: '🚶', colorKey: 'green', mask: EVERY_DAY, reminder: null, rate: 0.68, recentStreak: 2 },
+  { id: 'demo-habit-1', name: { ru: 'Зарядка', en: 'Workout' }, emoji: '💪', colorKey: 'violet', mask: EVERY_DAY, reminder: '07:30', rate: 0.9, recentStreak: 12 },
+  { id: 'demo-habit-2', name: { ru: 'Чтение', en: 'Reading' }, emoji: '📚', colorKey: 'indigo', mask: EVERY_DAY, reminder: '21:00', rate: 0.82, recentStreak: 7 },
+  { id: 'demo-habit-3', name: { ru: 'Вода', en: 'Water' }, emoji: '💧', colorKey: 'sky', mask: EVERY_DAY, reminder: null, rate: 0.95, recentStreak: 24 },
+  { id: 'demo-habit-4', name: { ru: 'Английский', en: 'Spanish' }, emoji: '🗣️', colorKey: 'teal', mask: WEEKDAYS, reminder: '19:00', rate: 0.76, recentStreak: 4 },
+  { id: 'demo-habit-5', name: { ru: 'Прогулка', en: 'Walk' }, emoji: '🚶', colorKey: 'green', mask: EVERY_DAY, reminder: null, rate: 0.68, recentStreak: 2 },
 ];
 
 // The same eight the v1 -> v2 migration seeds, with the same names: category-name.ts
@@ -154,7 +180,7 @@ function build() {
 
   HABITS.forEach((habit, index) => {
     lines.push(
-      `INSERT INTO habits VALUES (${q(habit.id)}, ${q(habit.name)}, ${q(habit.emoji)}, ` +
+      `INSERT INTO habits VALUES (${q(habit.id)}, ${q(habit.name[LANGUAGE])}, ${q(habit.emoji)}, ` +
         `${q(habit.colorKey)}, 1, ${habit.mask}, ${q(habit.reminder)}, ${index}, NULL, ` +
         `${q(TS)}, ${q(TS)});`
     );
@@ -180,11 +206,10 @@ function build() {
     );
   });
 
-  // Three months of spending: enough for the period comparison in stats to have
-  // something to compare against.
+  // A year of spending, the span the statistics screen lists periods over.
   const random = mulberry32(7);
   let expenseIndex = 0;
-  for (let back = 89; back >= 0; back -= 1) {
+  for (let back = HISTORY_DAYS; back >= 0; back -= 1) {
     const date = dateKey(daysAgo(back));
     // Today gets a fuller day than the rest: the expenses tab lists the selected day,
     // and a single row under the budget card reads as an empty app in a screenshot.
@@ -194,9 +219,8 @@ function build() {
       // in a real month rather than every slice coming out the same size.
       let roll = random();
       const category = CATEGORIES.find((c) => (roll -= c.share) <= 0) ?? CATEGORIES[3];
-      // Whole units, the way lib/money.ts shows them — the app has no fractional part
-      // and no currency symbol.
-      const amount = 50 + Math.floor(random() * 250);
+      // Whole units, the way lib/money.ts shows them — the app has no fractional part.
+      const amount = Math.max(1, Math.round((50 + Math.floor(random() * 250)) * MONEY.scale));
       expenseIndex += 1;
       lines.push(
         `INSERT INTO expenses VALUES ('demo-exp-${expenseIndex}', ${q(category.id)}, ` +
@@ -205,21 +229,31 @@ function build() {
     }
   }
 
-  // One budget, set on the first of the month three months back: the rule in
-  // lib/expenses.ts carries the last budget forward, so every later period inherits it.
+  // One budget, set on the first of the month a year back: the rule in lib/expenses.ts
+  // carries the last budget forward, so every later period inherits it — including the
+  // twelve the statistics screen lists.
   const firstOfPeriod = new Date();
   firstOfPeriod.setHours(12, 0, 0, 0);
   firstOfPeriod.setDate(1);
-  firstOfPeriod.setMonth(firstOfPeriod.getMonth() - 2);
-  // ~15 000 against a month that spends ~10 500: the bar has to read as "on track",
-  // not as an empty or an overspent one.
+  firstOfPeriod.setMonth(firstOfPeriod.getMonth() - 12);
+  // A budget about a third above what a month actually costs: the bar has to read as
+  // "on track", not as an empty or an overspent one.
   lines.push(
-    `INSERT INTO expense_budgets VALUES (${q(dateKey(firstOfPeriod))}, 15000, ${q(TS)});`
+    `INSERT INTO expense_budgets VALUES (${q(dateKey(firstOfPeriod))}, ${MONEY.budget}, ${q(TS)});`
   );
 
   lines.push(`INSERT INTO app_settings VALUES ('theme_mode', 'system');`);
-  lines.push(`INSERT INTO app_settings VALUES ('language', 'ru');`);
+  lines.push(`INSERT INTO app_settings VALUES ('language', ${q(LANGUAGE)});`);
   lines.push(`INSERT INTO app_settings VALUES ('expense_period_start_day', '1');`);
+  // The currency the amounts are printed with. A missing row would fall back to the
+  // ruble sign, but the screenshots must not move the day that default changes.
+  lines.push(`INSERT INTO app_settings VALUES ('currency_symbol', ${q(MONEY.symbol)});`);
+  lines.push(`INSERT INTO app_settings VALUES ('currency_position', ${q(MONEY.position)});`);
+  // A recent export, so settings shows the calm "backed up N days ago" line instead of
+  // the warning a database that has never been exported gets.
+  lines.push(
+    `INSERT INTO app_settings VALUES ('last_export_at', ${q(dateKey(daysAgo(3)))});`
+  );
 
   lines.push('PRAGMA user_version = 3;', 'COMMIT;');
   return lines.join('\n');
@@ -228,4 +262,4 @@ function build() {
 mkdirSync(dirname(OUT), { recursive: true });
 for (const suffix of ['', '-wal', '-shm']) rmSync(`${OUT}${suffix}`, { force: true });
 execFileSync('sqlite3', [OUT], { input: build() });
-console.log(`Seeded ${OUT}`);
+console.log(`Seeded ${OUT} (${LANGUAGE})`);
