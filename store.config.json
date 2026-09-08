@@ -47,10 +47,10 @@
       "automaticRelease": false
     },
     "review": {
-      "firstName": "REPLACE_WITH_FIRST_NAME",
-      "lastName": "REPLACE_WITH_LAST_NAME",
-      "email": "REPLACE_WITH_CONTACT_EMAIL",
-      "phone": "REPLACE_WITH_PHONE",
+      "firstName": "Anvar",
+      "lastName": "Muslimov",
+      "email": "anvar.muslimov.work@gmail.com",
+      "phone": "+996705696585",
       "notes": "The app is fully offline: no accounts, no login, no server. No demo account is needed — every screen is reachable on a fresh install. Reminders are local notifications; permission is asked when the first reminder is switched on."
     }
   }
