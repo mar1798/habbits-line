@@ -270,10 +270,22 @@ export async function exportBackupAsync(db: SQLiteDatabase): Promise<void> {
   file.create({ overwrite: true });
   file.write(JSON.stringify(backup, null, 2));
 
-  await Sharing.shareAsync(file.uri, {
-    UTI: 'public.json',
-    mimeType: 'application/json',
-  });
+  try {
+    await Sharing.shareAsync(file.uri, {
+      UTI: 'public.json',
+      mimeType: 'application/json',
+    });
+  } finally {
+    // The share sheet has copied whatever it needed by now, so the cache has no reason to
+    // keep a plaintext dump of every habit, entry and expense lying around — including
+    // when the user cancels or the sheet throws. Best effort: a failed delete is not worth
+    // turning a finished export into an error.
+    try {
+      file.delete();
+    } catch {
+      // ignore
+    }
+  }
 }
 
 /** Opens the system document picker. Returns the picked file's URI, or null if cancelled. */
