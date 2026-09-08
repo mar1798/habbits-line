@@ -111,15 +111,18 @@ export function ExpenseForm({ initialValues, submitLabel, onSubmit }: ExpenseFor
   const handleSubmit = async () => {
     if (!canSave || categoryId === null) return;
     setSubmitting(true);
+    // Trimmed, and an empty description is null rather than '': the row list branches on
+    // "has a description at all", and a string of spaces is not one. Kept outside the
+    // `try` on purpose — a conditional inside one makes React Compiler bail out of the
+    // whole file, and the form loses its memoization on every keystroke.
+    const trimmedNote = note.trim();
+    const noteValue = trimmedNote === '' ? null : trimmedNote;
     try {
-      // Trimmed, and an empty description is null rather than '': the row list branches on
-      // "has a description at all", and a string of spaces is not one.
-      const trimmedNote = note.trim();
       await onSubmit({
         categoryId,
         amount: amountValue,
         date: initialValues.date,
-        note: trimmedNote === '' ? null : trimmedNote,
+        note: noteValue,
       });
     } catch (error) {
       // Without this the rejection escapes as an unhandled promise and the screen just
