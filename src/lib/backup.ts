@@ -421,16 +421,6 @@ export async function importBackupAsync(db: SQLiteDatabase, fileUri: string): Pr
     }
     if (incomes !== undefined) {
       await txn.execAsync('DELETE FROM expense_incomes;');
-      for (const income of incomes) {
-        await txn.runAsync(
-          'INSERT INTO expense_incomes (id, amount, date, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
-          income.id,
-          income.amount,
-          income.date,
-          income.created_at,
-          income.updated_at
-        );
-      }
     }
     await txn.execAsync('DELETE FROM entries; DELETE FROM habits;');
 
@@ -461,6 +451,22 @@ export async function importBackupAsync(db: SQLiteDatabase, fileUri: string): Pr
         entry.count,
         entry.updated_at
       );
+    }
+
+    // Above the early return, not with the expense tables below it: income is optional at
+    // every version rather than tied to one, so a file may carry it and still be a v1 that
+    // stops here.
+    if (incomes !== undefined) {
+      for (const income of incomes) {
+        await txn.runAsync(
+          'INSERT INTO expense_incomes (id, amount, date, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+          income.id,
+          income.amount,
+          income.date,
+          income.created_at,
+          income.updated_at
+        );
+      }
     }
 
     if (!restoresExpenses) {
