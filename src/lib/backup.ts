@@ -9,6 +9,7 @@ import type {
   EntryRow,
   ExpenseBudgetRow,
   ExpenseCategoryRow,
+  ExpenseIncomeRow,
   ExpenseRow,
   HabitRow,
 } from '@/db/types';
@@ -63,6 +64,15 @@ interface BackupFile {
   expense_categories?: ExpenseCategoryRow[];
   expenses?: ExpenseRow[];
   expense_budgets?: ExpenseBudgetRow[];
+  /**
+   * Income, optional at every version rather than carried by a v3 of its own — the same
+   * rule `settings` and an expense's `note` follow, and for the same reason. Bumping the
+   * format instead would make every file this build writes unreadable by a build already
+   * installed: it refuses a version above the one it knows, and would refuse the whole
+   * file — habits, entries and all — over a table it merely does not have. As an optional
+   * field, an older build reads everything it understands and ignores this.
+   */
+  expense_incomes?: ExpenseIncomeRow[];
   /**
    * `app_settings`, optional at every version rather than tied to one: it was added to
    * the format after v2 files were already being written, and a file without it is not
@@ -168,6 +178,19 @@ function isExpenseRow(value: unknown): value is ExpenseRow {
   );
 }
 
+function isExpenseIncomeRow(value: unknown): value is ExpenseIncomeRow {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    Number.isInteger(value.amount) &&
+    (value.amount as number) > 0 &&
+    typeof value.date === 'string' &&
+    isValidDateKey(value.date) &&
+    typeof value.created_at === 'string' &&
+    typeof value.updated_at === 'string'
+  );
+}
+
 function isExpenseBudgetRow(value: unknown): value is ExpenseBudgetRow {
   return (
     isRecord(value) &&
@@ -200,8 +223,12 @@ function isBackupFile(value: unknown): value is BackupFile {
     return false;
   }
 
-  // Optional at every version, so it is checked when present and skipped when not.
+  // Optional at every version, so they are checked when present and skipped when not.
   if (value.settings !== undefined && !isRowArray(value.settings, isAppSettingRow)) {
+    return false;
+  }
+
+  if (value.expense_incomes !== undefined && !isRowArray(value.expense_incomes, isExpenseIncomeRow)) {
     return false;
   }
 
@@ -235,6 +262,7 @@ export async function exportBackupAsync(db: SQLiteDatabase): Promise<void> {
   );
   const expenses = await db.getAllAsync<ExpenseRow>('SELECT * FROM expenses');
   const expenseBudgets = await db.getAllAsync<ExpenseBudgetRow>('SELECT * FROM expense_budgets');
+  const expenseIncomes = await db.getAllAsync<ExpenseIncomeRow>('SELECT * FROM expense_incomes');
   const settings = await db.getAllAsync<AppSettingRow>('SELECT * FROM app_settings');
 
   // The file carries the date of *this* export, not the one before it. The row in the
@@ -253,6 +281,7 @@ export async function exportBackupAsync(db: SQLiteDatabase): Promise<void> {
     expense_categories: expenseCategories,
     expenses,
     expense_budgets: expenseBudgets,
+    expense_incomes: expenseIncomes,
     settings: exportedSettings,
   };
 
@@ -308,9 +337,9 @@ export async function pickBackupFileAsync(): Promise<string | null> {
  * A v1 file replaces habits and entries and leaves the three expense tables untouched.
  * It was written by a build that did not know money existed, so wiping the expenses it
  * cannot restore would destroy data on the strength of a file that never claimed to
- * hold it. A v2 file replaces all six tables, empty arrays included. `settings` follows
- * the same rule on its own: present, it replaces `app_settings`; absent, the preferences
- * on this device are left as they are.
+ * hold it. A v2 file replaces all six tables, empty arrays included. `settings` and
+ * `expense_incomes` follow the same rule on their own, at every version: present, each
+ * replaces its table; absent, the one on this device is left as it is.
  *
  * `withExclusiveTransactionAsync` opens its own connection (`useNewConnection: true`),
  * and `PRAGMA foreign_keys` is per-connection — it runs in `migrate()` on the main one
@@ -358,6 +387,13 @@ export async function importBackupAsync(db: SQLiteDatabase, fileUri: string): Pr
   const categories = parsed.expense_categories ?? [];
   const expenses = parsed.expenses ?? [];
   const budgets = parsed.expense_budgets ?? [];
+  /**
+   * Absent means "this file says nothing about income", and the table is then left alone
+   * — the same rule a v1 file gets for the expense tables it predates. A file that does
+   * carry the field replaces it, an empty array included: that is a period with no income,
+   * which is a fact worth restoring.
+   */
+  const incomes = parsed.expense_incomes;
 
   if (restoresExpenses) {
     const categoryIds = new Set(categories.map((category) => category.id));
@@ -382,6 +418,19 @@ export async function importBackupAsync(db: SQLiteDatabase, fileUri: string): Pr
       await txn.execAsync(
         'DELETE FROM expenses; DELETE FROM expense_budgets; DELETE FROM expense_categories;'
       );
+    }
+    if (incomes !== undefined) {
+      await txn.execAsync('DELETE FROM expense_incomes;');
+      for (const income of incomes) {
+        await txn.runAsync(
+          'INSERT INTO expense_incomes (id, amount, date, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+          income.id,
+          income.amount,
+          income.date,
+          income.created_at,
+          income.updated_at
+        );
+      }
     }
     await txn.execAsync('DELETE FROM entries; DELETE FROM habits;');
 
