@@ -51,3 +51,15 @@ export interface ExpenseBudgetRow {
   amount: number;
   updated_at: string;
 }
+
+/**
+ * Money received on a day, added to the budget of whichever period that day falls in.
+ * No category and no description — see the v3 -> v4 migration for why.
+ */
+export interface ExpenseIncomeRow {
+  id: string;
+  amount: number;
+  date: string;
+  created_at: string;
+  updated_at: string;
+}

@@ -129,6 +129,15 @@ export const en: Record<keyof typeof ru, string> = {
   expense_budget_inherited:
     'This amount carries over from an earlier period. It can only be cleared where it was set.',
   expense_budget_save_failed: 'Could not save the budget',
+  expense_income_section: 'Income',
+  expense_income_amount: 'Income amount',
+  expense_income_add: 'Add income',
+  expense_income_hint: 'Added to this period’s budget.',
+  expense_income_available: 'Available this period: {amount}',
+  expense_income_delete: 'Delete the income of {amount}',
+  expense_income_delete_title: 'Delete this income?',
+  expense_income_delete_message: 'It will stop being added to the period’s budget.',
+  expense_income_save_failed: 'Could not save the income',
 
   // Starter category names. See lib/category-name.ts.
   category_seed_health: 'Health',

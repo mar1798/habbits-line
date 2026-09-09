@@ -76,12 +76,36 @@ export function resolveBudget(
   return (live ?? abandoned)?.amount ?? null;
 }
 
-export function sumAmounts(expenses: ExpenseItem[]): number {
+/**
+ * Takes anything carrying an amount rather than an `ExpenseItem`, so the same function
+ * adds up a period's incomes. It only ever reads `amount`; narrowing the parameter would
+ * mean a second copy of a loop, and two places to be wrong about what a total is.
+ */
+export function sumAmounts(items: { amount: number }[]): number {
   let total = 0;
-  for (const expense of expenses) {
-    total += expense.amount;
+  for (const item of items) {
+    total += item.amount;
   }
   return total;
+}
+
+/**
+ * What the period actually has to spend: its budget plus everything received in it. The
+ * single definition of what income means to the numbers on screen — the balance card and
+ * the period bar both take this in place of the raw budget, so neither can disagree with
+ * the other about the total.
+ *
+ * Income is added to the period it falls in and stops there. Nothing carries over into
+ * the next one, exactly as an unspent budget does not: a period is a fresh start, and
+ * `resolveBudget` hands the next one the budget that was set, not the money that was left.
+ *
+ * With no budget set, income becomes the budget rather than being added to nothing —
+ * logging what came in is then enough to get a remainder, without setting a budget at
+ * all. A period with neither is still `null`, and the card says "no budget set" there.
+ */
+export function availableBudget(budget: number | null, income: number): number | null {
+  if (budget === null) return income > 0 ? income : null;
+  return budget + income;
 }
 
 /**

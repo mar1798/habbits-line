@@ -3,7 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import type { ExpenseColorKey } from '@/constants/design-tokens';
 import { generateId } from '@/lib/id';
 
-const DATABASE_VERSION = 3;
+const DATABASE_VERSION = 4;
 
 /**
  * Starter expense categories, written by the v1 -> v2 block. Every emoji here has to be
@@ -169,7 +169,39 @@ export async function migrate(db: SQLiteDatabase): Promise<void> {
     currentVersion = 3;
   }
 
-  // v3 -> v4: add the next migration as a new block below this comment, wrapped in
+  if (currentVersion < 4) {
+    // Income: money coming in, added to the budget of the period its date falls in.
+    //
+    // Its own table rather than a `kind` column on `expenses`, because every existing
+    // query and every function in lib/expenses.ts sums that table as "what was spent".
+    // A discriminator would put the burden of a filter on all of them, and a forgotten
+    // filter does not fail — it quietly adds income to the spending total, the category
+    // breakdown and the per-day average. Here nothing that reads `expenses` changes at
+    // all, and each place that wants income has to ask for it.
+    //
+    // No category and no note: income has nowhere to sit in the category palette, and
+    // the amount is the whole of what it says. Both are an ALTER away if that changes,
+    // the way `note` was added to `expenses` in the block above.
+    //
+    // One transaction with the version stamp inside it, like the blocks above.
+    await db.withTransactionAsync(async () => {
+      await db.execAsync(`
+        CREATE TABLE expense_incomes (
+          id TEXT PRIMARY KEY NOT NULL,
+          amount INTEGER NOT NULL CHECK (amount > 0),
+          date TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+
+        CREATE INDEX idx_expense_incomes_date ON expense_incomes(date);
+      `);
+      await db.execAsync('PRAGMA user_version = 4');
+    });
+    currentVersion = 4;
+  }
+
+  // v4 -> v5: add the next migration as a new block below this comment, wrapped in
   // `withTransactionAsync` and bumping `user_version` inside it, the way the blocks
   // above do.
   // The blocks above are shipped — never edit them, only append.
