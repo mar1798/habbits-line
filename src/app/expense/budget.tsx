@@ -233,7 +233,6 @@ export default function BudgetScreen() {
             placeholder="0"
             accessibilityLabel={t('expense_budget_amount')}
             onFocus={() => setFocusedField('budget')}
-            autoFocus
           />
           <Text variant="caption" color={colors.textSecondary}>
             {t('expense_budget_period', {
