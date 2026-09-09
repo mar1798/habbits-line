@@ -13,13 +13,19 @@ import { IconButton } from '@/components/ui/icon-button';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { resolveExpenseColor, spacing } from '@/constants/design-tokens';
-import type { ExpenseRow as ExpenseRowData } from '@/db/types';
+import type { ExpenseIncomeRow, ExpenseRow as ExpenseRowData } from '@/db/types';
 import { useI18n } from '@/hooks/use-i18n';
 import { useMoney } from '@/hooks/use-money';
 import { useTheme } from '@/hooks/use-theme';
 import { useTodayKey } from '@/hooks/use-today-key';
 import { parseDateKey, shiftDateKey, weekDates, weekStartKey } from '@/lib/date';
-import { barTotal, categoryTotals, expensesOnDate, sumAmounts } from '@/lib/expenses';
+import {
+  availableBudget,
+  barTotal,
+  categoryTotals,
+  expensesOnDate,
+  sumAmounts,
+} from '@/lib/expenses';
 import { periodEndFor, periodStartFor } from '@/lib/period';
 import { useExpenseCategoriesStore } from '@/store/expense-categories-store';
 import { useExpensesStore } from '@/store/expenses-store';
@@ -27,6 +33,7 @@ import { useSettingsStore } from '@/store/settings-store';
 
 /** Stable identity for "the store isn't holding this period yet" — see `loaded` below. */
 const NO_EXPENSES: ExpenseRowData[] = [];
+const NO_INCOMES: ExpenseIncomeRow[] = [];
 
 export default function ExpensesScreen() {
   const db = useSQLiteContext();
@@ -36,6 +43,7 @@ export default function ExpensesScreen() {
   const isFocused = useIsFocused();
 
   const loadedExpenses = useExpensesStore((state) => state.expenses);
+  const loadedIncomes = useExpensesStore((state) => state.incomes);
   const loadedBudget = useExpensesStore((state) => state.budget);
   const loadedPeriod = useExpensesStore((state) => state.period);
   const ensurePeriod = useExpensesStore((state) => state.ensurePeriod);
@@ -121,10 +129,19 @@ export default function ExpensesScreen() {
    */
   const loaded = loadedPeriod?.start === periodStart && loadedPeriod.end === periodEnd;
   const expenses = loaded ? loadedExpenses : NO_EXPENSES;
+  const incomes = loaded ? loadedIncomes : NO_INCOMES;
   const budget = loaded ? loadedBudget : null;
 
   const spent = useMemo(() => sumAmounts(expenses), [expenses]);
-  const total = barTotal(budget, spent);
+  const income = useMemo(() => sumAmounts(incomes), [incomes]);
+  /**
+   * What the period has to spend, budget and income together. Everything below reads this
+   * rather than `budget`: the card's remainder, the bar's denominator and the bar's label
+   * are three views of one number, and taking it from one place is what keeps them from
+   * disagreeing. The breakdown of it lives in the budget modal.
+   */
+  const available = availableBudget(budget, income);
+  const total = barTotal(available, spent);
 
   const segments = useMemo<ExpenseBarSegment[]>(
     () =>
@@ -199,7 +216,7 @@ export default function ExpensesScreen() {
 
             <View style={styles.headerBlock}>
               <BalanceCard
-                budget={budget}
+                budget={available}
                 spent={spent}
                 periodStart={periodStart}
                 periodEnd={periodEnd}
@@ -213,11 +230,11 @@ export default function ExpensesScreen() {
               <ExpenseBar
                 segments={segments}
                 accessibilityLabel={
-                  budget === null
+                  available === null
                     ? t('expenses_bar_label_no_budget', { spent: money(spent) })
                     : t('expenses_bar_label', {
                         spent: money(spent),
-                        total: money(budget),
+                        total: money(available),
                       })
                 }
               />

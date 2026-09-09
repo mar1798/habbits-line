@@ -1,11 +1,13 @@
+import { format } from 'date-fns/format';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, ScrollView, StyleSheet, View } from 'react-native';
 
 import { periodLabel } from '@/components/expense/balance-card';
 import { AmountInput } from '@/components/ui/amount-input';
 import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/ui/icon-button';
 import {
   KEYBOARD_BAR_HEIGHT,
   KeyboardDoneAccessory,
@@ -15,10 +17,13 @@ import { Screen } from '@/components/ui/screen';
 import { Section } from '@/components/ui/section';
 import { Text } from '@/components/ui/text';
 import { minHitSlop, radius, spacing } from '@/constants/design-tokens';
+import type { ExpenseIncomeRow } from '@/db/types';
 import { useI18n } from '@/hooks/use-i18n';
+import { useMoney } from '@/hooks/use-money';
 import { useTheme } from '@/hooks/use-theme';
 import { useTodayKey } from '@/hooks/use-today-key';
-import { isValidDateKey, todayKey } from '@/lib/date';
+import { isValidDateKey, parseDateKey, todayKey } from '@/lib/date';
+import { availableBudget, sumAmounts } from '@/lib/expenses';
 import { normalizeAmountInput } from '@/lib/money';
 import {
   MAX_PERIOD_START_DAY,
@@ -38,8 +43,9 @@ const DAY_CHIP_SIZE = minHitSlop;
 const DAY_CHIP_STRIDE = DAY_CHIP_SIZE + spacing.sm;
 
 /**
- * Both money settings in one modal, opened from the balance card rather than from
- * Settings: they are about the number on that card and are changed while looking at it.
+ * Everything behind the number on the balance card, in one modal opened from the card
+ * itself rather than from Settings: the period's budget, the income added to it, and the
+ * day periods start on. They are about that number and are changed while looking at it.
  *
  * The budget is written for the period of the day the strip is on — the same period the
  * card shows — and never for the one it may have inherited its amount from.
@@ -48,6 +54,7 @@ export default function BudgetScreen() {
   const db = useSQLiteContext();
   const { colors } = useTheme();
   const { t, locale } = useI18n();
+  const money = useMoney();
   const today = useTodayKey();
   const { date } = useLocalSearchParams<{ date?: string }>();
 
@@ -56,6 +63,9 @@ export default function BudgetScreen() {
   const ensurePeriod = useExpensesStore((state) => state.ensurePeriod);
   const setBudget = useExpensesStore((state) => state.setBudget);
   const clearBudget = useExpensesStore((state) => state.clearBudget);
+  const incomes = useExpensesStore((state) => state.incomes);
+  const addIncome = useExpensesStore((state) => state.addIncome);
+  const removeIncome = useExpensesStore((state) => state.removeIncome);
   const periodStartDay = useSettingsStore((state) => state.periodStartDay);
   const setPeriodStartDay = useSettingsStore((state) => state.setPeriodStartDay);
 
@@ -64,6 +74,15 @@ export default function BudgetScreen() {
   const [typedAmount, setTypedAmount] = useState<string | null>(null);
   const [startDay, setStartDay] = useState(periodStartDay);
   const [submitting, setSubmitting] = useState(false);
+  /** The income being typed. Its own field, written by its own button — see below. */
+  const [incomeAmount, setIncomeAmount] = useState('');
+  const [addingIncome, setAddingIncome] = useState(false);
+  /**
+   * Which field the keyboard bar's "Clear" belongs to, as in the expense form: the bar is
+   * one view over the whole screen, and without this it would empty the budget while the
+   * income field is the one being typed in.
+   */
+  const [focusedField, setFocusedField] = useState<'budget' | 'income'>('budget');
 
   // Follows the day picker live, so the label says which period the amount will land in.
   const periodStart = periodStartFor(anchorDate, startDay);
@@ -141,6 +160,64 @@ export default function BudgetScreen() {
     }
   };
 
+  const incomeValue = incomeAmount === '' ? 0 : Number(incomeAmount);
+  const canAddIncome = incomeValue > 0 && !addingIncome;
+  const incomeTotal = useMemo(() => sumAmounts(incomes), [incomes]);
+
+  /**
+   * What the card will show for this period: the budget as the field currently reads it,
+   * plus the income listed below. The typed amount rather than the stored one, so the sum
+   * answers "what am I about to end up with" while a new budget is being typed. An emptied
+   * field still leaves an inherited amount standing — Save cannot delete a row this period
+   * does not own — so that is the one case where clearing the field does not zero it.
+   */
+  const previewAvailable = availableBudget(
+    amountValue > 0 ? amountValue : inherited ? budget : null,
+    incomeTotal
+  );
+
+  /**
+   * Income is written on its own button, not on Save: it is a row of its own rather than
+   * a field of the budget, and the list below has to show it immediately. `ensurePeriod`
+   * for the same reason `handleSubmit` calls it — reached by a deep link this modal may
+   * still be waiting on its first load, and the store lists an income only for the period
+   * it is holding.
+   */
+  const handleAddIncome = async () => {
+    if (!canAddIncome) return;
+    setAddingIncome(true);
+    try {
+      await ensurePeriod(
+        db,
+        periodStartFor(anchorDate, periodStartDay),
+        periodEndFor(anchorDate, periodStartDay)
+      );
+      await addIncome(db, { amount: incomeValue, date: anchorDate });
+      setIncomeAmount('');
+    } catch (error) {
+      console.error('Failed to add income', error);
+      Alert.alert(t('expense_income_save_failed'), t('try_again'));
+    } finally {
+      setAddingIncome(false);
+    }
+  };
+
+  const confirmDeleteIncome = (income: ExpenseIncomeRow) => {
+    Alert.alert(t('expense_income_delete_title'), t('expense_income_delete_message'), [
+      { text: t('cancel'), style: 'cancel' },
+      {
+        text: t('delete'),
+        style: 'destructive',
+        // Swallowed rather than left floating, as on the expenses tab: unhandled, it
+        // surfaces as a Metro warning over a failure the user can only retry anyway.
+        onPress: () =>
+          removeIncome(db, income.id).catch((error) =>
+            console.warn('Failed to delete income', error)
+          ),
+      },
+    ]);
+  };
+
   // edges: the native header already covers the top inset.
   return (
     <Screen edges={['bottom']}>
@@ -155,6 +232,7 @@ export default function BudgetScreen() {
             onChangeValue={setTypedAmount}
             placeholder="0"
             accessibilityLabel={t('expense_budget_amount')}
+            onFocus={() => setFocusedField('budget')}
             autoFocus
           />
           <Text variant="caption" color={colors.textSecondary}>
@@ -216,9 +294,71 @@ export default function BudgetScreen() {
         <View style={styles.submit}>
           <Button title={t('save')} onPress={handleSubmit} disabled={!canSave} />
         </View>
+
+        {/* Below the button, behind a rule: "Save" commits the budget and the start day,
+            and income is written by a button of its own the moment it is added. Inside
+            the form the two read as one thing to be saved together, and the section had
+            to say in words that it was not. */}
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+        <Section title={t('expense_income_section')}>
+          <Text variant="caption" color={colors.textSecondary}>
+            {t('expense_income_hint')}
+          </Text>
+          <AmountInput
+            value={incomeAmount}
+            onChangeValue={setIncomeAmount}
+            placeholder="0"
+            accessibilityLabel={t('expense_income_amount')}
+            onFocus={() => setFocusedField('income')}
+          />
+          <Button
+            title={t('expense_income_add')}
+            variant="secondary"
+            onPress={handleAddIncome}
+            disabled={!canAddIncome}
+          />
+
+          {incomes.length === 0 ? null : (
+            // Mapped, not a FlatList: a period holds a handful of these, and a
+            // VirtualizedList nested in a ScrollView of the same orientation is exactly
+            // what React Native warns about.
+            <View style={styles.incomes}>
+              {incomes.map((income) => (
+                <View
+                  key={income.id}
+                  style={[styles.income, { backgroundColor: colors.surfaceAlt }]}>
+                  <Text variant="caption" color={colors.textSecondary}>
+                    {format(parseDateKey(income.date), 'd MMM', { locale })}
+                  </Text>
+                  <Text variant="callout" style={styles.incomeAmount}>
+                    {money(income.amount)}
+                  </Text>
+                  <IconButton
+                    name="trash"
+                    compact
+                    accessibilityLabel={t('expense_income_delete', {
+                      amount: money(income.amount),
+                    })}
+                    onPress={() => confirmDeleteIncome(income)}
+                  />
+                </View>
+              ))}
+            </View>
+          )}
+
+          {previewAvailable === null ? null : (
+            <Text variant="caption" color={colors.textSecondary}>
+              {t('expense_income_available', { amount: money(previewAvailable) })}
+            </Text>
+          )}
+        </Section>
       </ScrollView>
 
-      <KeyboardDoneAccessory onClear={() => setTypedAmount('')} clearDisabled={amount === ''} />
+      <KeyboardDoneAccessory
+        onClear={() => (focusedField === 'income' ? setIncomeAmount('') : setTypedAmount(''))}
+        clearDisabled={focusedField === 'income' ? incomeAmount === '' : amount === ''}
+      />
     </Screen>
   );
 }
@@ -229,6 +369,29 @@ const styles = StyleSheet.create({
     // Room for the keyboard bar — see the same note in the expense form.
     paddingBottom: spacing.lg + KEYBOARD_BAR_HEIGHT,
     gap: spacing.xl,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    // Cancels the content's gap on the side the button is on, so the rule reads as the
+    // end of the form rather than as a divider floating between two equal blocks.
+    marginTop: spacing.sm,
+  },
+  incomes: {
+    gap: spacing.sm,
+  },
+  income: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    minHeight: minHitSlop,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.md,
+  },
+  // Takes the room between the date and the delete button, so every amount in the list
+  // starts at the same place however long the date beside it is.
+  incomeAmount: {
+    flex: 1,
   },
   daysList: {
     flexGrow: 0,

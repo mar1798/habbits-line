@@ -146,6 +146,15 @@ export const ru = {
   expense_budget_inherited:
     'Сумма перенесена из более раннего периода. Очистить поле можно только там, где она задана.',
   expense_budget_save_failed: 'Не удалось сохранить бюджет',
+  expense_income_section: 'Доход',
+  expense_income_amount: 'Сумма дохода',
+  expense_income_add: 'Добавить доход',
+  expense_income_hint: 'Прибавляется к бюджету этого периода.',
+  expense_income_available: 'Итого на период: {amount}',
+  expense_income_delete: 'Удалить доход {amount}',
+  expense_income_delete_title: 'Удалить доход?',
+  expense_income_delete_message: 'Он перестанет прибавляться к бюджету периода.',
+  expense_income_save_failed: 'Не удалось сохранить доход',
 
   // Starter category names. The rows are seeded in Russian by the v1 -> v2 migration and
   // matched back to these keys by name — see lib/category-name.ts.

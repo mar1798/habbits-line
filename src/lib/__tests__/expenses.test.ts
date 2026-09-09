@@ -1,4 +1,5 @@
 import {
+  availableBudget,
   barTotal,
   budgetRemainder,
   categoryTotals,
@@ -93,6 +94,11 @@ describe('sumAmounts / expensesOnDate', () => {
     expect(sumAmounts([])).toBe(0);
   });
 
+  // Incomes carry no category, and the same function has to add them up.
+  it('sums anything carrying an amount', () => {
+    expect(sumAmounts([{ amount: 5000 }, { amount: 1000 }])).toBe(6000);
+  });
+
   it('derives one day out of the loaded period', () => {
     expect(expensesOnDate(period, '2026-08-10')).toHaveLength(2);
     expect(expensesOnDate(period, '2026-08-12')).toEqual([]);
@@ -154,6 +160,31 @@ describe('barTotal / budgetRemainder', () => {
 
   it('has no remainder to show when no budget applies', () => {
     expect(budgetRemainder(null, 2000)).toBeNull();
+  });
+});
+
+describe('availableBudget', () => {
+  it('adds the period’s income to its budget', () => {
+    expect(availableBudget(50000, 10000)).toBe(60000);
+    expect(availableBudget(50000, 0)).toBe(50000);
+  });
+
+  // Without this, logging what came in would be worth nothing until a budget was set.
+  it('lets income stand in for a budget that was never set', () => {
+    expect(availableBudget(null, 10000)).toBe(10000);
+  });
+
+  it('has nothing to show for a period with neither', () => {
+    expect(availableBudget(null, 0)).toBeNull();
+  });
+
+  // The whole point of routing both through this: the card's remainder and the bar's
+  // denominator are computed from the same number.
+  it('feeds the remainder and the bar', () => {
+    const available = availableBudget(50000, 10000);
+    expect(budgetRemainder(available, 20000)).toBe(40000);
+    expect(barTotal(available, 20000)).toBe(60000);
+    expect(budgetRemainder(availableBudget(null, 10000), 12000)).toBe(-2000);
   });
 });
 

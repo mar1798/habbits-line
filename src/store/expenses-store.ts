@@ -3,13 +3,16 @@ import { create } from 'zustand';
 
 import * as budgetsRepo from '@/db/budgets-repo';
 import * as expensesRepo from '@/db/expenses-repo';
-import type { ExpenseRow } from '@/db/types';
+import * as incomesRepo from '@/db/incomes-repo';
+import type { ExpenseIncomeRow, ExpenseRow } from '@/db/types';
 import { haptics } from '@/lib/haptics';
 import { periodStartDayOf } from '@/lib/period';
 
 interface ExpensesState {
   /** Every expense of the loaded period, ordered as the repo returns them. */
   expenses: ExpenseRow[];
+  /** Every income of the loaded period, same order. Added to its budget — `availableBudget`. */
+  incomes: ExpenseIncomeRow[];
   /** Bounds of the loaded period, inclusive; null until the first load. */
   period: { start: string; end: string } | null;
   /** Budget in force for the loaded period — its own or inherited. Null when none applies. */
@@ -29,11 +32,18 @@ interface ExpensesState {
   remove: (db: SQLiteDatabase, id: string) => Promise<void>;
   setBudget: (db: SQLiteDatabase, amount: number) => Promise<void>;
   clearBudget: (db: SQLiteDatabase) => Promise<void>;
+  addIncome: (db: SQLiteDatabase, input: incomesRepo.IncomeInput) => Promise<void>;
+  removeIncome: (db: SQLiteDatabase, id: string) => Promise<void>;
 }
 
-/** Same order the repo reads in: newest day first, and within a day the latest entry first. */
-function sortExpenses(expenses: ExpenseRow[]): ExpenseRow[] {
-  return [...expenses].sort((a, b) => {
+/**
+ * Same order the repos read in: newest day first, and within a day the latest entry
+ * first. Generic because expenses and incomes are both kept in it — the two repos issue
+ * the same ORDER BY, and an optimistic insert has to land where the next read would put
+ * it, or the list jumps when that read arrives.
+ */
+function sortByDay<T extends { date: string; created_at: string }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => {
     if (a.date !== b.date) return a.date < b.date ? 1 : -1;
     if (a.created_at !== b.created_at) return a.created_at < b.created_at ? 1 : -1;
     return 0;
@@ -53,14 +63,16 @@ function sortExpenses(expenses: ExpenseRow[]): ExpenseRow[] {
  */
 export const useExpensesStore = create<ExpensesState>((set, get) => ({
   expenses: [],
+  incomes: [],
   period: null,
   budget: null,
   ownBudget: null,
   loaded: false,
 
   loadPeriod: async (db, start, end) => {
-    const [expenses, budgetState] = await Promise.all([
+    const [expenses, incomes, budgetState] = await Promise.all([
       expensesRepo.listExpensesBetween(db, start, end),
+      incomesRepo.listIncomesBetween(db, start, end),
       // The start day is read back off the period start rather than taken as a parameter:
       // `start` was built by `periodStartFor` and carries it, so every caller between here
       // and the screen would only be passing along what this argument already says.
@@ -68,6 +80,7 @@ export const useExpensesStore = create<ExpensesState>((set, get) => ({
     ]);
     set({
       expenses,
+      incomes,
       budget: budgetState.budget,
       ownBudget: budgetState.ownBudget,
       period: { start, end },
@@ -115,14 +128,14 @@ export const useExpensesStore = create<ExpensesState>((set, get) => ({
     };
 
     if (visible) {
-      set((state) => ({ expenses: sortExpenses([placeholder, ...state.expenses]) }));
+      set((state) => ({ expenses: sortByDay([placeholder, ...state.expenses]) }));
     }
 
     try {
       const created = await expensesRepo.createExpense(db, input);
       if (visible) {
         set((state) => ({
-          expenses: sortExpenses(
+          expenses: sortByDay(
             state.expenses.map((expense) => (expense.id === placeholder.id ? created : expense))
           ),
         }));
@@ -141,7 +154,7 @@ export const useExpensesStore = create<ExpensesState>((set, get) => ({
   update: async (db, id, input) => {
     const previous = get().expenses;
     set((state) => ({
-      expenses: sortExpenses(
+      expenses: sortByDay(
         state.expenses.map((expense) =>
           expense.id === id
             ? {
@@ -218,5 +231,39 @@ export const useExpensesStore = create<ExpensesState>((set, get) => ({
       periodStartDayOf(period.start)
     );
     set({ budget: budgetState.budget, ownBudget: budgetState.ownBudget });
+  },
+
+  /**
+   * Writes an income and shows it right away, without waiting for "Save": it is a row of
+   * its own, not a field of the budget, and the modal that adds it keeps the list of them
+   * on screen. The budget beside it still saves on the button — that one is a single
+   * amount being edited, and closing the modal is what commits it.
+   *
+   * Not optimistic, for the reason `setBudget` is not: the list is small, the insert is
+   * local, and the real row's id is needed to delete it again. The date decides which
+   * period it belongs to, so an income dated outside the loaded one is written and simply
+   * not listed here — the same rule `create` follows for expenses.
+   */
+  addIncome: async (db, input) => {
+    const created = await incomesRepo.createIncome(db, input);
+    const period = get().period;
+    const visible = period !== null && input.date >= period.start && input.date <= period.end;
+    if (visible) {
+      set((state) => ({ incomes: sortByDay([created, ...state.incomes]) }));
+    }
+    haptics.success();
+  },
+
+  removeIncome: async (db, id) => {
+    const previous = get().incomes;
+    set((state) => ({ incomes: state.incomes.filter((income) => income.id !== id) }));
+
+    try {
+      await incomesRepo.deleteIncome(db, id);
+      haptics.warning();
+    } catch (error) {
+      set({ incomes: previous });
+      throw error;
+    }
   },
 }));
