@@ -173,6 +173,10 @@ function isExpenseRow(value: unknown): value is ExpenseRow {
     typeof value.date === 'string' &&
     isValidDateKey(value.date) &&
     (value.note === undefined || isNullableString(value.note)) &&
+    // Optional for the same reason `note` is — a file written before the column existed
+    // says nothing here and the import writes null. Validated, not merely typed: a
+    // hand-edited '25:61' would be drawn straight into the row list.
+    (value.time === undefined || isNullableTimeOfDay(value.time)) &&
     typeof value.created_at === 'string' &&
     typeof value.updated_at === 'string'
   );
@@ -491,14 +495,15 @@ export async function importBackupAsync(db: SQLiteDatabase, fileUri: string): Pr
 
     for (const expense of expenses) {
       await txn.runAsync(
-        `INSERT INTO expenses (id, category_id, amount, date, note, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO expenses (id, category_id, amount, date, note, time, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         expense.id,
         expense.category_id,
         expense.amount,
         expense.date,
         // A file written before the column existed has nothing to say here.
         expense.note ?? null,
+        expense.time ?? null,
         expense.created_at,
         expense.updated_at
       );
