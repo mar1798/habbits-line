@@ -5,6 +5,7 @@ import * as budgetsRepo from '@/db/budgets-repo';
 import * as expensesRepo from '@/db/expenses-repo';
 import * as incomesRepo from '@/db/incomes-repo';
 import type { ExpenseIncomeRow, ExpenseRow } from '@/db/types';
+import { nowTimeOfDay } from '@/lib/date';
 import { haptics } from '@/lib/haptics';
 import { periodStartDayOf } from '@/lib/period';
 
@@ -123,6 +124,10 @@ export const useExpensesStore = create<ExpensesState>((set, get) => ({
       amount: input.amount,
       date: input.date,
       note: input.note,
+      // The real row's time is stamped by the repository, like its id and timestamps;
+      // the placeholder carries the same minute so the row does not change under the
+      // finger when the insert comes back.
+      time: nowTimeOfDay(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

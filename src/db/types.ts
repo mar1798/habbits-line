@@ -42,6 +42,11 @@ export interface ExpenseRow {
   date: string;
   /** The user's own one-line description. Null when they left the field empty. */
   note: string | null;
+  /**
+   * Local time of day, 'HH:mm'. Null for a row written before the column existed —
+   * see the v4 -> v5 migration for why those are not backfilled.
+   */
+  time: string | null;
   created_at: string;
   updated_at: string;
 }

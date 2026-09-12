@@ -1,5 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
+import { nowTimeOfDay } from '@/lib/date';
 import { generateId } from '@/lib/id';
 
 import type { ExpenseRow } from './types';
@@ -47,15 +48,21 @@ export async function createExpense(
 ): Promise<ExpenseRow> {
   const id = generateId();
   const now = new Date().toISOString();
+  // Stamped here rather than taken from the form: the form does not offer a time, and
+  // this is the one place that knows when the row is actually written. `created_at` is
+  // not used for it — that is an ISO instant in UTC, and the list wants the local wall
+  // clock, which is what `nowTimeOfDay` gives.
+  const time = nowTimeOfDay();
 
   await db.runAsync(
-    `INSERT INTO expenses (id, category_id, amount, date, note, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO expenses (id, category_id, amount, date, note, time, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     input.categoryId,
     input.amount,
     input.date,
     input.note,
+    time,
     now,
     now
   );
@@ -67,7 +74,11 @@ export async function createExpense(
   return created;
 }
 
-/** The date is part of the input but the form never offers it: editing keeps the row's day. */
+/**
+ * The date is part of the input but the form never offers it: editing keeps the row's day.
+ * `time` is not in the input at all — it is when the expense was entered, and editing the
+ * amount or the note later does not move that.
+ */
 export async function updateExpense(
   db: SQLiteDatabase,
   id: string,

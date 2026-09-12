@@ -59,6 +59,25 @@ export function todayKey(): string {
   return toDateKey(new Date());
 }
 
+/**
+ * Local 'HH:mm' time of day. Same reason `toDateKey` is assembled by hand rather than
+ * taken from `toISOString()`: that goes through UTC and would stamp an expense with an
+ * hour the user was not in.
+ */
+export function toTimeOfDay(date: Date): string {
+  if (Number.isNaN(date.getTime())) {
+    throw new RangeError('Invalid time value');
+  }
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
+/** The current local time of day, the value every new expense is stamped with. */
+export function nowTimeOfDay(): string {
+  return toTimeOfDay(new Date());
+}
+
 const TIME_OF_DAY_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 /**
