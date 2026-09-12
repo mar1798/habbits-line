@@ -2,6 +2,8 @@ import {
   forEachDateKey,
   isValidDateKey,
   isValidTimeOfDay,
+  nowTimeOfDay,
+  toTimeOfDay,
   shiftDateKey,
   todayKey,
   toDateKey,
@@ -118,6 +120,27 @@ describe('isValidTimeOfDay', () => {
     expect(isValidTimeOfDay('09:60')).toBe(false);
     expect(isValidTimeOfDay('9:05')).toBe(false);
     expect(isValidTimeOfDay('evening')).toBe(false);
+  });
+});
+
+describe('toTimeOfDay', () => {
+  it('pads both halves', () => {
+    expect(toTimeOfDay(new Date(2026, 7, 29, 9, 5))).toBe('09:05');
+    expect(toTimeOfDay(new Date(2026, 7, 29, 0, 0))).toBe('00:00');
+    expect(toTimeOfDay(new Date(2026, 7, 29, 23, 59))).toBe('23:59');
+  });
+
+  it('reads the local clock, not UTC', () => {
+    // Late enough in the day that any timezone east or west of UTC would shift the hour.
+    expect(toTimeOfDay(new Date(2026, 7, 29, 23, 30))).toBe('23:30');
+  });
+
+  it('throws on an Invalid Date rather than returning NaN:NaN', () => {
+    expect(() => toTimeOfDay(new Date('nonsense'))).toThrow(RangeError);
+  });
+
+  it('produces a value isValidTimeOfDay accepts', () => {
+    expect(isValidTimeOfDay(nowTimeOfDay())).toBe(true);
   });
 });
 

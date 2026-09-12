@@ -43,6 +43,7 @@ export function ExpenseRow({ expense, category, onEdit, onDelete }: ExpenseRowPr
   // that name is what the hint is for. The emoji is left out; the category names it.
   const label = [
     category ? categoryName(category.name, t) : '—',
+    expense.time,
     money(expense.amount),
     expense.note || null,
     category?.archived_at ? t('settings_archived_badge') : null,
@@ -88,6 +89,16 @@ export function ExpenseRow({ expense, category, onEdit, onDelete }: ExpenseRowPr
             </Text>
           ) : null}
         </View>
+        {/* The minute the expense was entered, beside the amount rather than under the
+            category name: it is of a piece with the number, and down there it would
+            compete with the description for the one caption line the row has. Tertiary
+            and caption-sized so it reads as a timestamp and never as data — rows written
+            before the column existed simply have none, and show nothing. */}
+        {expense.time ? (
+          <Text variant="caption" color={colors.textTertiary}>
+            {expense.time}
+          </Text>
+        ) : null}
         <Text variant="headline">{money(expense.amount)}</Text>
       </PressableScale>
     </SwipeRow>

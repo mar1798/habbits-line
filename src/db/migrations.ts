@@ -3,7 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import type { ExpenseColorKey } from '@/constants/design-tokens';
 import { generateId } from '@/lib/id';
 
-const DATABASE_VERSION = 4;
+const DATABASE_VERSION = 5;
 
 /**
  * Starter expense categories, written by the v1 -> v2 block. Every emoji here has to be
@@ -201,7 +201,26 @@ export async function migrate(db: SQLiteDatabase): Promise<void> {
     currentVersion = 4;
   }
 
-  // v4 -> v5: add the next migration as a new block below this comment, wrapped in
+  if (currentVersion < 5) {
+    // The time of day an expense happened, 'HH:mm' local, the same shape
+    // `habits.reminder_time` is stored in. Nullable rather than NOT NULL DEFAULT:
+    // every row written before this migration has no time to claim, and backfilling
+    // one from `created_at` would invent a minute the user never entered — an expense
+    // typed in the evening for the morning would read as the evening one forever.
+    // The row list shows nothing at all for a null, which is the truth about it.
+    //
+    // Not folded into `date`: everything that groups, filters and sums works on the
+    // date key, and lib/date.ts forbids anything but 'YYYY-MM-DD' there.
+    //
+    // One transaction with the version stamp inside it, like the blocks above.
+    await db.withTransactionAsync(async () => {
+      await db.execAsync('ALTER TABLE expenses ADD COLUMN time TEXT;');
+      await db.execAsync('PRAGMA user_version = 5');
+    });
+    currentVersion = 5;
+  }
+
+  // v5 -> v6: add the next migration as a new block below this comment, wrapped in
   // `withTransactionAsync` and bumping `user_version` inside it, the way the blocks
   // above do.
   // The blocks above are shipped — never edit them, only append.
