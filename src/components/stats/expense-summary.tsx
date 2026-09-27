@@ -150,7 +150,11 @@ export function ExpenseSummary({ todayDate }: ExpenseSummaryProps) {
       <View style={styles.block}>
         <Text variant="headline">{t('stats_expenses_by_category')}</Text>
         {breakdown.length > 0 ? (
-          <CategoryBreakdown breakdown={breakdown} categories={categories} />
+          <CategoryBreakdown
+            breakdown={breakdown}
+            categories={categories}
+            expenses={currentExpenses}
+          />
         ) : (
           <Text variant="body" color={colors.textSecondary}>
             {t('stats_expenses_empty')}

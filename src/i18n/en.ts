@@ -187,6 +187,7 @@ export const en: Record<keyof typeof ru, string> = {
   stats_expenses_per_day: 'Average per day',
   stats_expenses_by_category: 'By category',
   stats_expenses_empty: 'Nothing was spent in this period',
+  stats_expenses_no_note: 'No description',
   stats_expenses_range: 'Spending for a period',
   stats_expenses_range_hint: 'Pick the first and the last date on the calendar to see what those days cost',
   stats_expenses_range_pending: 'Now pick the last date',

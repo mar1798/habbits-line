@@ -211,6 +211,7 @@ export const ru = {
   stats_expenses_per_day: 'В среднем в день',
   stats_expenses_by_category: 'По категориям',
   stats_expenses_empty: 'В этом периоде расходов не было',
+  stats_expenses_no_note: 'Без описания',
   stats_expenses_range: 'Расходы за период',
   stats_expenses_range_hint: 'Выберите в календаре первую и последнюю дату, чтобы увидеть расходы за эти дни',
   stats_expenses_range_pending: 'Теперь выберите последнюю дату',
