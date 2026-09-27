@@ -1,62 +1,60 @@
 ## Why
 
-Приложение функционально готово, но никогда не собиралось в релизном виде и не имеет
-ничего из того, что требует App Store Connect: номера сборки, декларации экспортного
-шифрования, политики конфиденциальности, метаданных листинга и скриншотов. Сейчас
-`app.json` не содержит `buildNumber`, локально из него удалён плагин `expo-notifications`,
-а `eas.json` и `store.config.json` в репозитории отсутствуют — то есть первая же попытка
-загрузки в App Store Connect упрётся в отсутствующие поля.
+The app is functionally ready, but it has never been built in release form and has none
+of what App Store Connect requires: a build number, an export encryption declaration, a
+privacy policy, listing metadata and screenshots. Right now `app.json` has no
+`buildNumber`, the `expo-notifications` plugin has been removed from it locally, and
+neither `eas.json` nor `store.config.json` exists in the repository, so the very first
+upload attempt to App Store Connect will hit missing fields.
 
 ## What Changes
 
-- **Конфигурация сборки.** В `app.json` возвращается плагин `expo-notifications`,
-  добавляются `ios.buildNumber` и `ios.config.usesNonExemptEncryption: false`,
-  `description` и явный `ios.supportsTablet: false`. Прогон `expo prebuild` и сверка
-  `Info.plist` — по правилу из [pitfalls](../../../docs/pitfalls.md).
-- **Релизный конвейер.** Появляется `eas.json` с `appVersionSource: "local"`,
-  профилем сборки `production` и профилем `submit.production.ios` под App Store Connect
-  API key. Сборка остаётся локальной (Xcode archive / `eas build --local`), в облако
-  уходит только загрузка через `eas submit`. `eas-cli` в репозитории не закрепляется —
-  вызывается через `npx eas-cli@latest`.
-- **Проверка релизной конфигурации.** Release-сборка ставится на симулятор и на
-  устройство и проходит по всем экранам: холодный старт, напоминание по тапу,
-  экспорт/импорт бэкапа, обе темы, оба языка.
-- **Политика конфиденциальности.** Текст на русском и английском в `docs/`,
-  опубликованный через GitHub Pages, плюс ссылка на него и номер версии в разделе
-  «О приложении» на экране настроек.
-- **Метаданные листинга.** `store.config.json` с локализациями `ru` и `en-US`:
-  название, подзаголовок, описание, ключевые слова, категории, возрастной рейтинг,
-  контакты для ревью, ссылки на политику и поддержку.
-- **Скриншоты.** Скрипт снятия набора 6.9″ (1320×2868) с симулятора на подготовленной
-  демо-базе, результат — в `assets/store/` и вручную загружается в App Store Connect
-  (EAS Metadata скриншоты не заливает).
-- **Документация.** `docs/release.md` — единственный документ, описывающий порядок
-  выпуска: что бампится, чем собирается, чем отправляется, что заполняется руками.
+- **Build configuration.** The `expo-notifications` plugin returns to `app.json`, and
+  `ios.buildNumber`, `ios.config.usesNonExemptEncryption: false`, `description` and an
+  explicit `ios.supportsTablet: false` are added. Run `expo prebuild` and check
+  `Info.plist`, per the rule in [pitfalls](../../../docs/pitfalls.md).
+- **Release pipeline.** An `eas.json` appears with `appVersionSource: "local"`, a
+  `production` build profile and a `submit.production.ios` profile for the App Store
+  Connect API key. The build stays local (Xcode archive / `eas build --local`); only the
+  upload via `eas submit` goes to the cloud. `eas-cli` is not pinned in the repository;
+  it is invoked via `npx eas-cli@latest`.
+- **Release configuration check.** A Release build is installed on the simulator and on
+  a device and walks through every screen: cold start, reminder via tap, backup
+  export/import, both themes, both languages.
+- **Privacy policy.** Text in Russian and English in `docs/`, published via GitHub Pages,
+  plus a link to it and the version number in an About section on the settings screen.
+- **Listing metadata.** `store.config.json` with `ru` and `en-US` localizations: name,
+  subtitle, description, keywords, categories, age rating, review contacts, links to the
+  policy and support.
+- **Screenshots.** A script that takes a 6.9″ (1320×2868) set from the simulator on a
+  prepared demo database; the result goes into `assets/store/` and is uploaded to App
+  Store Connect by hand (EAS Metadata does not upload screenshots).
+- **Documentation.** `docs/release.md`, the single document describing the release
+  order: what gets bumped, what builds it, what submits it, what is filled in by hand.
 
 ## Capabilities
 
 ### New Capabilities
-- `app-store-release`: всё, что делает сборку пригодной к публикации — версионирование
-  и декларации в конфиге приложения, релизный конвейер сборки и отправки, артефакты
-  листинга (метаданные, скриншоты, политика конфиденциальности) и раздел «О приложении»
-  в настройках.
+- `app-store-release`: everything that makes a build publishable: versioning and
+  declarations in the app config, the release build and submit pipeline, listing
+  artifacts (metadata, screenshots, privacy policy) and the About section in settings.
 
 ### Modified Capabilities
-<!-- Нет: в `openspec/specs/` пока нет ни одной capability. -->
+<!-- None: there are no capabilities in `openspec/specs/` yet. -->
 
 ## Impact
 
-- **Конфиг:** `app.json` (плагины, `ios.*`, `description`), новый `eas.json`,
-  новый `store.config.json`, `.gitignore` (ключ `.p8` не должен попасть в репозиторий).
-- **Код:** `src/app/(tabs)/settings.tsx` — секция «О приложении» (версия + ссылка на
-  политику); `src/i18n/ru.ts` и `src/i18n/en.ts` — новые ключи. Прикладная логика,
-  схема БД и расчёты не затрагиваются.
-- **Зависимости:** новых зависимостей в `package.json` нет. `expo-constants` и
-  `expo-linking` уже стоят и покрывают версию и открытие ссылки.
-- **Нативное:** обязательный `expo prebuild --platform ios` после правок `app.json`;
-  `ios/` в `.gitignore`, поэтому проверка идёт по сгенерированному `Info.plist`.
-- **Внешнее (вне репозитория, требует учётной записи):** платный Apple Developer
-  Program, запись приложения в App Store Connect с bundle id `com.mar1798.habbits-line`,
-  App Store Connect API key, включённый GitHub Pages для хостинга политики.
-- **Документы:** новый `docs/release.md`; `README.md` и `docs/pitfalls.md` дополняются
-  ссылкой на него.
+- **Config:** `app.json` (plugins, `ios.*`, `description`), a new `eas.json`, a new
+  `store.config.json`, `.gitignore` (the `.p8` key must not get into the repository).
+- **Code:** `src/app/(tabs)/settings.tsx`, an About section (version + policy link);
+  `src/i18n/ru.ts` and `src/i18n/en.ts`, new keys. App logic, the DB schema and
+  calculations are not affected.
+- **Dependencies:** no new dependencies in `package.json`. `expo-constants` and
+  `expo-linking` are already installed and cover the version and opening the link.
+- **Native:** a mandatory `expo prebuild --platform ios` after edits to `app.json`;
+  `ios/` is in `.gitignore`, so the check goes against the generated `Info.plist`.
+- **External (outside the repository, needs an account):** the paid Apple Developer
+  Program, an app record in App Store Connect with bundle id `com.mar1798.habbits-line`,
+  an App Store Connect API key, GitHub Pages enabled to host the policy.
+- **Documents:** a new `docs/release.md`; `README.md` and `docs/pitfalls.md` get a link
+  to it.

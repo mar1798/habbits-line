@@ -3,7 +3,7 @@
     "name": "Habbits Line",
     "slug": "habbits-line",
     "version": "1.0.0",
-    "description": "Офлайн-трекер привычек и трат: стрики, бюджет на период и статистика. Без аккаунтов, без сети, всё хранится на устройстве.",
+    "description": "An offline habit and expense tracker: streaks, a budget per period and statistics. No accounts, no network, everything stays on the device.",
     "platforms": ["ios"],
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",

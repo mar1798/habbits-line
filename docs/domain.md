@@ -1,164 +1,172 @@
-# Правила предметной области
+# Domain rules
 
-Почему статистика считается именно так. Формулы живут в
-[`src/lib/streaks.ts`](../src/lib/streaks.ts), [`period.ts`](../src/lib/period.ts),
-[`expenses.ts`](../src/lib/expenses.ts) и покрыты тестами в `src/lib/__tests__/`;
-здесь — причины, которых в коде не видно.
+Why the statistics are computed the way they are. The formulas live in
+[`src/lib/streaks.ts`](../src/lib/streaks.ts), [`period.ts`](../src/lib/period.ts) and
+[`expenses.ts`](../src/lib/expenses.ts) and are covered by tests in `src/lib/__tests__/`;
+this file holds the reasons the code does not show.
 
-## Даты
+## Dates
 
-- Дата — всегда строка `'YYYY-MM-DD'` в **локальной** таймзоне пользователя. Все
-  преобразования — только через `lib/date.ts`.
-- `toISOString()` запрещён **для ключей дат**: он даёт UTC и на восточных таймзонах после
-  полуночи отдаёт вчерашний день. Для `created_at` / `updated_at` ISO наоборот нужен.
-- Перелёт в другую таймзону не переписывает прошлые записи — они уже строки.
-- «Сегодня» пересчитывается по `AppState → active` и по таймеру до ближайшей полуночи в
-  одном хуке [`use-today-key.ts`](../src/hooks/use-today-key.ts). Без него приложение,
-  оставленное открытым на ночь, показывало бы вчера как сегодня.
-- Настраиваемого «дня до 4 утра» осознанно нет: он заражает все расчёты вторым понятием даты.
+- A date is always a `'YYYY-MM-DD'` string in the user's **local** timezone. All
+  conversions go through `lib/date.ts` only.
+- `toISOString()` is banned **for date keys**: it yields UTC, and in eastern timezones
+  after midnight it returns yesterday. For `created_at` / `updated_at`, ISO is exactly
+  what is needed.
+- Flying to another timezone does not rewrite past entries: they are already strings.
+- "Today" is recomputed on `AppState → active` and by a timer to the next midnight, in a
+  single hook, [`use-today-key.ts`](../src/hooks/use-today-key.ts). Without it, an app
+  left open overnight would show yesterday as today.
+- There is deliberately no configurable "day ends at 4 AM": it would infect every
+  calculation with a second notion of date.
 
-## Привычки
+## Habits
 
-- **День закрыт только при 100% цели.** Хитмап красит клетку по доле выполнения
-  `min(count / target_per_day, 1)` — `dayCompletionRatio`.
-- **Стрик считается только по запланированным дням.** День вне расписания его не ломает и
-  не продлевает. День засчитывается, когда закрыты **все** запланированные на него
-  привычки, поэтому для одной привычки это её собственный стрик, а для списка — стрик
-  «всё сделано».
-- **Незакрытое сегодня стрик не обнуляет** — оно просто ещё не засчитано.
-- **История привычки ограничена с двух сторон** (`toHabitSeries`): начало — `created_at`
-  (иначе каждая новая привычка открывалась бы нулевым стриком и 0% за 30 дней), конец —
-  `archived_at` (иначе привычка, брошенная со стриком 40, показывала бы 0, и чем дольше
-  лежала в архиве, тем хуже выглядела её история). Обе границы раздвигаются до самой
-  ранней и самой поздней записи: день с прогрессом принадлежит привычке, что бы ни
-  говорили таймстемпы.
-- **Проценты считаются от запланированных дней**, не от календарных. Иначе привычка на 3
-  дня в неделю не поднялась бы выше 43%, что противоречит правилу стрика.
-- **Пустое окно даёт `null`, а не 0.** Воскресная привычка, открытая в субботу, или архивная,
-  чьё окно целиком после конца, — это не «провалено всё», и карточка не должна обвинять
-  пользователя в днях, которые ему не принадлежали.
-- **Разбивка по дням недели** (`computeWeekdayStats`) — те же проценты, разложенные по
-  семи дням, за скользящее окно в 90 дней. Окно, а не вся история: вопрос в том, как
-  пользователь живёт сейчас, и пятница, брошенная два года назад, не должна тянуть столбик
-  вниз до конца времён. Индексация с понедельника — как биты `schedule_mask`.
-- **Срыв — это разрыв между двумя закрытыми днями** (`computeRecovery`). Считается на тех
-  же днях, что и стрик; длина срыва — число пропущенных **запланированных** дней. Дни до
-  первого закрытого дня срывом не считаются (нечего было ронять), и незакрытый хвост до
-  сегодня — тоже: это ещё не время возврата, а текущий разрыв, и усреднение его в общее
-  число тем сильнее занижало бы результат, чем дольше пользователь не возвращается.
-- **Расписание и цель не версионируются:** статистика всегда считается текущими настройками.
-  Правка задним числом меняет прошлые стрики и хитмап — принято осознанно ради простой
-  схемы. Нужна честная история — заводится новая привычка; в форме редактирования об этом
-  есть подпись.
+- **A day is closed only at 100% of the target.** The heatmap paints a cell by the
+  completion share `min(count / target_per_day, 1)`, i.e. `dayCompletionRatio`.
+- **A streak counts only scheduled days.** An off-schedule day neither breaks nor extends
+  it. A day counts when **all** habits scheduled for it are closed, so for one habit this
+  is its own streak, and for the list it is the "everything done" streak.
+- **An unclosed today does not reset the streak**: it simply has not been counted yet.
+- **A habit's history is bounded on both sides** (`toHabitSeries`): the start is
+  `created_at` (otherwise every new habit would open with a zero streak and 0% over 30
+  days), the end is `archived_at` (otherwise a habit dropped at a 40-day streak would show
+  0, and the longer it sat in the archive, the worse its history would look). Both bounds
+  widen to the earliest and latest entry: a day with progress belongs to the habit,
+  whatever the timestamps say.
+- **Rates are computed over scheduled days**, not calendar days. Otherwise a habit
+  scheduled 3 days a week could never rise above 43%, which contradicts the streak rule.
+- **An empty window gives `null`, not 0.** A Sunday habit opened on Saturday, or an
+  archived one whose window lies entirely after its end, has not "failed everything", and
+  the card must not blame the user for days that were never theirs.
+- **The weekday breakdown** (`computeWeekdayStats`) is the same rates split across the
+  seven days, over a rolling 90-day window. A window rather than the whole history: the
+  question is how the user lives now, and a Friday abandoned two years ago must not drag
+  its column down until the end of time. Indexing starts at Monday, like the
+  `schedule_mask` bits.
+- **A miss is the gap between two closed days** (`computeRecovery`). It is computed over
+  the same days as the streak; a miss's length is the number of skipped **scheduled**
+  days. Days before the first closed day do not count as a miss (there was nothing to
+  drop), and neither does the unclosed tail up to today: that is not a recovery time yet
+  but the current gap, and averaging it in would understate the result more the longer
+  the user stays away.
+- **Schedule and target are not versioned:** statistics always use the current settings.
+  A retroactive edit changes past streaks and the heatmap; this is accepted deliberately
+  to keep the schema simple. For an honest history, create a new habit; the edit form
+  carries a note saying so.
 
-## Взаимодействие
+## Interaction
 
-- Прошлые дни правятся переключателем даты на экране «Сегодня».
-- Полоса дат листается по неделям: назад — без ограничения (это и есть доступ к истории),
-  вперёд — до недели с сегодняшним днём. Перелистывание сохраняет день недели; шаг вперёд
-  за сегодня зажимается на сегодня.
-- Будущие дни видны бледными, но отмечать в них нельзя.
-- Тап по кнопке отметки крутит счётчик `0 → 1 → … → N → 0`.
-- Короткий свайп влево по карточке открывает действия «Изменить / В архив»
-  (`components/ui/swipe-row.tsx`). Открытая карточка одна на всё приложение: следующая
-  закрывает предыдущую. Те же действия продублированы как `accessibilityActions` — свайп
-  скринридеру недоступен.
-- **Шаблоны привычек на пустом экране.** Пока активных привычек нет, под пустым
-  состоянием лежат шесть готовых (`constants/habit-templates.ts`): тап создаёт привычку
-  сразу, без формы — эмодзи, цвет и цель уже в шаблоне, всё правится потом через свайп
-  по карточке. Название пишется на языке интерфейса в момент тапа и дальше это обычные
-  пользовательские данные: обратной таблицы перевода, как у стартовых категорий трат,
-  у него нет. Шаблон, чьё имя уже занято — в том числе архивной привычкой, — не
-  показывается. Расписание у всех шести — все семь дней: шаблон, не запланированный на
-  сегодня, после тапа сменил бы одно пустое состояние на другое и выглядел бы как
-  несработавшая кнопка.
+- Past days are edited with the date switcher on the Today screen.
+- The date strip pages by week: backward without limit (that is the access to history),
+  forward up to the week that contains today. Paging keeps the weekday; a step forward
+  past today is clamped to today.
+- Future days are shown dimmed but cannot be marked.
+- Tapping the check button cycles the counter `0 → 1 → … → N → 0`.
+- A short left swipe on a card reveals the Edit / Archive actions
+  (`components/ui/swipe-row.tsx`). Only one card in the whole app can be open: the next
+  one closes the previous. The same actions are duplicated as `accessibilityActions`,
+  since a swipe is unavailable to a screen reader.
+- **Habit templates on the empty screen.** While there are no active habits, six ready
+  ones sit under the empty state (`constants/habit-templates.ts`): a tap creates the habit
+  immediately, without the form. Emoji, color and target are already in the template, and
+  everything can be edited later via the card's swipe. The name is written in the UI
+  language at the moment of the tap and from then on is ordinary user data: unlike the
+  starter expense categories, it has no reverse translation table. A template whose name
+  is already taken, including by an archived habit, is not shown. All six are scheduled
+  on all seven days: a template not scheduled for today would, after the tap, swap one
+  empty state for another and look like a button that did nothing.
 
-## Траты
+## Expenses
 
-- Период — не календарный месяц: он начинается с настраиваемого дня `1..28`
-  (`expense_period_start_day`). Дни 29–31 исключены, чтобы период не пропадал в феврале.
-- Бюджет задаётся на конкретный период. Период без своей строки наследует **последний
-  заданный бюджет до своего начала** (`resolveBudget`) — иначе каждый новый месяц начинался
-  бы с нуля.
-- **Доход** — строка в `expense_incomes` с суммой и датой, прибавляемая к бюджету того
-  периода, в который дата попадает. Правило целиком живёт в `availableBudget`: карточка
-  баланса и полоса периода берут из неё одно число, поэтому разойтись не могут.
-  - Доход не переезжает в следующий период, ровно как не переезжает непотраченный бюджет:
-    период начинается заново, а `resolveBudget` передаёт следующему заданную сумму, а не
-    оставшиеся деньги.
-  - Без заданного бюджета доход **сам становится** бюджетом (`availableBudget(null, 10000)`
-    → `10000`), иначе записанный приход не значил бы ничего до того, как бюджет задан.
-    Период без того и другого по-прежнему `null` — «бюджет не задан».
-  - Дата, а не `period_start`: доход — событие дня, и при смене дня начала периода он
-    сам оказывается в том периоде, который эту дату накрывает. Бюджет — наоборот,
-    настройка периода, поэтому ключом ему служит `period_start`.
-  - Своя таблица, а не флаг в `expenses`: `sumAmounts` над `expenses` означает
-    «потрачено», и общий столбец-дискриминатор обязал бы фильтровать **каждый**
-    существующий запрос, а забытый фильтр не падает — он молча добавляет доход в сумму
-    трат, в разбивку по категориям и в среднюю за день.
-  - На статистику доход не влияет: там показывается потраченное, а не остаток.
-- Суммы — целые единицы валюты в INTEGER: никакой плавающей точки в деньгах.
-- **Символ валюты — настройка, а не локаль.** `app_settings.currency_symbol` (свободная
-  строка до трёх символов, по умолчанию `₽`) и `currency_position` (`prefix` / `suffix`,
-  по умолчанию `suffix`). Пустая строка — полноценное значение: это голое число, каким
-  приложение показывало суммы раньше; отсутствие строки в базе — это ещё дефолт. Ни ICU,
-  ни курсов, ни сети: `formatAmount` печатает символ рядом с числом, минус остаётся перед
-  всей суммой (`-$5`). Внутри компонентов форматирует хук `use-money`, чтобы смена символа
-  перерисовывала все экраны без перезапуска. На хранимые суммы символ не влияет.
-- **Средняя за день** (`spendingPerDay`) — сумма текущего периода, делённая на его
-  **прошедшие дни**, а не на дни с тратами: вопрос в том, сколько стоит день жизни, и
-  пустые дни — часть ответа. Считается только для **текущего** периода и только если в
-  нём что-то потрачено; живёт на экране статистики, под итогом периода. Прогноза на конец
-  периода нет: в начале периода он умножал одну трату почти на всю его длину и врал.
-- Категория с тратами удаляется вместе с переносом её трат в «Прочее»
-  (`deleteExpenseCategoryReassigning`): деньги остаются в сумме своего периода, исчезает
-  только разбивка по этой категории. «Прочее» при этом восстанавливается из архива, а если
-  её удалили раньше — создаётся заново. Саму «Прочее» с тратами удалить нельзя: переносить
-  некуда, для неё остаётся архивация.
+- A period is not a calendar month: it starts on a configurable day `1..28`
+  (`expense_period_start_day`). Days 29–31 are excluded so a period does not vanish in
+  February.
+- A budget is set for a specific period. A period without its own row inherits **the
+  latest budget set before its start** (`resolveBudget`); otherwise every new month would
+  start from zero.
+- **Income** is a row in `expense_incomes` with an amount and a date, added to the budget
+  of the period the date falls into. The whole rule lives in `availableBudget`: the
+  balance card and the period bar take one number from it, so they cannot diverge.
+  - Income does not carry over to the next period, just as unspent budget does not: the
+    period starts afresh, and `resolveBudget` passes on the set amount, not the money left.
+  - Without a set budget, income **becomes** the budget (`availableBudget(null, 10000)`
+    → `10000`); otherwise recorded income would mean nothing until a budget is set. A
+    period with neither is still `null`, "no budget set".
+  - A date, not `period_start`: income is an event of a day, and when the period start
+    day changes, it lands in whichever period covers that date on its own. A budget is
+    the opposite, a setting of the period, so its key is `period_start`.
+  - Its own table, not a flag in `expenses`: `sumAmounts` over `expenses` means "spent",
+    and a shared discriminator column would force **every** existing query to filter,
+    and a forgotten filter does not crash: it silently adds income into the spent total,
+    the category breakdown and the daily average.
+  - Income does not affect statistics: they show what was spent, not what is left.
+- Amounts are whole currency units in INTEGER: no floating point in money.
+- **The currency symbol is a setting, not a locale.** `app_settings.currency_symbol` (a
+  free string of up to three characters, default `₽`) and `currency_position` (`prefix`
+  / `suffix`, default `suffix`). An empty string is a full value: it is the bare number
+  the app used to show; a missing row is still the default. No ICU, no exchange rates, no
+  network: `formatAmount` prints the symbol next to the number, and the minus stays in
+  front of the whole amount (`-$5`). Inside components, the `use-money` hook does the
+  formatting, so a symbol change redraws every screen without a restart. The symbol does
+  not affect stored amounts.
+- **The daily average** (`spendingPerDay`) is the current period's total divided by its
+  **elapsed days**, not by days with expenses: the question is what a day of life costs,
+  and empty days are part of the answer. It is computed only for the **current** period
+  and only if something was spent in it; it lives on the statistics screen under the
+  period total. There is no end-of-period forecast: early in a period it multiplied one
+  expense by nearly the whole length and lied.
+- A category with expenses is deleted together with moving its expenses to "Прочее"
+  (Other) (`deleteExpenseCategoryReassigning`): the money stays in its period's total,
+  and only the breakdown by that category disappears. "Прочее" is restored from the
+  archive in the process, or recreated if it was deleted earlier. "Прочее" itself cannot
+  be deleted while it has expenses, since there is nowhere to move them; archiving
+  remains for it.
 
-## Резервные копии
+## Backups
 
-- Бэкап только ручной: экспорт открывает share sheet, импорт заменяет данные целиком.
-- Дата последнего успешного экспорта лежит в `app_settings.last_export_at` — ключ даты
-  `YYYY-MM-DD`, локальный день. Пишется **после** того, как share sheet закрылся: экспорт,
-  который не дошёл до файла, не должен сбрасывать напоминание. Отличить сохранение от
-  отмены система не даёт — закрытый sheet считается экспортом.
-- Файл резервной копии несёт дату *своего* экспорта: строка `last_export_at` подменяется
-  в момент сериализации, иначе восстановленная на новом устройстве копия утверждала бы,
-  что последний бэкап был раньше неё самой.
-- Подсказка в настройках (`backupStatus`, `lib/backup-status.ts`) имеет четыре состояния:
-  `idle` — пустое приложение без экспорта, не говорит ничего; `never` — есть данные и нет
-  копии; `fresh` — копия не старше `BACKUP_STALE_AFTER_DAYS` (30); `stale` — старше, и
-  тогда строка красится в `warning`. Нечитаемое значение в строке настроек трактуется как
-  «копии не было»: это безопасная сторона ошибки.
+- Backup is manual only: export opens the share sheet, import replaces all data.
+- The date of the last successful export is in `app_settings.last_export_at`, a
+  `YYYY-MM-DD` date key for the local day. It is written **after** the share sheet
+  closes: an export that never reached a file must not reset the reminder. The system
+  does not let us tell a save from a cancel, so a closed sheet counts as an export.
+- A backup file carries the date of *its own* export: the `last_export_at` row is
+  substituted at serialization time; otherwise a copy restored on a new device would
+  claim the last backup happened before the copy itself.
+- The hint in settings (`backupStatus`, `lib/backup-status.ts`) has four states: `idle`,
+  an empty app without an export, says nothing; `never`, there is data and no copy;
+  `fresh`, the copy is no older than `BACKUP_STALE_AFTER_DAYS` (30); `stale`, older, and
+  then the line is painted `warning`. An unreadable value in the settings row is treated
+  as "no copy was made": the safe side of the error.
 
-## Уведомления
+## Notifications
 
-- Только локальные. Любая мутация — правка привычки, архивация, удаление, импорт, смена
-  языка — вызывает **полный пересчёт** под мьютексом:
-  `cancelAllScheduledNotificationsAsync()` и планирование заново. Инкрементальная правка —
-  источник рассинхрона, а все уведомления в системе наши, так что «отменить всё» безопасно.
-- Текст попадает в систему в момент планирования, а не показа — поэтому смена языка тоже
-  требует пересчёта.
-- У баннера есть кнопка **«Отметить»** (категория `habitreminder`, действие `mark`,
-  `opensAppToForeground: false`): нажатие пишет **+1 к цели** за день, **когда уведомление
-  было доставлено**, и никогда не сбрасывает счётчик в 0 — из баннера не видно, что день
-  только что очистили. Достигнутая цель нажатием не меняется, удалённая или архивная
-  привычка игнорируется. Заголовок кнопки, как и текст, читается системой из того, что
-  было зарегистрировано, — смена языка перерегистрирует категорию тем же пересчётом.
-- **Привычки с одинаковым временем склеиваются в одно уведомление**
-  (`buildReminderPlans`, `lib/reminder-plan.ts`). План строится по времени, а внутри
-  времени — по дням недели: если во все семь дней набор привычек одинаковый, это один
-  `DAILY`-триггер, иначе по одному `CALENDAR` на каждый непустой день. Для одной привычки
-  правило вырождается в прежнее «все 7 дней — один триггер». Заголовок общего уведомления —
-  «3 привычки сегодня», текст — эмодзи и названия через `·`, в порядке `sort_order`.
-- У общего уведомления **нет** категории и, значит, кнопки «Отметить»: она пишет отметку
-  одной привычке, а баннер с тремя не говорит какой. `data` у него без `habitId` — этого
-  достаточно, чтобы `applyReminderMark` пропустил ответ.
-- Лимит iOS — 64 запланированных уведомления, повторяющиеся считаются каждое. Склейка
-  выше и делает потолок достижимым: стоимость расписания зависит от числа **разных
-  времён** (максимум 7 запросов на время), а не от числа привычек. При
-  `NOTIFICATION_WARNING_THRESHOLD` (55) настройки показывают предупреждение, а не молча
-  теряют напоминания.
+- Local only. Any mutation (editing a habit, archiving, deleting, importing, changing the
+  language) triggers a **full recomputation** under a mutex:
+  `cancelAllScheduledNotificationsAsync()` and scheduling again. Incremental edits are a
+  source of drift, and all notifications in the system are ours, so "cancel all" is safe.
+- The text reaches the system at scheduling time, not at display time, which is why a
+  language change also needs a recomputation.
+- The banner has a **Mark** button (category `habitreminder`, action `mark`,
+  `opensAppToForeground: false`): pressing it writes **+1 toward the target** for the
+  day **when the notification was delivered**, and never resets the counter to 0, since
+  the banner cannot show that the day was just cleared. A reached target is not changed
+  by the press; a deleted or archived habit is ignored. The button title, like the text,
+  is read by the system from what was registered, so a language change re-registers the
+  category via the same recomputation.
+- **Habits with the same time are merged into one notification** (`buildReminderPlans`,
+  `lib/reminder-plan.ts`). The plan is built per time, and within a time, per weekday:
+  if the set of habits is the same on all seven days, it is one `DAILY` trigger,
+  otherwise one `CALENDAR` trigger per non-empty day. For a single habit the rule
+  degenerates into the old "all 7 days, one trigger". The title of a merged notification
+  is "3 habits today", the body is emojis and names joined with `·`, in `sort_order`.
+- A merged notification has **no** category and therefore no Mark button: the button
+  marks one habit, and a banner with three does not say which. Its `data` has no
+  `habitId`, which is enough for `applyReminderMark` to skip the response.
+- The iOS limit is 64 scheduled notifications, with each repeating one counted. The
+  merging above is what makes the ceiling reachable: the cost of the schedule depends on
+  the number of **distinct times** (at most 7 requests per time), not on the number of
+  habits. At `NOTIFICATION_WARNING_THRESHOLD` (55), settings show a warning instead of
+  silently losing reminders.
 
-Подводные камни этих правил — в [pitfalls.md](pitfalls.md), схема — в [database.md](database.md).
+The pitfalls of these rules are in [pitfalls.md](pitfalls.md), the schema is in
+[database.md](database.md).

@@ -1,182 +1,187 @@
 ## Context
 
-Мотивация — в [proposal.md](proposal.md), требования — в
-[specs/app-store-release/spec.md](specs/app-store-release/spec.md). Здесь только то из
-текущего состояния, что определяет форму решения:
+The motivation is in [proposal.md](proposal.md), the requirements are in
+[specs/app-store-release/spec.md](specs/app-store-release/spec.md). This file holds only
+what, from the current state, shapes the solution:
 
-- `ios/` сгенерирована и лежит в `.gitignore`. Всё из `app.json` попадает в сборку
-  только через `expo prebuild` — см. [pitfalls](../../../docs/pitfalls.md).
-- `Info.plist` сейчас несёт `CFBundleShortVersionString 1.0.0` и `CFBundleVersion 1`;
-  `buildNumber` в `app.json` не задан, то есть единица — умолчание, а не решение.
-- Манифест приватности (`ios/HabbitsLine/PrivacyInfo.xcprivacy`) уже генерируется и уже
-  верен: `NSPrivacyTracking false`, `NSPrivacyCollectedDataTypes` пуст, три причины
-  доступа к API от библиотек Expo.
-- `TARGETED_DEVICE_FAMILY = 1` — приложение только для iPhone; iPad-скриншоты не нужны.
-- В рабочей копии из `app.json` удалён плагин `expo-notifications`; по решению владельца
-  это откатывается — напоминания входят в первый релиз.
-- Ни `eas.json`, ни `eas-cli`, ни аккаунта Expo в проекте нет. `openspec/specs/` пуст:
-  это первая capability проекта.
-- Новых зависимостей не добавляем без отдельного разрешения (правило из `AGENTS.md`),
-  поэтому раздел «О приложении» строится на уже установленных `expo-constants` и
-  `expo-linking`.
+- `ios/` is generated and sits in `.gitignore`. Everything from `app.json` reaches the
+  build only through `expo prebuild`; see [pitfalls](../../../docs/pitfalls.md).
+- `Info.plist` currently carries `CFBundleShortVersionString 1.0.0` and
+  `CFBundleVersion 1`; `buildNumber` is not set in `app.json`, so the one is a default,
+  not a decision.
+- The privacy manifest (`ios/HabbitsLine/PrivacyInfo.xcprivacy`) is already generated
+  and already correct: `NSPrivacyTracking false`, `NSPrivacyCollectedDataTypes` empty,
+  three API access reasons from Expo libraries.
+- `TARGETED_DEVICE_FAMILY = 1`: the app is iPhone-only; iPad screenshots are not needed.
+- In the working copy the `expo-notifications` plugin was removed from `app.json`; by the
+  owner's decision this is reverted, since reminders are part of the first release.
+- The project has no `eas.json`, no `eas-cli` and no Expo account. `openspec/specs/` is
+  empty: this is the project's first capability.
+- No new dependencies without separate permission (a rule from `AGENTS.md`), so the
+  About section is built on the already installed `expo-constants` and `expo-linking`.
 
 ## Goals / Non-Goals
 
 **Goals:**
 
-- Один задокументированный путь от `app.json` до сборки в App Store Connect, который
-  повторяется через полгода по одному документу.
-- Артефакты листинга (метаданные, скриншоты, политика) лежат в репозитории и
-  версионируются вместе с кодом.
-- Ничего секретного в репозитории.
+- One documented path from `app.json` to a build in App Store Connect, repeatable six
+  months later from a single document.
+- Listing artifacts (metadata, screenshots, policy) live in the repository and are
+  versioned together with the code.
+- Nothing secret in the repository.
 
 **Non-Goals:**
 
-- Облачная сборка EAS Build и её кредлы — сборка остаётся локальной, EAS используется
-  только как загрузчик.
-- CI-автоматизация релиза: существующий `ci.yml` остаётся как есть, выпуск запускается
-  руками.
-- EAS Update / OTA — вне этой задачи.
-- Android и веб — намеренно не поддерживаются (`"platforms": ["ios"]`).
-- Изменение прикладной логики, схемы БД и расчётов.
+- EAS Build cloud builds and their credentials: the build stays local, EAS is used only
+  as an uploader.
+- CI automation of the release: the existing `ci.yml` stays as is, and a release is
+  started by hand.
+- EAS Update / OTA: out of scope for this task.
+- Android and web: deliberately unsupported (`"platforms": ["ios"]`).
+- Changes to app logic, the DB schema or calculations.
 
 ## Decisions
 
-### Сборка локальная, отправка через `eas submit`
+### Local build, submission via `eas submit`
 
-Xcode собирает и подписывает архив (автоматическая подпись под учётной записью Apple
-Developer), экспорт даёт `.ipa`, дальше `npx eas-cli@latest submit -p ios --path <ipa>`.
+Xcode builds and signs the archive (automatic signing under the Apple Developer
+account), the export yields an `.ipa`, then `npx eas-cli@latest submit -p ios --path <ipa>`.
 
-Почему не EAS Build: облачная сборка — платные минуты и вторая система управления
-кредлами ради одного разработчика с уже работающим локальным `expo run:ios`.
-Почему не выгрузка прямо из Xcode Organizer: параметры загрузки (какое приложение, какая
-команда) остаются кликами в GUI, а не строчками в репозитории, — а требование
-воспроизводимости отправки как раз про это. `eas submit` кладёт их в `eas.json`.
+Why not EAS Build: cloud builds mean paid minutes and a second credential management
+system for a single developer who already has a working local `expo run:ios`.
+Why not uploading straight from the Xcode Organizer: the upload parameters (which app,
+which team) stay as clicks in a GUI rather than lines in the repository, and the
+submission reproducibility requirement is exactly about that. `eas submit` puts them in
+`eas.json`.
 
-Плата за это: `eas submit` требует привязки проекта — `eas init` допишет
-`extra.eas.projectId` в `app.json` и потребует аккаунт Expo. Отправка не тратит
-build-минуты.
+The price: `eas submit` requires linking the project. `eas init` will add
+`extra.eas.projectId` to `app.json` and requires an Expo account. Submission does not
+spend build minutes.
 
-Альтернатива на случай, если аккаунт Expo окажется нежелателен: `xcrun altool`
-/ Transporter с тем же ключом App Store Connect API. Тогда `eas.json` не нужен, а
-параметры загрузки переезжают в скрипт `npm run submit:ios`. Решение обратимо: в обоих
-случаях вход — `.ipa`, а ключ один и тот же.
+The alternative, in case an Expo account turns out to be undesirable: `xcrun altool` /
+Transporter with the same App Store Connect API key. Then `eas.json` is not needed, and
+the upload parameters move into an `npm run submit:ios` script. The decision is
+reversible: in both cases the input is an `.ipa` and the key is the same.
 
-### `appVersionSource: "local"`, номер сборки — руками
+### `appVersionSource: "local"`, build number by hand
 
-Удалённое версионирование EAS считает номера по своим сборкам. Сборок в EAS не будет,
-поэтому источник истины — `app.json`, а `ios.buildNumber` поднимается вручную шагом
-релизного порядка. `autoIncrement` неприменим: он живёт в `eas build`.
+EAS remote versioning counts numbers by its own builds. There will be no builds in EAS,
+so the source of truth is `app.json`, and `ios.buildNumber` is bumped by hand as a step
+of the release order. `autoIncrement` does not apply: it lives in `eas build`.
 
-Отсюда же вытекает главная грабля порядка: `buildNumber` меняется в `app.json`, но в
-бинарник попадает только через `prebuild`. В `docs/release.md` бамп и prebuild стоят
-одним шагом, а не двумя.
+This is also where the main pitfall of the order comes from: `buildNumber` changes in
+`app.json` but reaches the binary only through `prebuild`. In `docs/release.md` the bump
+and the prebuild are one step, not two.
 
-### Ключ App Store Connect API — вне репозитория, через переменные окружения
+### The App Store Connect API key stays outside the repository, via environment variables
 
-В `eas.json` профиль `submit.production.ios` задаёт `ascAppId` и `appleTeamId` (не
-секреты — идентификаторы), а сам ключ передаётся через `EXPO_ASC_API_KEY_PATH`,
-`EXPO_ASC_API_KEY_ISSUER_ID`, `EXPO_ASC_API_KEY_ID`. Путь `ascApiKeyPath` в `eas.json`
-не пишем: он провоцирует положить `.p8` рядом с проектом. `.gitignore` уже закрывает
-`*.p8` — это остаётся страховкой, а не механизмом.
+In `eas.json` the `submit.production.ios` profile sets `ascAppId` and `appleTeamId`
+(identifiers, not secrets), and the key itself is passed via `EXPO_ASC_API_KEY_PATH`,
+`EXPO_ASC_API_KEY_ISSUER_ID`, `EXPO_ASC_API_KEY_ID`. We do not write an `ascApiKeyPath`
+into `eas.json`: it invites putting the `.p8` next to the project. `.gitignore` already
+covers `*.p8`; that remains a safety net, not the mechanism.
 
-Альтернатива — Apple ID с app-specific password — отвергнута: пароль в окружении и 2FA
-на каждом шаге против одноразового ключа.
+The alternative, an Apple ID with an app-specific password, was rejected: a password in
+the environment and 2FA at every step versus a one-time key.
 
-### Метаданные: `store.config.json` в репозитории, первый релиз — руками
+### Metadata: `store.config.json` in the repository, first release by hand
 
-`store.config.json` пишется сразу и становится источником истины для названия,
-подзаголовка, описания, ключевых слов, категорий, рейтинга и контактов на `ru` и
-`en-US`. Но `eas metadata:push` в превью и требует, чтобы бинарник уже был отправлен, —
-поэтому **первое** заполнение App Store Connect делается руками копированием из этого
-файла, а `metadata:push` включается со второго релиза. Документ описывает оба состояния.
+`store.config.json` is written right away and becomes the source of truth for the name,
+subtitle, description, keywords, categories, rating and contacts in `ru` and `en-US`.
+But `eas metadata:push` is in preview and requires a binary to have been submitted
+already, so the **first** filling of App Store Connect is done by hand, copying from this
+file, and `metadata:push` comes in from the second release. The document describes both
+states.
 
-Позиционирование, из которого пишется текст: офлайн-трекер привычек и трат, без
-аккаунтов и без сети. «Не собирает данные» — единственное реальное отличие от
-переполненной категории, поэтому оно идёт в подзаголовок, а не в конец описания.
-Категории: `PRODUCTIVITY` первичная, `HEALTH_AND_FITNESS` вторичная — трекер привычек
-ищут в обеих, но привычки+траты ближе к продуктивности, чем к фитнесу.
+The positioning the copy is written from: an offline habit and expense tracker, no
+accounts and no network. "Collects no data" is the only real differentiator in a crowded
+category, so it goes into the subtitle, not the end of the description. Categories:
+`PRODUCTIVITY` primary, `HEALTH_AND_FITNESS` secondary. People look for a habit tracker
+in both, but habits plus expenses are closer to productivity than to fitness.
 
-### Скриншоты: seed-база + `simctl`, iPhone 17 Pro Max
+### Screenshots: seed database + `simctl`, iPhone 17 Pro Max
 
-Требуемый размер — 6.9″, 1320 × 2868; из установленных симуляторов ему отвечает
-iPhone 17 Pro Max. iPad не нужен (`TARGETED_DEVICE_FAMILY = 1`).
+The required size is 6.9″, 1320 × 2868; among the installed simulators, iPhone 17 Pro
+Max matches it. iPad is not needed (`TARGETED_DEVICE_FAMILY = 1`).
 
-Съёмка воспроизводима только при фиксированных данных, поэтому скрипт: терминирует
-приложение → подменяет `Documents/SQLite/habits.db` в контейнере симулятора на
-сгенерированную демо-базу → запускает приложение диплинком на нужный экран →
-`xcrun simctl io booted screenshot`. Это тот же приём, что уже описан в `AGENTS.md`
-для проверки экранов; здесь он оформляется скриптом, а демо-база генерируется из
-детерминированного сида, а не хранится бинарником в репозитории.
+Shooting is reproducible only with fixed data, so the script: terminates the app →
+replaces `Documents/SQLite/habits.db` in the simulator container with a generated demo
+database → launches the app with a deep link to the right screen →
+`xcrun simctl io booted screenshot`. It is the same technique `AGENTS.md` already
+describes for checking screens; here it becomes a script, and the demo database is
+generated from a deterministic seed rather than stored as a binary in the repository.
 
-Ограничение, принятое сознательно: экраны, до которых не дотянуться диплинком (открытые
-шиты, выбранная категория), в набор не входят — синтетические тапы в симуляторе не
-работают. Набор строится из корневых экранов вкладок.
+A limitation accepted deliberately: screens a deep link cannot reach (open sheets, a
+selected category) are not in the set, since synthetic taps do not work in the
+simulator. The set is built from the root screens of the tabs.
 
-### Политика конфиденциальности: markdown в `docs/`, публикация через GitHub Pages
+### Privacy policy: markdown in `docs/`, published via GitHub Pages
 
-Текст живёт в репозитории на двух языках, публичный URL даёт GitHub Pages того же
-репозитория. Это добавляет ноль инфраструктуры и держит текст рядом с кодом, который он
-описывает.
+The text lives in the repository in two languages, and GitHub Pages of the same
+repository provides the public URL. This adds zero infrastructure and keeps the text
+next to the code it describes.
 
-Условие: репозиторий должен быть публичным (Pages на приватном репозитории требует
-платного плана). Это проверяется первым шагом; если репозиторий приватный —
-альтернатива — публичный gist, URL которого стабилен. Выбор влияет только на значение
-`privacyPolicyUrl`, не на текст и не на остальные задачи.
+The condition: the repository has to be public (Pages on a private repository requires
+a paid plan). This is checked as the first step; if the repository is private, the
+alternative is a public gist with a stable URL. The choice affects only the value of
+`privacyPolicyUrl`, not the text or the other tasks.
 
-### Раздел «О приложении»: `expo-constants`, без новой зависимости
+### About section: `expo-constants`, no new dependency
 
-Версия и номер сборки читаются из `Constants.expoConfig` (`version`,
-`ios.buildNumber`), ссылка открывается `Linking.openURL`. Канонический источник для
-нативных номеров — `expo-application`
-(`nativeApplicationVersion` / `nativeBuildVersion`), и `Constants.nativeAppVersion`
-помечен как устаревший в его пользу, — но это новая зависимость, а правило требует
-спросить. `Constants.expoConfig` не устарел и читает встроенный в сборку манифест,
-собранный из того же `app.json`, из которого prebuild пишет `Info.plist`.
+The version and build number are read from `Constants.expoConfig` (`version`,
+`ios.buildNumber`), and the link is opened with `Linking.openURL`. The canonical source
+for native numbers is `expo-application` (`nativeApplicationVersion` /
+`nativeBuildVersion`), and `Constants.nativeAppVersion` is deprecated in its favor, but
+that is a new dependency, and the rule says to ask. `Constants.expoConfig` is not
+deprecated and reads the manifest embedded in the build, produced from the same
+`app.json` from which prebuild writes `Info.plist`.
 
-Плата: если `prebuild` не прогнан после правки `app.json`, экран покажет новые номера,
-а бинарник понесёт старые. Приёмка сверяет то, что на экране, с `Info.plist` собранного
-архива — и именно поэтому этот пункт стоит в чек-листе.
+The price: if `prebuild` is not run after an edit to `app.json`, the screen will show
+the new numbers while the binary carries the old ones. Acceptance compares what is on
+screen with the built archive's `Info.plist`, and that is exactly why this item is on
+the checklist.
 
-Раздел ставится в конец экрана настроек — это справочная информация, а не настройка.
+The section goes at the end of the settings screen: it is reference information, not a
+setting.
 
 ## Risks / Trade-offs
 
-- **`prebuild` не прогнан после правки `app.json`** → сборка уходит со старым
-  `buildNumber` или без плагина уведомлений, App Store Connect отвечает отказом на
-  «bundle version must be higher». Митигация: бамп и prebuild — один шаг в
-  `docs/release.md`, а сверка `Info.plist` — обязательный пункт приёмки.
-- **Аккаунт Expo только ради `eas submit`** → лишняя зависимость от внешнего сервиса в
-  проекте, который гордится отсутствием сети. Митигация: решение обратимо, запасной путь
-  (`altool` с тем же ключом) описан выше; в репозитории от EAS остаются `eas.json` и
-  `extra.eas.projectId`.
-- **Репозиторий приватный, Pages недоступен** → нет URL для политики. Митигация:
-  проверяется первым шагом задачи, запасной вариант — публичный gist.
-- **`eas metadata:push` в превью** → может измениться или сломаться. Митигация: файл
-  всё равно остаётся полезным как источник для ручного заполнения; порядок выпуска не
-  зависит от того, работает ли `push`.
-- **Отказ ревью по «minimum functionality» (Guideline 4.2)** → риск для любого простого
-  трекера. Митигация: скриншоты и описание показывают привычки, траты, бюджет и
-  статистику вместе, а не один экран со списком.
-- **Демо-база расходится с реальным поведением** → скриншоты показывают то, чего в
-  приложении нет. Митигация: сид кладётся в базу через те же таблицы и те же правила
-  валидности, что и приложение, а скриншоты снимаются с настоящей сборки, не рисуются.
-- **Раздел «О приложении» — единственное изменение UI** → трогает файл, который в
-  остальном к задаче не относится. Митигация: локализованный аддон в конце экрана, без
-  правки существующих секций.
+- **`prebuild` not run after an edit to `app.json`** → the build ships with an old
+  `buildNumber` or without the notifications plugin, and App Store Connect rejects it
+  with "bundle version must be higher". Mitigation: the bump and prebuild are one step
+  in `docs/release.md`, and checking `Info.plist` is a mandatory acceptance item.
+- **An Expo account just for `eas submit`** → an extra dependency on an external service
+  in a project that prides itself on having no network. Mitigation: the decision is
+  reversible, the fallback (`altool` with the same key) is described above; what EAS
+  leaves in the repository is `eas.json` and `extra.eas.projectId`.
+- **The repository is private, Pages is unavailable** → no URL for the policy.
+  Mitigation: checked as the first step of the task; the fallback is a public gist.
+- **`eas metadata:push` is in preview** → it may change or break. Mitigation: the file
+  stays useful as the source for manual filling; the release order does not depend on
+  whether `push` works.
+- **Review rejection for "minimum functionality" (Guideline 4.2)** → a risk for any
+  simple tracker. Mitigation: the screenshots and description show habits, expenses,
+  budget and statistics together, not a single screen with a list.
+- **The demo database diverges from real behavior** → screenshots show what the app does
+  not have. Mitigation: the seed goes into the database through the same tables and the
+  same validity rules as the app, and the screenshots are taken from a real build, not
+  drawn.
+- **The About section is the only UI change** → it touches a file otherwise unrelated to
+  the task. Mitigation: a localized addition at the end of the screen, with no edits to
+  existing sections.
 
 ## Migration Plan
 
-Миграции данных нет: схема БД, расчёты и существующие экраны не меняются, у
-пользователей приложения пока нет. Порядок выката — это и есть первый выпуск, он
-описан в `docs/release.md`. Откат до отправки — обычный `git revert` плюс `prebuild`;
-после отправки сборка в App Store Connect отзывается («Reject this build») и заменяется
-следующей с поднятым `buildNumber`.
+There is no data migration: the DB schema, calculations and existing screens do not
+change, and the app has no users yet. The rollout order is the first release itself,
+described in `docs/release.md`. Rollback before submission is a plain `git revert` plus
+`prebuild`; after submission the build in App Store Connect is withdrawn ("Reject this
+build") and replaced by the next one with a bumped `buildNumber`.
 
 ## Open Questions
 
-- Значения `ascAppId` и `appleTeamId` для `eas.json` появятся только после создания
-  записи приложения в App Store Connect. До этого поля остаются с явными плейсхолдерами
-  — на форму решения это не влияет.
-- Финальные формулировки названия и подзаголовка (по 30 символов на язык) уточняются
-  при заполнении `store.config.json`; проверка длин — часть задачи.
+- The values of `ascAppId` and `appleTeamId` for `eas.json` will exist only after the
+  app record is created in App Store Connect. Until then the fields keep explicit
+  placeholders; this does not affect the shape of the solution.
+- The final wording of the name and subtitle (30 characters each per language) is
+  settled while filling in `store.config.json`; checking the lengths is part of the task.

@@ -1,162 +1,166 @@
-# Грабли
+# Pitfalls
 
-Места, где уже ломалось или где решение неочевидно. Читать перед тем, как трогать
-соответствующую область.
+Places where things have already broken or where the right choice is not obvious. Read
+before touching the corresponding area.
 
-## `ios/` не пересобирается сам
+## `ios/` does not regenerate itself
 
-Папка сгенерированная и лежит в `.gitignore`, но собирается-то из неё. Всё, что приходит
-из `app.json` — отображаемое имя, иконка, splash, bundle id — попадает в сборку только
-через `npx expo prebuild --platform ios`. Один раз это уже стоило релизу неправильного
-имени под иконкой. **Тронул `app.json` — прогони prebuild и проверь
-`ios/HabbitsLine/Info.plist`, а не только `expo config`.**
+The folder is generated and sits in `.gitignore`, but the build is made from it.
+Everything that comes from `app.json` (display name, icon, splash, bundle id) reaches the
+build only through `npx expo prebuild --platform ios`. This has already cost one release
+the wrong name under the icon. **Touched `app.json`? Run prebuild and check
+`ios/HabbitsLine/Info.plist`, not just `expo config`.**
 
-## `buildNumber` живёт в `app.json`, а проверяется в `Info.plist`
+## `buildNumber` lives in `app.json` but is checked in `Info.plist`
 
-Частный случай грабли выше, но стоит отдельно, потому что цена другая: App Store Connect
-отклоняет загрузку с номером, который уже был, — «The bundle version must be higher».
-Поднять `ios.buildNumber` в `app.json` и не прогнать prebuild значит собрать архив со
-старым `CFBundleVersion` и узнать об этом только на загрузке, после архивации. Поэтому в
-[release.md](release.md) бамп и prebuild — один шаг, а `plutil -p` по `Info.plist` стоит
-сразу за ним.
+A special case of the pitfall above, listed separately because the cost is different:
+App Store Connect rejects an upload with a number that has been used before ("The bundle
+version must be higher"). Bumping `ios.buildNumber` in `app.json` without running
+prebuild means building an archive with the old `CFBundleVersion` and finding out only
+at upload, after archiving. That is why in [release.md](release.md) the bump and the
+prebuild are one step, with `plutil -p` over `Info.plist` right after it.
 
-Туда же попадает `ios.config.usesNonExemptEncryption`: в публичном конфиге
-(`expo config --type public`) его не видно вообще, он существует только как
-`ITSAppUsesNonExemptEncryption` в собранном `Info.plist`. Проверять его по `expo config`
-бесполезно — только по plist.
+The same goes for `ios.config.usesNonExemptEncryption`: it does not appear in the public
+config (`expo config --type public`) at all; it exists only as
+`ITSAppUsesNonExemptEncryption` in the built `Info.plist`. Checking it via `expo config`
+is useless; only the plist tells.
 
-## Диплинк в симуляторе больше не молчаливый
+## Deep links in the simulator are no longer silent
 
-iOS 26 показывает системный диалог «Открыть в приложении?» на любой custom scheme, и
-`xcrun simctl openurl` не исключение. URL при этом **доставляется** — приложение
-переходит куда сказано, — но диалог остаётся оверлеем поверх экрана. Убрать его нечем:
-тапнуть нельзя, Escape с клавиатуры симулятора он игнорирует, второй объявленный scheme
-(`com.mar1798.habbits-line://`) ведёт себя так же.
+iOS 26 shows a system "Open in app?" dialog for any custom scheme, and
+`xcrun simctl openurl` is no exception. The URL **is delivered** (the app navigates where
+it is told), but the dialog stays as an overlay on top of the screen. There is no way to
+dismiss it: it cannot be tapped, it ignores Escape from the simulator keyboard, and the
+second declared scheme (`com.mar1798.habbits-line://`) behaves the same.
 
-Для проверки поведения это не мешает — диплинк работает. Мешает для скриншотов: кадр
-испорчен. Там вкладка ставится кодом через Fast Refresh, см.
-[release.md](release.md), шаг 7.
+It does not get in the way of checking behavior, since the deep link works. It does get
+in the way of screenshots: the frame is spoiled. There, the tab is set in code via Fast
+Refresh; see [release.md](release.md), step 7.
 
-## Ответ на кнопку в уведомлении приходит не сразу и датируется доставкой
+## A notification button response arrives late and is dated by delivery
 
-Действие `mark` объявлено с `opensAppToForeground: false`, а фонового таска нет:
-`registerTaskAsync` тянет за собой `expo-task-manager`, новую зависимость. Пока
-приложение живо, нажатие приезжает в `addNotificationResponseReceivedListener`. Если
-приложение выгружено — ответ **копится в системе** и виден только следующему запуску
-через `getLastNotificationResponse()`, то есть, возможно, через несколько дней.
+The `mark` action is declared with `opensAppToForeground: false`, and there is no
+background task: `registerTaskAsync` pulls in `expo-task-manager`, a new dependency.
+While the app is alive, the press arrives in `addNotificationResponseReceivedListener`.
+If the app has been unloaded, the response **accumulates in the system** and is visible
+only to the next launch via `getLastNotificationResponse()`, possibly days later.
 
-Отсюда два правила в `applyReminderMark`:
+Hence two rules in `applyReminderMark`:
 
-- День берётся из `notification.date` — момента **доставки**, а не `todayKey()`, иначе
-  отложенное нажатие отметит не тот день.
-- `notification.date` на iOS — **секунды** (`timeIntervalSince1970` в нативной записи, без
-  `* 1000`), хотя тип тот же `number`, в который Android кладёт миллисекунды. Отсюда
-  `* 1000` при разборе; приложение iOS-only, так что ветки под Android нет.
+- The day comes from `notification.date`, the moment of **delivery**, not from
+  `todayKey()`; otherwise a delayed press would mark the wrong day.
+- On iOS, `notification.date` is in **seconds** (`timeIntervalSince1970` in the native
+  record, no `* 1000`), even though the type is the same `number` that Android fills with
+  milliseconds. Hence the `* 1000` when parsing; the app is iOS-only, so there is no
+  Android branch.
 
-И третье — в `_layout.tsx`: сохранённый ответ чистится `clearLastNotificationResponse()`
-**в обеих ветках**, а не только на холодном старте. Система отдаёт его на каждом
-следующем запуске, так что необнулённый ответ не просто увёл бы на «Сегодня» ещё раз, а
-применил бы ту же отметку второй раз.
+And a third one in `_layout.tsx`: the stored response is cleared with
+`clearLastNotificationResponse()` **in both branches**, not only on a cold start. The
+system hands it over on every subsequent launch, so an uncleared response would not
+just navigate to Today again but apply the same mark a second time.
 
-## `PRAGMA foreign_keys` — настройка соединения
+## `PRAGMA foreign_keys` is a connection setting
 
-Живёт в начале `migrate()`, до проверки `user_version`. Спрятанная в блок миграции, она
-со второго запуска молча выключает каскадное удаление. См. [database.md](database.md).
+It lives at the start of `migrate()`, before the `user_version` check. Tucked into a
+migration block, it silently disables cascading deletes from the second launch on. See
+[database.md](database.md).
 
-## Эксклюзивная транзакция открывает новое соединение
+## An exclusive transaction opens a new connection
 
-Импорт идёт через `withExclusiveTransactionAsync` (обычная транзакция захватывает
-посторонние параллельные запросы), а это **новое соединение**, где `foreign_keys` не
-включён. Поэтому импорт не полагается на каскад и проверяет ссылки сам.
+Import runs through `withExclusiveTransactionAsync` (a regular transaction captures
+unrelated concurrent queries), and that is a **new connection** where `foreign_keys` is
+not enabled. So import does not rely on the cascade and checks references itself.
 
-## Нумерация дней недели — три разные системы
+## Weekday numbering: three different systems
 
-У нас бит 0 = понедельник; у `date-fns` `getDay()` 0 = воскресенье; у
-`CalendarTriggerInput` / `WeeklyTriggerInput` `weekday: 1` = воскресенье. Обе конвертации
-живут ровно в одном месте — [`src/lib/schedule.ts`](../src/lib/schedule.ts) — и покрыты
-тестами. Не конвертируй на месте использования.
+Ours: bit 0 = Monday; `date-fns` `getDay()`: 0 = Sunday; `CalendarTriggerInput` /
+`WeeklyTriggerInput`: `weekday: 1` = Sunday. Both conversions live in exactly one place,
+[`src/lib/schedule.ts`](../src/lib/schedule.ts), and are covered by tests. Do not
+convert at the call site.
 
-## Недоверенные данные из импорта
+## Untrusted data from import
 
-Файл бэкапа — единственный вход, через который в базу попадает то, чего UI создать не
-может. Схема проверяет типы, но не значения, поэтому проверки живут в
-[`src/lib/backup.ts`](../src/lib/backup.ts), а расчёты держат запас прочности:
-`forEachDateKey` на невалидном ключе отдаёт пустой стрик вместо `RangeError` из рендера,
-а `scheduleForHabit` пропускает привычку с битым `reminder_time`, а не роняет пересчёт
-для всех остальных.
+The backup file is the only entry point through which the database receives things the
+UI cannot create. The schema checks types but not values, so the checks live in
+[`src/lib/backup.ts`](../src/lib/backup.ts), and the calculations keep a safety margin:
+`forEachDateKey` on an invalid key returns an empty streak instead of a `RangeError`
+from render, and `scheduleForHabit` skips a habit with a broken `reminder_time` instead
+of failing the recomputation for all the others.
 
-## Стоимость расчёта стриков
+## The cost of computing streaks
 
-`computeStreaks` идёт по дням линейно по всей истории и делает это на каждый пересчёт
-«Статистики». С `parse`/`format` из date-fns на каждой итерации это 35 мс на трёх годах и
-59 мс на десяти (desktop Node; на устройстве в 3–5 раз больше). Поэтому обход вынесен в
-`forEachDateKey`, который ведёт один мутируемый `Date` и собирает ключ вручную: те же
-данные считаются за 2 и 7 мс. Дальнейший шаг, если история дорастёт до десятилетий, —
-считать `best` инкрементально.
+`computeStreaks` walks the days linearly over the whole history, on every recomputation
+of Stats. With date-fns `parse`/`format` on each iteration, that is 35 ms over three
+years and 59 ms over ten (desktop Node; 3–5× more on a device). So the walk moved into
+`forEachDateKey`, which keeps one mutable `Date` and builds the key by hand: the same
+data takes 2 and 7 ms. The next step, if the history grows to decades, is to compute
+`best` incrementally.
 
-## `listAllEntries` читает всю таблицу на каждый фокус вкладки
+## `listAllEntries` reads the whole table on every tab focus
 
-`SELECT * FROM entries ORDER BY date ASC` без границ, на каждый `isFocused` в
-`(tabs)/stats.tsx`. Так сделано намеренно: после загрузки переключение между привычками
-становится чистой деривацией без похода в базу. Но цена растёт линейно и навсегда —
-верхней границы у таблицы нет. Замерено: 1 286 строк — 3 мс на все карточки, 7 670 — 12 мс,
-38 406 — 49 мс (desktop Node, на устройстве кратно больше). На сегодняшних объёмах это
-дёшево; если станет дорого, сузить выборку там, где логика и так подразумевает окно
-(хитмап — год, дни недели — 90 дней).
+`SELECT * FROM entries ORDER BY date ASC` with no bounds, on every `isFocused` in
+`(tabs)/stats.tsx`. This is intentional: after the load, switching between habits
+becomes pure derivation with no trip to the database. But the cost grows linearly and
+forever: the table has no upper bound. Measured: 1,286 rows take 3 ms for all cards,
+7,670 take 12 ms, 38,406 take 49 ms (desktop Node, several times more on a device). At
+today's volumes this is cheap; if it gets expensive, narrow the query where the logic
+already implies a window (heatmap: one year, weekdays: 90 days).
 
-## Барреля из date-fns не бывает
+## There is no such thing as a date-fns barrel
 
-Metro не делает tree-shaking: `import { format } from 'date-fns'` затаскивает в бандл все
-310 модулей библиотеки. Импортировать только глубоко — `date-fns/format`. Проверяется
-измерением, а не рассуждением: см. «Измерения» в [AGENTS.md](../AGENTS.md).
+Metro does not tree-shake: `import { format } from 'date-fns'` drags all 310 modules of
+the library into the bundle. Import only deep: `date-fns/format`. This is verified by
+measurement, not reasoning: see "Measurements" in [AGENTS.md](../AGENTS.md).
 
-## Expo Go против dev build
+## Expo Go vs dev build
 
-Локальные уведомления в Expo Go работают (недоступны там только push). Но поведение splash
-при запуске по тапу на уведомление отличается от настоящего — **напоминания проверяются
-только на dev build.**
+Local notifications work in Expo Go (only push is unavailable there). But the splash
+behavior on a launch from a notification tap differs from the real one: **reminders are
+tested on a dev build only.**
 
-## Разрешения на уведомления
+## Notification permissions
 
-На iOS смотрим `ios.status`, а не корневой `status`. Без разрешения пересчёт пропускается —
-это не ошибка. Для холодного старта по тапу нужен `getLastNotificationResponse()` и
-обязательный `clearLastNotificationResponse()` после, иначе ответ живёт дальше и
-срабатывает на каждом запуске.
+On iOS, look at `ios.status`, not the root `status`. Without permission the
+recomputation is skipped; that is not an error. A cold start from a tap needs
+`getLastNotificationResponse()` followed by a mandatory
+`clearLastNotificationResponse()`; otherwise the response lives on and fires on every
+launch.
 
 ## `reactCompiler: true`
 
-Включён в `app.json`. Ручные `useMemo` / `useCallback` не добавляем без замеренной
-проблемы — компилятор уже это делает.
+Enabled in `app.json`. Do not add manual `useMemo` / `useCallback` without a measured
+problem: the compiler already does this.
 
-Но компилятор молча сдаётся на целом файле, и об этом не узнать без проверки. Условное
-выражение внутри `try` («Support value blocks within a try/catch statement») выключает
-мемоизацию всего модуля — не одной функции. Держать тернарники и `?.` снаружи `try`,
-внутри оставлять только сам вызов. Проверяется по экспортированному бандлу: если в модуле
-нет кэш-слотов `$[n]`, файл выпал.
+But the compiler silently gives up on a whole file, and there is no way to know without
+checking. A conditional expression inside `try` ("Support value blocks within a
+try/catch statement") turns off memoization for the whole module, not one function. Keep
+ternaries and `?.` outside `try`, and leave only the call itself inside. Verify in the
+exported bundle: if a module has no `$[n]` cache slots, the file dropped out.
 
-## Фиксированная высота под текст ломается на Dynamic Type
+## A fixed height around text breaks under Dynamic Type
 
-Текст масштабируется до 1.3 (см. `clampFontScale`), а `height: 40` — нет. Коробка,
-внутри которой лежит `Text`, либо задаётся через `useScaledSize` (карточки стрика и
-восстановления, ширина под «100%» на «Сегодня»), либо живёт на `minHeight` и растёт
-сама. Проверять — `xcrun simctl ui booted content_size extra-extra-extra-large`
-(множитель 1.353, то есть ровно верхняя граница) и `content_size large` обратно.
+Text scales up to 1.3 (see `clampFontScale`), but `height: 40` does not. A box that
+holds a `Text` either gets its size from `useScaledSize` (the streak and recovery cards,
+the width for "100%" on Today) or lives on `minHeight` and grows by itself. Check with
+`xcrun simctl ui booted content_size extra-extra-extra-large` (multiplier 1.353, exactly
+the upper bound) and `content_size large` to go back.
 
-`TextInput` при этом получает только `fontSize`: с явным `lineHeight` iOS обрезает
-собственный текст поля.
+`TextInput`, meanwhile, gets only `fontSize`: with an explicit `lineHeight`, iOS clips
+the field's own text.
 
-## Плагин `expo-notifications` ломает подпись на устройство
+## The `expo-notifications` plugin breaks on-device signing
 
-Конфиг-плагин `expo-notifications` добавляет в entitlements `aps-environment` — то есть
-capability Push Notifications, которой у нас нет и не будет: напоминания только локальные.
-Provisioning-профиль без Push роняет сборку на устройство:
+The `expo-notifications` config plugin adds `aps-environment` to the entitlements, i.e.
+the Push Notifications capability, which we do not have and will not have: reminders
+are local only. A provisioning profile without Push fails the on-device build:
 
 ```
 Provisioning Profile "…" does not support the Push Notifications capability.
 Entitlements file defines the value "aps-environment" which is not registered for profile
 ```
 
-Поэтому плагина нет в `plugins` в `app.json` — сам пакет и локальные уведомления от этого
-не страдают, плагин на iOS отвечает только за `aps-environment`, кастомные звуки и
-`remote-notification`. Если `aps-environment` уже попал в
-`ios/HabbitsLine/HabbitsLine.entitlements`, prebuild его не удалит — ключ вычищается руками.
+So the plugin is not in `plugins` in `app.json`. The package itself and local
+notifications do not suffer: on iOS the plugin is only responsible for
+`aps-environment`, custom sounds and `remote-notification`. If `aps-environment` has
+already landed in `ios/HabbitsLine/HabbitsLine.entitlements`, prebuild will not remove
+it; the key has to be deleted by hand.

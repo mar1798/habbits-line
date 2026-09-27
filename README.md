@@ -1,75 +1,79 @@
 # Habbits Line
 
-Офлайн-трекер привычек для iOS. Без бэкенда, аккаунтов и сети: всё живёт в локальной
-SQLite и в локальных уведомлениях. Личный проект.
+An offline habit tracker for iOS. No backend, no accounts, no network: everything lives
+in a local SQLite database and local notifications. A personal project.
 
-## Стек
+## Stack
 
 Expo SDK 57 + expo-router, TypeScript, expo-sqlite, zustand, expo-notifications
-(только локальные), react-native-reanimated, date-fns.
-Стилизация — `StyleSheet` поверх `src/constants/design-tokens.ts`.
+(local only), react-native-reanimated, date-fns.
+Styling: `StyleSheet` on top of `src/constants/design-tokens.ts`.
 
-Кроме привычек есть траты: бюджет на период с любым днём начала (1..28), категории с
-эмодзи и цветом, полоса расходов по категориям и сравнение периодов в статистике.
+Besides habits there are expenses: a budget per period with any start day (1..28),
+categories with an emoji and a color, a spending bar by category, and period comparison
+in the statistics.
 
-Тема переключается в настройках (системная / светлая / тёмная), шрифт не масштабируется
-системным Dynamic Type. UI на русском и английском: по умолчанию русский, английский
-включается там же, в настройках. Android и веб намеренно не поддерживаются
+The theme is switched in settings (system / light / dark); the font is not scaled by
+system Dynamic Type. The UI is in Russian and English: Russian by default, English is
+switched on in the same settings. Android and web are deliberately unsupported
 (`"platforms": ["ios"]`).
 
-## Запуск
+## Running
 
 ```bash
 npm install
-npm run ios        # expo run:ios — собирает нативный проект и ставит его в симулятор
+npm run ios        # expo run:ios: builds the native project and installs it in the simulator
 ```
 
-Папка `ios/` генерируется и лежит в `.gitignore`. Она не обновляется сама: всё, что
-приходит из `app.json` (отображаемое имя, иконка, splash, bundle id), попадает в сборку
-только после `npx expo prebuild --platform ios`. После правки `app.json` — запускать его,
-иначе собирается старое.
+The `ios/` folder is generated and sits in `.gitignore`. It does not update itself:
+everything that comes from `app.json` (display name, icon, splash, bundle id) reaches the
+build only after `npx expo prebuild --platform ios`. After editing `app.json`, run it,
+or the old build is what gets made.
 
-Приложение целиком работает в Expo Go: из сетевого там нужны только локальные
-уведомления, а они в Expo Go доступны. Поведение splash при запуске по тапу на
-уведомление отличается от настоящего, поэтому напоминания проверяются на dev build.
+The whole app runs in Expo Go: the only system service it needs is local notifications,
+and those are available in Expo Go. The splash behavior on a launch from a
+notification tap differs from the real one, so reminders are tested on a dev build.
 
-Выпуск в App Store — сборка, отправка, листинг и приёмка — описан в
+Shipping to the App Store (build, upload, listing and acceptance) is described in
 [docs/release.md](docs/release.md).
 
-## Проверки
+## Checks
 
 ```bash
-npm run typecheck  # tsc --noEmit — должен проходить чисто
+npm run typecheck  # tsc --noEmit: must pass cleanly
 npm run lint
-npm test           # jest: чистая логика дат, расписаний, стриков, периодов, сумм
-                   # и плюрализации
-npm run test:tz    # тесты дат в десяти таймзонах
+npm test           # jest: pure logic for dates, schedules, streaks, periods, sums
+                   # and pluralization
+npm run test:tz    # date tests in ten timezones
 ```
 
-## Структура
+## Structure
 
 ```
 src/
-  app/            экраны expo-router: (tabs)/index|expenses|stats|settings,
+  app/            expo-router screens: (tabs)/index|expenses|stats|settings,
                   habit/new|[id], expense/new|[id]|budget, expense-category/new|[id]
-  components/     ui/* — базовые примитивы, habit/*, expense/* и stats/* — доменные
-  constants/      design-tokens.ts — единственный источник цветов, отступов, радиусов
-  db/             миграции, провайдер и репозитории поверх expo-sqlite
-  i18n/           ru.ts — источник ключей, en.ts типизирован по нему, plural.ts + тесты
-  store/          zustand: habits-store (привычки + CRUD), entries-store, settings-store,
+  components/     ui/*: base primitives; habit/*, expense/* and stats/*: domain components
+  constants/      design-tokens.ts: the single source of colors, spacing, radii
+  db/             migrations, provider and repositories on top of expo-sqlite
+  i18n/           ru.ts: source of keys, en.ts is typed against it, plural.ts + tests
+  store/          zustand: habits-store (habits + CRUD), entries-store, settings-store,
                   expense-categories-store, expenses-store
   lib/            date, schedule, streaks, period, money, expenses, notifications,
-                  backup, haptics, id + тесты
+                  backup, haptics, id + tests
   hooks/          use-theme, use-i18n, use-today-key
 ```
 
-## Документы
+## Documents
 
-- [AGENTS.md](AGENTS.md) — правила работы над проектом, команды, проверки, измерения.
-- [docs/architecture.md](docs/architecture.md) — поток данных, дерево файлов, соглашения.
-- [docs/database.md](docs/database.md) — схема БД, прагмы, правила миграций.
-- [docs/domain.md](docs/domain.md) — как считаются стрики, проценты, периоды и бюджет.
-- [docs/pitfalls.md](docs/pitfalls.md) — грабли: prebuild, таймзоны, лимит уведомлений iOS,
-  нумерация дней недели, стоимость расчёта стриков.
+- [AGENTS.md](AGENTS.md): working rules for the project, commands, checks, measurements.
+- [docs/architecture.md](docs/architecture.md): data flow, file tree, conventions.
+- [docs/database.md](docs/database.md): DB schema, pragmas, migration rules.
+- [docs/domain.md](docs/domain.md): how streaks, rates, periods and the budget are computed.
+- [docs/pitfalls.md](docs/pitfalls.md): pitfalls: prebuild, timezones, the iOS
+  notification limit, weekday numbering, the cost of computing streaks.
+- [docs/release.md](docs/release.md): shipping a release to the App Store.
 
-Документы живые: описывают то, что лежит в коде, и правятся вместе с ним.
+The documents are living: they describe what is in the code and are edited along with it.
+All text in the repository is written in English; the only exceptions are user-facing
+localized content (see [AGENTS.md](AGENTS.md#language)).

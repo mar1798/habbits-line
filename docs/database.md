@@ -1,181 +1,186 @@
-# База данных
+# Database
 
-SQLite через `expo-sqlite`. Открытие —
-`<SQLiteProvider databaseName="habits.db" onInit={migrate} useSuspense>` внутри
-`<Suspense>` в корневом `src/app/_layout.tsx`. Весь SQL живёт в `src/db/*-repo.ts`;
-экраны и сторы к базе напрямую не ходят.
+SQLite via `expo-sqlite`. It is opened by
+`<SQLiteProvider databaseName="habits.db" onInit={migrate} useSuspense>` inside
+`<Suspense>` in the root `src/app/_layout.tsx`. All SQL lives in `src/db/*-repo.ts`;
+screens and stores never touch the database directly.
 
-Актуальная версия схемы — `DATABASE_VERSION` в [`src/db/migrations.ts`](../src/db/migrations.ts).
+The current schema version is `DATABASE_VERSION` in [`src/db/migrations.ts`](../src/db/migrations.ts).
 
-## Прагмы
+## Pragmas
 
-`PRAGMA foreign_keys = ON` — настройка уровня **соединения**, а не файла. Выполняется в
-начале `migrate(db)`, **до** проверки `user_version`, то есть при каждом открытии базы.
-Спрятанная внутрь блока миграции, она со второго запуска приложения молча выключила бы
-`ON DELETE CASCADE`.
+`PRAGMA foreign_keys = ON` is a **connection**-level setting, not a file-level one. It
+runs at the start of `migrate(db)`, **before** the `user_version` check, i.e. on every
+database open. Tucked inside a migration block, it would silently switch off
+`ON DELETE CASCADE` from the app's second launch on.
 
-`PRAGMA journal_mode = WAL` наоборот персистентна — достаточно одного раза при создании.
+`PRAGMA journal_mode = WAL`, on the other hand, is persistent: once at creation is enough.
 
-## Таблицы
+## Tables
 
 ### `habits`
 
-| Поле | Тип | Описание |
+| Column | Type | Description |
 |---|---|---|
-| `id` | TEXT PK | uuid v4 из `expo-crypto` (стабилен при экспорте/импорте) |
-| `name` | TEXT NOT NULL | название |
-| `emoji` | TEXT NOT NULL | одна эмодзи из `constants/emoji.ts` |
-| `color_key` | TEXT NOT NULL | **ключ** палитры (`violet`, `teal`, …), не hex |
+| `id` | TEXT PK | uuid v4 from `expo-crypto` (stable across export/import) |
+| `name` | TEXT NOT NULL | name |
+| `emoji` | TEXT NOT NULL | a single emoji from `constants/emoji.ts` |
+| `color_key` | TEXT NOT NULL | palette **key** (`violet`, `teal`, …), not hex |
 | `target_per_day` | INTEGER NOT NULL DEFAULT 1 | `CHECK (target_per_day >= 1)` |
-| `schedule_mask` | INTEGER NOT NULL DEFAULT 127 | биты дней, бит 0 = понедельник … бит 6 = воскресенье; `CHECK (> 0 AND <= 127)` |
-| `reminder_time` | TEXT NULL | `'HH:mm'` локального времени, NULL = без напоминания |
-| `sort_order` | INTEGER NOT NULL | порядок в списке; при создании = `max + 1` |
-| `archived_at` | TEXT NULL | ISO-таймстемп архивации; NULL = активна |
-| `created_at` / `updated_at` | TEXT NOT NULL | ISO-таймстемпы |
+| `schedule_mask` | INTEGER NOT NULL DEFAULT 127 | day bits, bit 0 = Monday … bit 6 = Sunday; `CHECK (> 0 AND <= 127)` |
+| `reminder_time` | TEXT NULL | local `'HH:mm'`, NULL = no reminder |
+| `sort_order` | INTEGER NOT NULL | order in the list; `max + 1` on creation |
+| `archived_at` | TEXT NULL | ISO timestamp of archiving; NULL = active |
+| `created_at` / `updated_at` | TEXT NOT NULL | ISO timestamps |
 
-Индекс `idx_habits_active(archived_at, sort_order)`.
+Index `idx_habits_active(archived_at, sort_order)`.
 
-- **`color_key`, а не hex:** цвет обязан меняться вместе с темой. Hex зафиксировал бы
-  светлый вариант навсегда и нарушил правило «цвета только из токенов».
-- **Маска, а не таблица дней:** 7 бит вместо 7 строк, «сегодня запланировано» — одна
-  побитовая операция без JOIN на горячем пути экрана «Сегодня».
-- **`CHECK (schedule_mask > 0)`:** привычка с пустым расписанием не появилась бы ни на
-  одном экране. Форма создания не даёт снять последний день.
+- **`color_key`, not hex:** the color has to change with the theme. A hex value would
+  pin the light variant forever and break the "colors only from tokens" rule.
+- **A mask, not a days table:** 7 bits instead of 7 rows; "scheduled today" is one
+  bitwise operation with no JOIN on the hot path of the Today screen.
+- **`CHECK (schedule_mask > 0)`:** a habit with an empty schedule would show up on no
+  screen at all. The form does not let the last day be unchecked.
 
 ### `entries`
 
-| Поле | Тип | Описание |
+| Column | Type | Description |
 |---|---|---|
 | `habit_id` | TEXT NOT NULL | `REFERENCES habits(id) ON DELETE CASCADE` |
-| `date` | TEXT NOT NULL | `'YYYY-MM-DD'` в локальной таймзоне |
-| `count` | INTEGER NOT NULL | `CHECK (count > 0)`; строка удаляется при обнулении |
+| `date` | TEXT NOT NULL | `'YYYY-MM-DD'` in the local timezone |
+| `count` | INTEGER NOT NULL | `CHECK (count > 0)`; the row is deleted when it drops to zero |
 | `updated_at` | TEXT NOT NULL | ISO |
 
-`PRIMARY KEY (habit_id, date)` — он же покрывающий индекс для «все дни одной привычки».
-Плюс `idx_entries_date(date)` — для «прогресс дня по всем привычкам».
+`PRIMARY KEY (habit_id, date)` doubles as the covering index for "all days of one habit".
+Plus `idx_entries_date(date)` for "the day's progress across all habits".
 
-- **Одна строка на день, а не на тап:** все запросы агрегатные, `count` убирает `GROUP BY`
-  с каждого рендера. Цена — не храним время нажатия; в скоуп это не входит.
-- **`count` против уменьшенной цели:** после правки `target_per_day` с 3 на 1 старая
-  запись даёт 300%. Доля везде зажимается: `min(count / target_per_day, 1)`. Запись не трогаем.
-- **Записи на днях вне расписания:** остаются после снятия дня недели. В хитмапе клетка
-  красится как обычно (данные есть — показываем), в стрике и процентах не участвует.
+- **One row per day, not per tap:** every query is an aggregate, and `count` removes a
+  `GROUP BY` from every render. The price is that the tap time is not stored; that is
+  out of scope.
+- **`count` against a lowered target:** after `target_per_day` goes from 3 to 1, an old
+  entry gives 300%. The share is clamped everywhere: `min(count / target_per_day, 1)`.
+  The entry itself is left alone.
+- **Entries on off-schedule days:** they stay after a weekday is unchecked. The heatmap
+  paints the cell as usual (the data is there, so it is shown); streaks and rates ignore it.
 
 ### `expense_categories`
 
-| Поле | Тип | Описание |
+| Column | Type | Description |
 |---|---|---|
 | `id` | TEXT PK | uuid v4 |
-| `name` | TEXT NOT NULL | название |
-| `emoji` | TEXT NOT NULL | одна эмодзи из `constants/emoji.ts` |
-| `color_key` | TEXT NOT NULL | ключ **палитры трат** (16 цветов), не hex |
-| `sort_order` | INTEGER NOT NULL | порядок в сетке; при создании = `max + 1` |
-| `archived_at` | TEXT NULL | ISO-таймстемп архивации; NULL = активна |
+| `name` | TEXT NOT NULL | name |
+| `emoji` | TEXT NOT NULL | a single emoji from `constants/emoji.ts` |
+| `color_key` | TEXT NOT NULL | key of the **expense palette** (16 colors), not hex |
+| `sort_order` | INTEGER NOT NULL | order in the grid; `max + 1` on creation |
+| `archived_at` | TEXT NULL | ISO timestamp of archiving; NULL = active |
 | `created_at` / `updated_at` | TEXT NOT NULL | ISO |
 
-Индекс `idx_expense_categories_active(archived_at, sort_order)`.
+Index `idx_expense_categories_active(archived_at, sort_order)`.
 
-Восемь категорий засеяны **самой миграцией**, а не первым рендером: иначе понадобился бы
-флаг «сидинг выполнен» и ветка на каждом старте. Миграция выполняется ровно один раз,
-поэтому заархивировавший все восемь обратно их не получит — так и задумано. Имена
-сидируются по-русски и **не переводятся** при смене языка: это пользовательские данные,
-как и названия привычек.
+Eight categories are seeded **by the migration itself**, not by the first render:
+otherwise it would need a "seeding done" flag and a branch on every start. The migration
+runs exactly once, so someone who archived all eight does not get them back, by design.
+The names are seeded in Russian and are **not translated** when the language changes:
+they are user data, just like habit names.
 
 ### `expenses`
 
-| Поле | Тип | Описание |
+| Column | Type | Description |
 |---|---|---|
 | `id` | TEXT PK | uuid v4 |
 | `category_id` | TEXT NOT NULL | `REFERENCES expense_categories(id) ON DELETE RESTRICT` |
-| `amount` | INTEGER NOT NULL | целые единицы, `CHECK (amount > 0)` |
-| `date` | TEXT NOT NULL | `'YYYY-MM-DD'` в локальной таймзоне |
-| `note` | TEXT NULL | однострочное описание; NULL ≠ `''` — список ветвится ровно на этом |
-| `time` | TEXT NULL | `'HH:mm'` локального времени; NULL у строк до v5 |
+| `amount` | INTEGER NOT NULL | whole units, `CHECK (amount > 0)` |
+| `date` | TEXT NOT NULL | `'YYYY-MM-DD'` in the local timezone |
+| `note` | TEXT NULL | one-line description; NULL ≠ `''`, and the list branches on exactly that |
+| `time` | TEXT NULL | local `'HH:mm'`; NULL on rows from before v5 |
 | `created_at` / `updated_at` | TEXT NOT NULL | ISO |
 
-Индексы `idx_expenses_date(date)` и `idx_expenses_category(category_id)`.
+Indexes `idx_expenses_date(date)` and `idx_expenses_category(category_id)`.
 
-- **`time` ставит репозиторий при вставке, форма его не предлагает:** это момент записи
-  траты, а не поле ввода. Правка суммы или описания задним числом его не двигает.
-  Берётся из `nowTimeOfDay()` в `lib/date.ts`, а не из `created_at` — тот ISO в UTC, а
-  в списке нужны настенные часы. Строки до v5 не забэкфилены: время из `created_at`
-  выдумало бы минуту, которой не было, — вечерняя запись утренней траты навсегда стала
-  бы вечерней. Список у NULL не показывает ничего.
-- **Не часть `date`:** всё, что группирует, фильтрует и суммирует, работает по ключу дня,
-  и `lib/date.ts` не пускает туда ничего, кроме `'YYYY-MM-DD'`.
-
-- **Свой `id`, а не составной ключ, как у `entries`:** трат в один день по одной категории
-  может быть сколько угодно, и каждая правится отдельно; составной ключ превратил бы
-  вторую «Еду» за день в перезапись первой.
-- **`ON DELETE RESTRICT`, а не `CASCADE`:** удаление привычки осмысленно уносит её отметки,
-  а траты — это ушедшие деньги, и удаление категории не должно менять сумму прошлого
-  месяца. Категория с тратами удаляется только после того, как её траты переписаны на
-  «Прочее», и обе операции идут одной транзакцией; схема гарантирует, что забыть перенос
-  нельзя — SQLite просто откажет в `DELETE`.
+- **`time` is set by the repository on insert; the form does not offer it:** it is the
+  moment the expense was recorded, not an input field. Editing the amount or description
+  later does not move it. It comes from `nowTimeOfDay()` in `lib/date.ts`, not from
+  `created_at`: that one is ISO in UTC, and the list needs wall-clock time. Rows from
+  before v5 are not backfilled: a time derived from `created_at` would invent a minute
+  that never happened, and an evening entry of a morning expense would stay evening
+  forever. The list shows nothing for NULL.
+- **Not part of `date`:** everything that groups, filters and sums works on the day key,
+  and `lib/date.ts` lets nothing but `'YYYY-MM-DD'` in there.
+- **Its own `id`, not a composite key like `entries`:** there can be any number of
+  expenses in one category on one day, and each is edited on its own; a composite key
+  would turn the second "Food" of the day into an overwrite of the first.
+- **`ON DELETE RESTRICT`, not `CASCADE`:** deleting a habit reasonably takes its check-ins
+  with it, but expenses are money already spent, and deleting a category must not change
+  last month's total. A category with expenses is deleted only after its expenses are
+  reassigned to "Прочее" (Other), and both operations run in one transaction; the schema
+  guarantees the reassignment cannot be forgotten, because SQLite simply refuses the
+  `DELETE`.
 
 ### `expense_budgets`
 
-| Поле | Тип | Описание |
+| Column | Type | Description |
 |---|---|---|
-| `period_start` | TEXT PK | `'YYYY-MM-DD'` — первый день периода |
+| `period_start` | TEXT PK | `'YYYY-MM-DD'`, the first day of the period |
 | `amount` | INTEGER NOT NULL | `CHECK (amount > 0)` |
 | `updated_at` | TEXT NOT NULL | ISO |
 
-Строка заводится только на период, которому бюджет задали явно. Период без строки
-наследует последнюю строку **до** своего начала — правило в `lib/expenses.ts`
+A row exists only for a period whose budget was set explicitly. A period without a row
+inherits the latest row **before** its start; the rule is in `lib/expenses.ts`
 (`resolveBudget`).
 
 ### `expense_incomes`
 
-| Поле | Тип | Описание |
+| Column | Type | Description |
 |---|---|---|
 | `id` | TEXT PK | uuid v4 |
-| `amount` | INTEGER NOT NULL | целые единицы, `CHECK (amount > 0)` |
-| `date` | TEXT NOT NULL | `'YYYY-MM-DD'` в локальной таймзоне |
+| `amount` | INTEGER NOT NULL | whole units, `CHECK (amount > 0)` |
+| `date` | TEXT NOT NULL | `'YYYY-MM-DD'` in the local timezone |
 | `created_at` / `updated_at` | TEXT NOT NULL | ISO |
 
-Индекс `idx_expense_incomes_date(date)`.
+Index `idx_expense_incomes_date(date)`.
 
-- **Своя таблица, а не `kind` в `expenses`:** каждый существующий запрос и каждая функция
-  в `lib/expenses.ts` суммируют `expenses` как «потраченное». Дискриминатор переложил бы
-  на все них обязанность фильтровать, а забытый фильтр не падает — он тихо добавляет доход
-  в сумму трат, в разбивку по категориям и в среднюю за день. Здесь ничего, что читает
-  `expenses`, не изменилось вовсе.
-- **Без категории и без заметки:** доходу негде сесть в палитре категорий трат, а сумма —
-  это всё, что он сообщает. И то и другое добавляется одним `ALTER`, как `note` добавили
-  в `expenses` в v3.
-- **Дата, а не `period_start`:** доход принадлежит периоду тем, что попадает внутрь него.
-  Ключ по периоду переносил бы доход в другой период — или оставлял бы его привязанным к
-  периоду, который больше не открывается, — при первой же смене дня начала.
+- **Its own table, not a `kind` column in `expenses`:** every existing query and every
+  function in `lib/expenses.ts` sums `expenses` as "spent". A discriminator would push
+  the duty to filter onto all of them, and a forgotten filter does not crash: it quietly
+  adds income into the spent total, the category breakdown and the daily average. Here
+  nothing that reads `expenses` changed at all.
+- **No category and no note:** income has no place in the expense category palette, and
+  the amount is all it says. Either one can be added with a single `ALTER`, the way
+  `note` was added to `expenses` in v3.
+- **A date, not `period_start`:** income belongs to a period by falling inside it. A
+  period key would move the income to another period (or leave it tied to a period that
+  is never opened again) on the first change of the start day.
 
 ### `app_settings`
 
-`key TEXT PRIMARY KEY, value TEXT NOT NULL` — плоские настройки: `theme_mode`, `language`,
-`expense_period_start_day` (`'1'`..`'28'`, дефолт `'1'`), `currency_symbol` (до трёх
-символов, дефолт `'₽'`; пустая строка — осознанное «без символа», а не отсутствие строки),
-`currency_position` (`'prefix'` / `'suffix'`, дефолт `'suffix'`), `last_export_at` (ключ
-даты `YYYY-MM-DD` последнего экспорта; строки нет, пока экспорта не было). Читаются одним
-`load()` до снятия splash, иначе выбранная тема моргнула бы системной на первом кадре.
+`key TEXT PRIMARY KEY, value TEXT NOT NULL`: flat settings. `theme_mode`, `language`,
+`expense_period_start_day` (`'1'`..`'28'`, default `'1'`), `currency_symbol` (up to three
+characters, default `'₽'`; an empty string is a deliberate "no symbol", not a missing
+row), `currency_position` (`'prefix'` / `'suffix'`, default `'suffix'`), `last_export_at`
+(the `YYYY-MM-DD` date key of the last export; no row until the first export). They are
+read by a single `load()` before the splash is hidden, otherwise the chosen theme would
+flash as the system one on the first frame.
 
-Новый ключ здесь — не миграция: таблица ключ-значение, отсутствующая строка читается как
-дефолт. Мигрировать пришлось бы только смену смысла уже выпущенного ключа.
+A new key here is not a migration: it is a key-value table, and a missing row reads as
+the default. Only a change in the meaning of an already shipped key would need a
+migration.
 
-### Что НЕ храним
+### What is NOT stored
 
-Стрики, лучший стрик, проценты за 7/30 дней, суммы за день — считаются на лету из
-`entries` и `expenses`. Любая правка задним числом мгновенно сделала бы кэш неверным, а
-объём микроскопический (привычка за 3 года ≈ 1000 строк). Id уведомлений тоже не храним —
-они восстанавливаются полным пересчётом.
+Streaks, best streak, 7/30-day rates, daily totals: all computed on the fly from
+`entries` and `expenses`. Any retroactive edit would instantly invalidate a cache, and
+the volume is tiny (a habit over 3 years ≈ 1000 rows). Notification ids are not stored
+either; they are recovered by a full recomputation.
 
-## Миграции
+## Migrations
 
-`PRAGMA user_version` + последовательные блоки в `migrate(db)`. Каждый блок — **одна
-транзакция вместе со штампом версии**: применённый наполовину, он кирпичит приложение
-(следующий запуск выполняет `CREATE TABLE` по существующей таблице и падает).
+`PRAGMA user_version` plus sequential blocks in `migrate(db)`. Each block is **one
+transaction together with the version stamp**: applied halfway, it bricks the app (the
+next launch runs `CREATE TABLE` against an existing table and crashes).
 
-**Правило на весь проект: выпущенную миграцию не редактируют — только новый блок с
-инкрементом `DATABASE_VERSION`.** У установленной копии `user_version` уже стоит, и
-правка старого блока просто не применится. Перед миграцией на живом устройстве — экспорт
-JSON из настроек.
+**Project-wide rule: a shipped migration is never edited, only a new block with an
+incremented `DATABASE_VERSION` is added.** An installed copy already has its
+`user_version` set, and an edit to an old block would simply never apply. Before a
+migration on a live device, export JSON from the settings.
 
-Схему не меняем без согласия владельца проекта (см. [AGENTS.md](../AGENTS.md)).
+The schema does not change without the project owner's consent (see [AGENTS.md](../AGENTS.md)).

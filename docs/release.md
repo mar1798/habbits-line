@@ -1,77 +1,75 @@
-# Выпуск релиза
+# Shipping a release
 
-Единственный документ о том, как приложение попадает в App Store. Описывает то, что
-лежит в репозитории; меняется порядок — правится этот файл в том же коммите.
+The single document on how the app gets into the App Store. It describes what is in the
+repository; if the order changes, this file is edited in the same commit.
 
-Сборка локальная, в облако уходит только загрузка: EAS здесь работает загрузчиком, а не
-сборщиком. Build-минуты не тратятся.
+The build is local; only the upload goes to the cloud. EAS works here as an uploader,
+not a builder. No build minutes are spent.
 
-## Что нужно один раз
+## One-time setup
 
-| Что | Где | Куда попадает |
+| What | Where | Ends up in |
 |---|---|---|
 | Apple Developer Program | developer.apple.com | Team ID → `eas.json` |
-| Запись приложения | App Store Connect, bundle id `com.mar1798.habbits-line`, язык по умолчанию `ru`, iPhone-only | `ascAppId` → `eas.json` |
-| App Store Connect API key, роль App Manager | App Store Connect → Users and Access → Keys | `.p8` **вне репозитория** |
-| Аккаунт Expo | expo.dev | `extra.eas.projectId` в `app.json`, через `npx eas-cli@latest init` |
-| GitHub Pages из `docs/` | Settings → Pages → Deploy from a branch → `/docs` | URL политики |
+| App record | App Store Connect, bundle id `com.mar1798.habbits-line`, default language `ru`, iPhone-only | `ascAppId` → `eas.json` |
+| App Store Connect API key, App Manager role | App Store Connect → Users and Access → Keys | `.p8` **outside the repository** |
+| Expo account | expo.dev | `extra.eas.projectId` in `app.json`, via `npx eas-cli@latest init` |
+| GitHub Pages from `docs/` | Settings → Pages → Deploy from a branch → `/docs` | privacy policy URL |
 
-Ключ `.p8` в репозиторий не кладётся: `.gitignore` закрывает `*.p8`, а `eas.json`
-намеренно **не** содержит `ascApiKeyPath` — путь к ключу передаётся окружением.
+The `.p8` key never goes into the repository: `.gitignore` covers `*.p8`, and `eas.json`
+deliberately does **not** contain `ascApiKeyPath`; the key path is passed via the
+environment.
 
-## Порядок выпуска
+## Release order
 
-### 1. Поднять номера — вместе с prebuild
+### 1. Bump the numbers, together with prebuild
 
-`ios/` сгенерирована и лежит в `.gitignore`. Правка `app.json` сама в сборку не попадает,
-поэтому бамп и prebuild — один шаг, а не два:
+`ios/` is generated and sits in `.gitignore`. An edit to `app.json` does not reach the
+build by itself, so the bump and the prebuild are one step, not two:
 
 ```bash
-# version — только когда меняется то, что видит пользователь;
-# ios.buildNumber — перед каждой загрузкой, включая повторную загрузку той же version
+# version: only when something the user sees changes;
+# ios.buildNumber: before every upload, including a re-upload of the same version
 $EDITOR app.json
 npx expo prebuild --platform ios --clean
 plutil -p ios/HabbitsLine/Info.plist | grep -E 'CFBundleShortVersionString|CFBundleVersion'
 ```
 
-Обе строки в выводе должны совпасть с `app.json`. Не совпали — собирается старое.
+Both lines of the output must match `app.json`. If they don't, the old build is being made.
 
-### 2. Проверки
+### 2. Checks
 
 ```bash
 npm run typecheck
 npm run lint
 npm test
-npm run test:tz     # если трогали lib/date.ts
+npm run test:tz     # if lib/date.ts was touched
 ```
 
-### 3. Собрать архив
+### 3. Build the archive
 
 ```bash
 open ios/HabbitsLine.xcworkspace
 ```
 
-Схема `HabbitsLine`, конфигурация Release, destination «Any iOS Device» →
+Scheme `HabbitsLine`, Release configuration, destination "Any iOS Device" →
 Product → Archive → Distribute App → App Store Connect → Export → `.ipa`.
-`*.ipa` закрыт в `.gitignore`.
+`*.ipa` is covered by `.gitignore`.
 
-### 4. Приёмка на устройстве
+### 4. On-device acceptance
 
-Отправляется только то, что прошло весь список — на **физическом устройстве**, не на
-симуляторе:
+Only what passed the whole list is shipped, on a **physical device**, not the simulator:
 
-- [ ] чистая установка, холодный старт: пустое состояние, без обращений к Metro и без
-      отладочных наложений;
-- [ ] напоминание приходит в назначенное время, тап открывает нужную привычку;
-- [ ] экспорт бэкапа через share sheet и импорт обратно — без потерь;
-- [ ] все экраны в светлой и тёмной теме, на русском и английском: без обрезанного
-      текста и непереведённых строк;
-- [ ] раздел «О приложении» в настройках показывает те же номера, что и
-      `Info.plist` архива.
+- [ ] clean install, cold start: empty state, no calls to Metro and no debug overlays;
+- [ ] a reminder arrives at the scheduled time, and tapping it opens the right habit;
+- [ ] backup export via the share sheet and import back, with nothing lost;
+- [ ] every screen in light and dark theme, in Russian and English: no truncated text
+      and no untranslated strings;
+- [ ] the About section in settings shows the same numbers as the archive's `Info.plist`.
 
-Что-то упало — правится, `ios.buildNumber` поднимается, всё с шага 1.
+If something fails: fix it, bump `ios.buildNumber`, and start again from step 1.
 
-### 5. Загрузить
+### 5. Upload
 
 ```bash
 export EXPO_ASC_API_KEY_PATH=~/keys/AuthKey_XXXXXXXXXX.p8
@@ -80,44 +78,44 @@ export EXPO_ASC_API_KEY_ID=XXXXXXXXXX
 npx eas-cli@latest submit -p ios --path /path/to/HabbitsLine.ipa
 ```
 
-Сборка должна обработаться в App Store Connect **без** статуса «Missing Compliance»:
-за это отвечает `ios.config.usesNonExemptEncryption: false` в `app.json`, который
-prebuild кладёт в `Info.plist` как `ITSAppUsesNonExemptEncryption`.
+The build must be processed in App Store Connect **without** the "Missing Compliance"
+status. That is handled by `ios.config.usesNonExemptEncryption: false` in `app.json`,
+which prebuild writes into `Info.plist` as `ITSAppUsesNonExemptEncryption`.
 
-### 6. Листинг
+### 6. Listing
 
-Источник истины — [`store.config.json`](../store.config.json): названия, подзаголовки,
-описания, ключевые слова, заметки к версии на `ru` и `en-US`, категории, возрастной
-рейтинг, контакты для ревью.
+The source of truth is [`store.config.json`](../store.config.json): names, subtitles,
+descriptions, keywords, release notes for `ru` and `en-US`, categories, age rating,
+review contacts.
 
-- **Первый релиз** — поля заполняются в App Store Connect руками, копированием из этого
-  файла. `eas metadata:push` для нового приложения не работает: он требует, чтобы
-  бинарник уже был отправлен.
-- **Со второго релиза** — `npx eas-cli@latest metadata:push` после шага 5. Функция в
-  превью; сломается — файл всё равно остаётся тем, из чего заполняют руками.
+- **First release**: the fields are filled in App Store Connect by hand, copied from
+  this file. `eas metadata:push` does not work for a new app: it requires a binary to
+  have been submitted already.
+- **From the second release on**: `npx eas-cli@latest metadata:push` after step 5. The
+  feature is in preview; if it breaks, the file is still what the fields are filled
+  from by hand.
 
-Скриншоты `eas metadata` не загружает никогда — только вручную, из
+`eas metadata` never uploads screenshots; that is manual only, from
 `assets/store/screenshots/`.
 
-### 7. Скриншоты
+### 7. Screenshots
 
 ```bash
-npx expo run:ios --device "iPhone 17 Pro Max"   # Debug — нужен Metro для Fast Refresh
+npx expo run:ios --device "iPhone 17 Pro Max"   # Debug: Metro is needed for Fast Refresh
 ./scripts/screenshots.sh prepare ru
 ```
 
-Набор нужен на каждую локализацию, поэтому весь прогон делается дважды — `ru` и `en`.
-Язык это строка в базе, читается один раз при запуске, так что смена языка — это
-повторный `prepare`, а не тап в настройках.
+A set is needed for each localization, so the whole run happens twice, `ru` and `en`.
+The language is a row in the database read once at launch, so switching the language is
+another `prepare`, not a tap in settings.
 
-Дальше по одному кадру на вкладку. Диплинками вкладку не переключить: iOS 26 вешает
-поверх кадра системный диалог «Открыть в приложении?» на любой custom scheme, включая
-`simctl openurl` — URL при этом доставляется и приложение переходит, но диалог с кадра не
-убрать (синтетические тапы не работают, Escape он игнорирует). Поэтому вкладка ставится
-кодом, через Fast Refresh — приём из [AGENTS.md](../AGENTS.md) для состояния, до которого
-не достаёт диплинк.
+Then one frame per tab. Deep links cannot switch the tab: iOS 26 puts a system "Open in
+app?" dialog over the frame for any custom scheme, including `simctl openurl`. The URL is
+still delivered and the app navigates, but the dialog cannot be removed from the frame
+(synthetic taps do not work, and it ignores Escape). So the tab is set in code, via Fast
+Refresh: the technique from [AGENTS.md](../AGENTS.md) for state a deep link cannot reach.
 
-В `src/app/(tabs)/_layout.tsx` временно, внутри `TabsLayout`:
+Temporarily, in `src/app/(tabs)/_layout.tsx`, inside `TabsLayout`:
 
 ```tsx
 useEffect(() => {
@@ -125,9 +123,9 @@ useEffect(() => {
 }, []);
 ```
 
-Сохранить, дождаться Fast Refresh, снять — и так четыре раза:
+Save, wait for Fast Refresh, shoot, and repeat four times:
 
-| route | имя кадра |
+| route | frame name |
 |---|---|
 | `/` | `01-habits` |
 | `/expenses` | `02-expenses` |
@@ -138,60 +136,63 @@ useEffect(() => {
 ./scripts/screenshots.sh shoot 03-stats ru
 ```
 
-В конце языка:
+At the end of a language:
 
 ```bash
 ./scripts/screenshots.sh finish
-git checkout "src/app/(tabs)/_layout.tsx"     # обязательно — временная правка
+git checkout "src/app/(tabs)/_layout.tsx"     # mandatory: the edit is temporary
 ```
 
-И то же самое ещё раз с `prepare en` / `shoot <name> en`.
+And the same once more with `prepare en` / `shoot <name> en`.
 
-Кадры ложатся в `assets/store/screenshots/<язык>/` в 1320 × 2868 — единственный размер,
-который App Store требует для iPhone. Скрипт проверяет разрешение и падает, если снимали
-не с того устройства.
+Frames land in `assets/store/screenshots/<language>/` at 1320 × 2868, the only size the
+App Store requires for iPhone. The script checks the resolution and fails if the shots
+were taken on the wrong device.
 
-Данные берутся из [`scripts/seed-demo-db.mjs`](../scripts/seed-demo-db.mjs). Они
-детерминированы, но привязаны к сегодняшней дате: два прогона в один день дают одинаковые
-файлы, прогон завтра сдвинет историю на день. Так и задумано — на скриншоте должно быть
-сегодня. Схема в сиде — транскрипция `db/migrations.ts` на `user_version 3`: появится
-новая миграция — правится и сид, иначе приложение откроет базу и покажет пустой экран.
+The data comes from [`scripts/seed-demo-db.mjs`](../scripts/seed-demo-db.mjs). It is
+deterministic but tied to today's date: two runs on the same day produce identical files,
+a run tomorrow shifts the history by a day. That is intended: the screenshot should show
+today. The schema in the seed is a transcription of `db/migrations.ts` at
+`user_version 3`: when a new migration appears, the seed is updated too, otherwise the
+app will open the database and show an empty screen.
 
-Язык сид принимает вторым аргументом. От него зависят три вещи: строка `language`, имена
-привычек (это пользовательские данные, они не переводятся) и валюта — `₽` суффиксом для
-`ru`, `$` префиксом и суммы в десять раз меньше для `en`, чтобы месяц выглядел
-правдоподобным месяцем, а не состоянием. Имена категорий в базе всегда русские: восемь
-стартовых `lib/category-name.ts` сопоставляет обратно по имени и переводит при отрисовке.
+The seed takes the language as its second argument. Three things depend on it: the
+`language` row, the habit names (user data, not translated) and the currency: `₽` as a
+suffix for `ru`, `$` as a prefix and amounts ten times smaller for `en`, so a month looks
+like a plausible month rather than a fortune. Category names in the database are always
+Russian: `lib/category-name.ts` maps the eight starter ones back by name and translates
+them at render time.
 
-Debug-сборка здесь не компромисс, а условие: Release не к чему подключать Fast Refresh.
-Экраны она рисует те же, а дев-меню в кадр не попадает.
+A Debug build is not a compromise here but a requirement: Release has nothing to attach
+Fast Refresh to. It draws the same screens, and the dev menu does not get into the frame.
 
-Обязательно после пересъёмки: пройтись по описанию из `store.config.json` пункт за
-пунктом и убедиться, что каждый обещанный экран в наборе есть, а того, чего в приложении
-нет, в описании не появилось.
+Mandatory after reshooting: go through the description in `store.config.json` point by
+point and make sure every promised screen is in the set, and that nothing the app lacks
+has crept into the description.
 
-### 8. Отправить на ревью
+### 8. Submit for review
 
-App Store Connect → выбрать сборку → заполнить «What's New» → Submit for Review.
+App Store Connect → pick the build → fill in "What's New" → Submit for Review.
 
-`release.automaticRelease` в `store.config.json` — `false`: релиз публикуется вручную
-после одобрения.
+`release.automaticRelease` in `store.config.json` is `false`: the release is published
+manually after approval.
 
-## Приватность
+## Privacy
 
-Три источника должны говорить одно и то же, расхождение между ними — повод для отказа:
+Three sources must say the same thing; a mismatch between them is grounds for rejection:
 
-| Источник | Что говорит |
+| Source | What it says |
 |---|---|
-| [`docs/privacy-policy.ru.md`](privacy-policy.ru.md) / [`.en.md`](privacy-policy.en.md) | данных не собирает, трекинга нет, наружу данные уходят только файлом бэкапа по действию пользователя |
-| `ios/HabbitsLine/PrivacyInfo.xcprivacy` (генерируется prebuild) | `NSPrivacyTracking false`, `NSPrivacyCollectedDataTypes` пуст |
-| Анкета App Privacy в App Store Connect | «Data Not Collected», трекинга нет |
+| [`docs/privacy-policy.ru.md`](privacy-policy.ru.md) / [`.en.md`](privacy-policy.en.md) | collects no data, no tracking; data leaves the device only as a backup file on the user's action |
+| `ios/HabbitsLine/PrivacyInfo.xcprivacy` (generated by prebuild) | `NSPrivacyTracking false`, `NSPrivacyCollectedDataTypes` empty |
+| App Privacy questionnaire in App Store Connect | "Data Not Collected", no tracking |
 
-Проверяется тем, что в `src` нет ни одного сетевого вызова и ни одной сторонней
-аналитической или рекламной библиотеки в `package.json`:
+Verified by the absence of any network call in `src` and of any third-party analytics or
+advertising library in `package.json`:
 
 ```bash
-grep -rn "fetch(\|XMLHttpRequest\|WebSocket\|axios" src   # пусто, кроме тестов
+grep -rn "fetch(\|XMLHttpRequest\|WebSocket\|axios" src   # empty, except tests
 ```
 
-Появится первый сетевой вызов — политика, манифест и анкета правятся все три.
+When the first network call appears, all three are updated: policy, manifest and
+questionnaire.

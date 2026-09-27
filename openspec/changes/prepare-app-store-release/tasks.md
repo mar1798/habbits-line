@@ -1,131 +1,131 @@
-## 1. Предпосылки вне репозитория
+## 1. Prerequisites outside the repository
 
-- [ ] 1.1 Проверить, что учётная запись Apple Developer Program активна, и записать
-      Team ID — он нужен в `eas.json` (проверка: Team ID выписан).
-- [ ] 1.2 Создать запись приложения в App Store Connect с bundle id
-      `com.mar1798.habbits-line`, языком по умолчанию `ru`, iPhone-only; записать
-      `ascAppId` из App Information (проверка: `ascAppId` выписан).
-- [ ] 1.3 Выпустить App Store Connect API key с ролью App Manager, положить `.p8` вне
-      репозитория и записать issuer id и key id (проверка: `git status` в чистой
-      рабочей копии не показывает `.p8`).
-- [ ] 1.4 Проверить видимость репозитория `mar1798/habbits-line` и включить GitHub
-      Pages для `docs/`, либо, если репозиторий приватный, выбрать публичный gist
-      (проверка: выбранный URL открывается в приватном окне браузера без авторизации).
+- [ ] 1.1 Check that the Apple Developer Program account is active and note the Team ID,
+      which `eas.json` needs (check: the Team ID is written down).
+- [ ] 1.2 Create the app record in App Store Connect with bundle id
+      `com.mar1798.habbits-line`, default language `ru`, iPhone-only; note the
+      `ascAppId` from App Information (check: the `ascAppId` is written down).
+- [ ] 1.3 Issue an App Store Connect API key with the App Manager role, put the `.p8`
+      outside the repository and note the issuer id and key id (check: `git status` in a
+      clean working copy does not show the `.p8`).
+- [ ] 1.4 Check the visibility of the `mar1798/habbits-line` repository and enable GitHub
+      Pages for `docs/`, or, if the repository is private, choose a public gist
+      (check: the chosen URL opens in a private browser window without authentication).
 
-## 2. Конфигурация приложения
+## 2. App configuration
 
-- [x] 2.1 Вернуть `expo-notifications` в `plugins` в `app.json` (проверка:
-      `git diff app.json` больше не показывает удаления плагина).
-- [x] 2.2 Добавить в `app.json` `ios.buildNumber: "1"`,
-      `ios.config.usesNonExemptEncryption: false`, `ios.supportsTablet: false` и
-      `description` (проверка: `npx expo config --type public` печатает все четыре).
-- [x] 2.3 Прогнать `npx expo prebuild --platform ios --clean` и сверить
+- [x] 2.1 Return `expo-notifications` to `plugins` in `app.json` (check:
+      `git diff app.json` no longer shows the plugin being removed).
+- [x] 2.2 Add `ios.buildNumber: "1"`, `ios.config.usesNonExemptEncryption: false`,
+      `ios.supportsTablet: false` and `description` to `app.json` (check:
+      `npx expo config --type public` prints all four).
+- [x] 2.3 Run `npx expo prebuild --platform ios --clean` and check
       `ios/HabbitsLine/Info.plist`: `CFBundleVersion 1`,
-      `ITSAppUsesNonExemptEncryption false`, `UIDeviceFamily` только `1` (проверка:
-      `plutil -p ios/HabbitsLine/Info.plist` показывает эти значения).
-- [x] 2.4 Убедиться, что `ios/HabbitsLine/PrivacyInfo.xcprivacy` после prebuild
-      сохранил `NSPrivacyTracking false` и пустой `NSPrivacyCollectedDataTypes`
-      (проверка: содержимое файла совпадает с ожидаемым).
-- [x] 2.5 Прогнать `npm run typecheck`, `npm run lint`, `npm test` (проверка: все три
-      зелёные).
+      `ITSAppUsesNonExemptEncryption false`, `UIDeviceFamily` only `1` (check:
+      `plutil -p ios/HabbitsLine/Info.plist` shows these values).
+- [x] 2.4 Make sure `ios/HabbitsLine/PrivacyInfo.xcprivacy` kept `NSPrivacyTracking false`
+      and an empty `NSPrivacyCollectedDataTypes` after prebuild (check: the file's
+      contents match the expected ones).
+- [x] 2.5 Run `npm run typecheck`, `npm run lint`, `npm test` (check: all three are
+      green).
 
-## 3. Раздел «О приложении» в настройках
+## 3. About section in settings
 
-- [x] 3.1 Добавить ключи `about_title`, `about_version`, `about_privacy_policy` в
-      `src/i18n/ru.ts` и `src/i18n/en.ts` (проверка: `npm run typecheck` зелёный —
-      `en.ts` типизирован по `ru.ts`).
-- [x] 3.2 Добавить в конец `src/app/(tabs)/settings.tsx` секцию «О приложении»:
-      версия и номер сборки из `Constants.expoConfig`, строка со ссылкой на политику
-      через `Linking.openURL` (проверка: `npm run typecheck` и `npm run lint` зелёные).
-- [x] 3.3 Снять скриншот секции в симуляторе на обоих языках и сверить показанные
-      номера с `CFBundleShortVersionString` и `CFBundleVersion` из `Info.plist`
-      (проверка: скриншоты приложены, номера совпадают).
+- [x] 3.1 Add the keys `about_title`, `about_version`, `about_privacy_policy` to
+      `src/i18n/ru.ts` and `src/i18n/en.ts` (check: `npm run typecheck` is green, since
+      `en.ts` is typed against `ru.ts`).
+- [x] 3.2 Add an About section at the end of `src/app/(tabs)/settings.tsx`: version and
+      build number from `Constants.expoConfig`, a row with the policy link via
+      `Linking.openURL` (check: `npm run typecheck` and `npm run lint` are green).
+- [x] 3.3 Take a screenshot of the section in the simulator in both languages and
+      compare the numbers shown with `CFBundleShortVersionString` and `CFBundleVersion`
+      from `Info.plist` (check: screenshots attached, numbers match).
 
-## 4. Политика конфиденциальности
+## 4. Privacy policy
 
-- [ ] 4.1 Написать `docs/privacy-policy.ru.md` и `docs/privacy-policy.en.md`: офлайн,
-      без аккаунтов и сети, без трекинга и аналитики; данные покидают устройство только
-      файлом бэкапа, который экспортирует сам пользователь; контакт для связи
-      (проверка: каждое утверждение подтверждается кодом — сверить с `src/lib/backup.ts`
-      и `src/lib/notifications.ts`, сторонних SDK в `package.json` нет).
-- [ ] 4.2 Опубликовать выбранным в 1.4 способом и подставить полученный URL в
-      константу, на которую ссылается секция «О приложении» (проверка: тап по ссылке в
-      симуляторе открывает опубликованную страницу).
-- [x] 4.3 Сверить текст политики с `PrivacyInfo.xcprivacy` и с ответами анкеты App
-      Privacy («Data Not Collected», трекинга нет) — расхождений быть не должно
-      (проверка: три источника выписаны рядом и совпадают).
+- [ ] 4.1 Write `docs/privacy-policy.ru.md` and `docs/privacy-policy.en.md`: offline, no
+      accounts and no network, no tracking and no analytics; data leaves the device only
+      as a backup file the user exports themselves; a contact (check: every claim is
+      confirmed by the code; compare with `src/lib/backup.ts` and
+      `src/lib/notifications.ts`, no third-party SDKs in `package.json`).
+- [ ] 4.2 Publish using the method chosen in 1.4 and put the resulting URL into the
+      constant the About section refers to (check: tapping the link in the simulator
+      opens the published page).
+- [x] 4.3 Compare the policy text with `PrivacyInfo.xcprivacy` and with the App Privacy
+      questionnaire answers ("Data Not Collected", no tracking); there must be no
+      discrepancies (check: the three sources are written out side by side and match).
 
-## 5. Релизный конвейер
+## 5. Release pipeline
 
-- [ ] 5.1 Выполнить `npx eas-cli@latest init` для привязки проекта (проверка: в
-      `app.json` появился `extra.eas.projectId`, `npm run typecheck` зелёный).
-- [ ] 5.2 Создать `eas.json`: `cli.appVersionSource: "local"`, профиль сборки
-      `production` и `submit.production.ios` с `ascAppId` и `appleTeamId` из шага 1;
-      ключ передаётся переменными `EXPO_ASC_API_KEY_*`, `ascApiKeyPath` не писать
-      (проверка: `npx eas-cli@latest config` читает файл без ошибок, `grep -r "\-\-\-\-\-BEGIN" eas.json` пуст).
-- [x] 5.3 Проверить, что `.gitignore` закрывает `*.p8` и добавить `AuthKey_*.p8`, если
-      шаблон не покрывает имя ключа (проверка: `git check-ignore -v AuthKey_TEST.p8`
-      печатает правило).
-- [ ] 5.4 Собрать релизный архив в Xcode (`ios/HabbitsLine.xcworkspace`, схема Release,
-      Archive → Distribute → App Store Connect → Export) и получить `.ipa` (проверка:
-      `.ipa` существует, лежит вне репозитория или в игнорируемом каталоге).
+- [ ] 5.1 Run `npx eas-cli@latest init` to link the project (check: `app.json` gained
+      `extra.eas.projectId`, `npm run typecheck` is green).
+- [ ] 5.2 Create `eas.json`: `cli.appVersionSource: "local"`, a `production` build
+      profile and `submit.production.ios` with `ascAppId` and `appleTeamId` from step 1;
+      the key is passed via the `EXPO_ASC_API_KEY_*` variables, do not write
+      `ascApiKeyPath` (check: `npx eas-cli@latest config` reads the file without errors,
+      `grep -r "\-\-\-\-\-BEGIN" eas.json` is empty).
+- [x] 5.3 Check that `.gitignore` covers `*.p8` and add `AuthKey_*.p8` if the pattern
+      does not cover the key's name (check: `git check-ignore -v AuthKey_TEST.p8` prints
+      the rule).
+- [ ] 5.4 Build the release archive in Xcode (`ios/HabbitsLine.xcworkspace`, Release
+      scheme, Archive → Distribute → App Store Connect → Export) and get the `.ipa`
+      (check: the `.ipa` exists and lies outside the repository or in an ignored
+      directory).
 
-## 6. Приёмка релизной сборки
+## 6. Release build acceptance
 
-- [ ] 6.1 Поставить релизную сборку на устройство поверх чистого состояния и пройти
-      холодный старт (проверка: приложение открывается на пустом состоянии, без
-      обращений к Metro и без отладочных наложений).
-- [ ] 6.2 Проверить напоминание: включить у привычки, дождаться срабатывания,
-      открыть приложение тапом по уведомлению (проверка: уведомление пришло, тап
-      открывает нужную привычку).
-- [ ] 6.3 Проверить экспорт и импорт бэкапа на релизной сборке (проверка: файл
-      экспортируется через share sheet и импортируется обратно без потерь).
-- [ ] 6.4 Пройти все экраны в обеих темах и на обоих языках (проверка: скриншоты
-      приложены, обрезанного текста и непереведённых строк нет).
-- [ ] 6.5 Сверить `CFBundleShortVersionString` и `CFBundleVersion` собранного архива с
-      `app.json` и с тем, что показывает секция «О приложении» (проверка: три источника
-      совпадают).
+- [ ] 6.1 Install the release build on a device over a clean state and go through a cold
+      start (check: the app opens on the empty state, with no calls to Metro and no
+      debug overlays).
+- [ ] 6.2 Check a reminder: enable it on a habit, wait for it to fire, open the app by
+      tapping the notification (check: the notification arrived, the tap opens the
+      right habit).
+- [ ] 6.3 Check backup export and import on the release build (check: the file is
+      exported via the share sheet and imported back with nothing lost).
+- [ ] 6.4 Go through every screen in both themes and both languages (check: screenshots
+      attached, no truncated text and no untranslated strings).
+- [ ] 6.5 Compare `CFBundleShortVersionString` and `CFBundleVersion` of the built archive
+      with `app.json` and with what the About section shows (check: the three sources
+      match).
 
-## 7. Артефакты листинга
+## 7. Listing artifacts
 
-- [x] 7.1 Написать `scripts/seed-demo-db.ts` (или `.js`), собирающий демонстрационную
-      базу из детерминированного сида — привычки со стриками, категории трат, бюджет,
-      история за несколько месяцев (проверка: два прогона дают побайтово одинаковые
-      данные в таблицах).
-- [x] 7.2 Написать `scripts/screenshots.sh`: поднять iPhone 17 Pro Max, терминировать
-      приложение, подложить демо-базу в контейнер, пройти диплинками по вкладкам и снять
-      `xcrun simctl io booted screenshot` в `assets/store/screenshots/`
-      (проверка: два прогона подряд дают одинаковые изображения 1320 × 2868).
-- [x] 7.3 Снять итоговый набор: привычки, траты, статистика, настройки (проверка: файлы
-      лежат в `assets/store/screenshots/`, разрешение верное, заглушек и отладочных
-      наложений нет).
-- [x] 7.4 Написать `store.config.json` с локализациями `ru` и `en-US`: название,
-      подзаголовок, описание, ключевые слова, заметки к версии; категории
-      `PRODUCTIVITY` / `HEALTH_AND_FITNESS`, возрастной рейтинг без ограничений,
-      контакты для ревью, URL политики и поддержки (проверка: название и подзаголовок
-      ≤ 30 символов, поле ключевых слов ≤ 100 символов — посчитать для обоих языков).
-- [x] 7.5 Проверить, что описание не обещает того, чего в приложении нет, и что
-      скриншоты показывают ровно то, о чём говорит описание (проверка: пройтись по
-      описанию пункт за пунктом против набора скриншотов).
+- [x] 7.1 Write `scripts/seed-demo-db.ts` (or `.js`) that builds a demo database from a
+      deterministic seed: habits with streaks, expense categories, a budget, several
+      months of history (check: two runs produce byte-identical data in the tables).
+- [x] 7.2 Write `scripts/screenshots.sh`: boot iPhone 17 Pro Max, terminate the app, put
+      the demo database into the container, go through the tabs with deep links and
+      take `xcrun simctl io booted screenshot` into `assets/store/screenshots/`
+      (check: two runs in a row produce identical 1320 × 2868 images).
+- [x] 7.3 Take the final set: habits, expenses, statistics, settings (check: the files
+      are in `assets/store/screenshots/`, the resolution is right, no placeholders and no
+      debug overlays).
+- [x] 7.4 Write `store.config.json` with `ru` and `en-US` localizations: name, subtitle,
+      description, keywords, release notes; categories `PRODUCTIVITY` /
+      `HEALTH_AND_FITNESS`, an unrestricted age rating, review contacts, policy and
+      support URLs (check: name and subtitle ≤ 30 characters, keywords field ≤ 100
+      characters, counted for both languages).
+- [x] 7.5 Check that the description promises nothing the app lacks and that the
+      screenshots show exactly what the description talks about (check: go through the
+      description point by point against the screenshot set).
 
-## 8. Отправка
+## 8. Submission
 
-- [ ] 8.1 Отправить сборку: `EXPO_ASC_API_KEY_* … npx eas-cli@latest submit -p ios
-      --path <ipa>` (проверка: сборка появилась в App Store Connect и обработалась без
-      «Missing Compliance»).
-- [ ] 8.2 Заполнить листинг в App Store Connect копированием из `store.config.json`,
-      загрузить скриншоты, указать URL политики, ответить на анкету App Privacy
-      «Data Not Collected» (проверка: App Store Connect не показывает незаполненных
-      обязательных полей).
-- [ ] 8.3 Отправить на ревью (проверка: статус приложения — «Waiting for Review»).
+- [ ] 8.1 Submit the build: `EXPO_ASC_API_KEY_* … npx eas-cli@latest submit -p ios
+      --path <ipa>` (check: the build appeared in App Store Connect and was processed
+      without "Missing Compliance").
+- [ ] 8.2 Fill in the listing in App Store Connect by copying from `store.config.json`,
+      upload the screenshots, set the policy URL, answer the App Privacy questionnaire
+      "Data Not Collected" (check: App Store Connect shows no unfilled required fields).
+- [ ] 8.3 Submit for review (check: the app status is "Waiting for Review").
 
-## 9. Документация
+## 9. Documentation
 
-- [x] 9.1 Написать `docs/release.md`: предпосылки и учётные записи, бамп `version` /
-      `ios.buildNumber` вместе с `prebuild` одним шагом, сборка архива, отправка,
-      что заполняется руками в первом релизе и что переходит на `eas metadata:push`
-      со второго, чек-лист приёмки (проверка: по документу проходится весь путь без
-      обращения к этому плану).
-- [x] 9.2 Добавить в `docs/pitfalls.md` граблю про `buildNumber` и `prebuild`, а в
-      `README.md` — ссылку на `docs/release.md` (проверка: ссылки открываются, текст
-      описывает то, что лежит в коде).
+- [x] 9.1 Write `docs/release.md`: prerequisites and accounts, bumping `version` /
+      `ios.buildNumber` together with `prebuild` as one step, building the archive,
+      submission, what is filled in by hand in the first release and what moves to
+      `eas metadata:push` from the second, the acceptance checklist (check: the whole
+      path can be followed from the document without consulting this plan).
+- [x] 9.2 Add the `buildNumber` and `prebuild` pitfall to `docs/pitfalls.md`, and a link
+      to `docs/release.md` to `README.md` (check: the links open, the text describes
+      what is in the code).

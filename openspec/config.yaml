@@ -1,5 +1,9 @@
 schema: spec-driven
 
+context: |
+  All artifacts (proposal, design, specs, tasks) are written in English, like every
+  other text in this repository; see the Language section of AGENTS.md.
+
 # Project context (optional)
 # This is shown to AI when creating artifacts.
 # Add your tech stack, conventions, style guides, domain knowledge, etc.

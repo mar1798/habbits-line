@@ -1,199 +1,194 @@
 ## Purpose
 
-Описывает, что делает сборку Habbits Line пригодной к публикации в App Store: как
-приложение объявляет свою версию и правовые декларации, как релиз собирается и
-отправляется, какие артефакты листинга лежат в репозитории и что пользователь видит о
-версии и приватности внутри приложения.
+Describes what makes a Habbits Line build publishable in the App Store: how the app
+declares its version and legal declarations, how a release is built and submitted, which
+listing artifacts live in the repository, and what the user sees about the version and
+privacy inside the app.
 
 ## ADDED Requirements
 
-### Requirement: Версия и номер сборки объявлены в конфиге приложения
+### Requirement: Version and build number are declared in the app config
 
-Конфигурация приложения SHALL задавать пользовательскую версию (`version`) и номер
-сборки (`ios.buildNumber`) явно, в одном месте — `app.json`. Номер сборки MUST быть
-строго возрастающим между любыми двумя загрузками в App Store Connect, включая две
-загрузки одной и той же `version`. Инкремент номера MUST быть шагом релизного порядка,
-а не побочным эффектом сборки.
+The app configuration SHALL set the user-facing version (`version`) and the build
+number (`ios.buildNumber`) explicitly, in one place: `app.json`. The build number MUST
+strictly increase between any two uploads to App Store Connect, including two uploads of
+the same `version`. Incrementing the number MUST be a step of the release order, not a
+side effect of the build.
 
-#### Scenario: Собранный бинарник несёт заявленные номера
+#### Scenario: The built binary carries the declared numbers
 
-- **WHEN** выполнен `expo prebuild` и собран релизный архив
-- **THEN** `CFBundleShortVersionString` в `Info.plist` равен `version` из `app.json`,
-  а `CFBundleVersion` равен `ios.buildNumber`
+- **WHEN** `expo prebuild` has run and a release archive has been built
+- **THEN** `CFBundleShortVersionString` in `Info.plist` equals `version` from `app.json`,
+  and `CFBundleVersion` equals `ios.buildNumber`
 
-#### Scenario: Повторная загрузка той же версии
+#### Scenario: Re-uploading the same version
 
-- **WHEN** в App Store Connect уже загружена сборка с некоторым номером и готовится
-  ещё одна с той же `version`
-- **THEN** релизный порядок требует поднять `ios.buildNumber` перед сборкой, и
-  загрузка со старым или равным номером отклоняется как ошибка порядка, а не
-  исправляется на месте
+- **WHEN** a build with some number has already been uploaded to App Store Connect and
+  another one with the same `version` is being prepared
+- **THEN** the release order requires bumping `ios.buildNumber` before the build, and an
+  upload with an old or equal number is rejected as an ordering error, not fixed in place
 
-### Requirement: Приложение объявляет отсутствие неисключённого шифрования
+### Requirement: The app declares no non-exempt encryption
 
-Конфигурация приложения SHALL объявлять, что приложение не использует шифрование,
-выходящее за рамки исключений (`usesNonExemptEncryption: false`), чтобы загруженная
-сборка не вставала в App Store Connect со статусом «Missing Compliance» и не требовала
-ручного ответа на анкету экспортного соответствия при каждой загрузке.
+The app configuration SHALL declare that the app uses no encryption beyond the
+exemptions (`usesNonExemptEncryption: false`), so that an uploaded build does not sit in
+App Store Connect with the "Missing Compliance" status and does not require a manual
+answer to the export compliance questionnaire on every upload.
 
-#### Scenario: Сборка загружена в App Store Connect
+#### Scenario: A build is uploaded to App Store Connect
 
-- **WHEN** сборка обработана App Store Connect
-- **THEN** она доступна для отправки на ревью без запроса информации об экспортном
-  соответствии
+- **WHEN** the build has been processed by App Store Connect
+- **THEN** it is available for submission to review without a request for export
+  compliance information
 
-### Requirement: Релизная сборка содержит локальные напоминания
+### Requirement: The release build contains local reminders
 
-Релизная сборка SHALL включать нативную часть локальных уведомлений: напоминания —
-заявленная функция приложения, и её отсутствие в собранном бинарнике делает описание в
-листинге ложным.
+The release build SHALL include the native part of local notifications: reminders are an
+advertised feature of the app, and their absence from the built binary makes the listing
+description false.
 
-#### Scenario: Напоминание в релизной сборке
+#### Scenario: A reminder in the release build
 
-- **WHEN** в релизной сборке на устройстве у привычки включено напоминание и наступает
-  назначенное время
-- **THEN** уведомление приходит, а тап по нему открывает приложение на этой привычке
+- **WHEN** in a release build on a device a habit has a reminder enabled and the
+  scheduled time arrives
+- **THEN** the notification arrives, and tapping it opens the app on that habit
 
-### Requirement: Отправка в App Store Connect воспроизводима и не хранит секретов в репозитории
+### Requirement: Submission to App Store Connect is reproducible and keeps no secrets in the repository
 
-Репозиторий SHALL содержать профиль отправки, которого достаточно, чтобы загрузить
-локально собранный `.ipa` в App Store Connect одной командой без интерактивного ввода
-идентификаторов приложения и команды. Учётные данные Apple — приватный ключ App Store
-Connect API, его идентификаторы и пароли — MUST NOT попадать в репозиторий: профиль
-ссылается на них через путь вне репозитория или переменные окружения, а шаблоны имён
-ключей закрыты в `.gitignore`.
+The repository SHALL contain a submit profile sufficient to upload a locally built `.ipa`
+to App Store Connect with one command, without interactively entering the app and team
+identifiers. Apple credentials (the App Store Connect API private key, its identifiers
+and passwords) MUST NOT get into the repository: the profile refers to them via a path
+outside the repository or environment variables, and key file name patterns are covered
+by `.gitignore`.
 
-#### Scenario: Загрузка локальной сборки
+#### Scenario: Uploading a local build
 
-- **WHEN** собран релизный `.ipa` и заданы учётные данные App Store Connect API
-- **THEN** одна команда отправки загружает его в App Store Connect без интерактивных
-  вопросов о bundle id, идентификаторе приложения и команде
+- **WHEN** a release `.ipa` has been built and App Store Connect API credentials are set
+- **THEN** one submit command uploads it to App Store Connect without interactive
+  questions about the bundle id, app identifier and team
 
-#### Scenario: Ключ не утекает в историю
+#### Scenario: The key does not leak into history
 
-- **WHEN** приватный ключ App Store Connect API лежит в рабочей копии
-- **THEN** `git status` не показывает его как неотслеживаемый файл, а `git add -A` его
-  не добавляет
+- **WHEN** the App Store Connect API private key lies in the working copy
+- **THEN** `git status` does not show it as an untracked file, and `git add -A` does not
+  add it
 
-### Requirement: Метаданные листинга хранятся в репозитории на двух языках
+### Requirement: Listing metadata is stored in the repository in two languages
 
-Репозиторий SHALL содержать метаданные App Store как версионируемый файл, а не только
-как заполненные вручную поля в App Store Connect. Метаданные MUST покрывать локализации
-`ru` и `en-US` — те же два языка, что и UI приложения — и включать для каждой название,
-подзаголовок, описание, ключевые слова и заметки к версии, а также общие для приложения
-категории, возрастной рейтинг, контакты для ревью и ссылки на политику
-конфиденциальности и поддержку. Длины MUST укладываться в ограничения App Store
-(название и подзаголовок — 30 символов, поле ключевых слов — 100 символов).
+The repository SHALL contain the App Store metadata as a versioned file, not only as
+fields filled in by hand in App Store Connect. The metadata MUST cover the `ru` and
+`en-US` localizations (the same two languages as the app UI) and include for each the
+name, subtitle, description, keywords and release notes, plus the app-wide categories,
+age rating, review contacts and links to the privacy policy and support. Lengths MUST fit
+the App Store limits (name and subtitle: 30 characters, keywords field: 100 characters).
 
-#### Scenario: Листинг открыт на русском устройстве
+#### Scenario: The listing is opened on a Russian device
 
-- **WHEN** пользователь с русской локалью открывает страницу приложения в App Store
-- **THEN** он видит название, подзаголовок и описание на русском
+- **WHEN** a user with a Russian locale opens the app's page in the App Store
+- **THEN** they see the name, subtitle and description in Russian
 
-#### Scenario: Листинг открыт вне русской локали
+#### Scenario: The listing is opened outside the Russian locale
 
-- **WHEN** страницу открывает пользователь с любой другой локалью
-- **THEN** он видит английскую версию тех же полей
+- **WHEN** a user with any other locale opens the page
+- **THEN** they see the English version of the same fields
 
-#### Scenario: Метаданные превышают лимит
+#### Scenario: Metadata exceeds a limit
 
-- **WHEN** какое-либо поле выходит за ограничение App Store по длине
-- **THEN** это выявляется проверкой метаданных до отправки, а не отказом App Store
-  Connect
+- **WHEN** some field exceeds the App Store length limit
+- **THEN** this is caught by a metadata check before submission, not by a rejection
+  from App Store Connect
 
-### Requirement: Скриншоты снимаются воспроизводимо
+### Requirement: Screenshots are taken reproducibly
 
-Репозиторий SHALL содержать набор скриншотов для листинга и способ снять его заново
-одной командой. Набор MUST покрывать обязательный для iPhone размер 6.9″
-(1320 × 2868) и показывать основные экраны приложения — привычки, траты, статистику —
-на предсказуемых демонстрационных данных, одинаковых от прогона к прогону. Скриншоты
-MUST NOT содержать отладочных наложений, пустых экранов-заглушек и данных, не
-соответствующих описанию в листинге.
+The repository SHALL contain a set of listing screenshots and a way to retake it with
+one command. The set MUST cover the size required for iPhone, 6.9″ (1320 × 2868), and
+show the app's main screens (habits, expenses, statistics) on predictable demo data that
+is the same from run to run. Screenshots MUST NOT contain debug overlays, empty
+placeholder screens or data that does not match the listing description.
 
-#### Scenario: Повторное снятие набора
+#### Scenario: Retaking the set
 
-- **WHEN** скрипт снятия скриншотов запускается дважды подряд на том же симуляторе
-- **THEN** оба прогона дают одинаковые по содержимому изображения нужного разрешения
+- **WHEN** the screenshot script runs twice in a row on the same simulator
+- **THEN** both runs produce images with identical content at the required resolution
 
-#### Scenario: Изменился экран
+#### Scenario: A screen has changed
 
-- **WHEN** изменён внешний вид одного из показанных экранов
-- **THEN** актуальный набор получается перезапуском того же скрипта, без ручной
-  пересъёмки
+- **WHEN** the look of one of the shown screens has changed
+- **THEN** an up-to-date set is obtained by rerunning the same script, without manual
+  reshooting
 
-### Requirement: Политика конфиденциальности опубликована и соответствует поведению приложения
+### Requirement: The privacy policy is published and matches the app's behavior
 
-Приложение SHALL иметь политику конфиденциальности, доступную по публичному URL,
-который указывается в App Store Connect. Текст политики MUST существовать на русском и
-английском и MUST соответствовать фактическому поведению: приложение работает офлайн,
-не имеет учётных записей, не передаёт данные на серверы и не использует трекинг;
-единственный способ, которым данные покидают устройство, — файл бэкапа, который
-пользователь сам экспортирует и сам решает, куда отправить. Декларации App Privacy
-(«данные не собираются», трекинга нет) MUST совпадать с этим текстом и с манифестом
-приватности в сборке.
+The app SHALL have a privacy policy available at a public URL, which is set in App Store
+Connect. The policy text MUST exist in Russian and English and MUST match actual
+behavior: the app works offline, has no accounts, sends no data to servers and uses no
+tracking; the only way data leaves the device is a backup file that the user exports
+and sends wherever they choose. The App Privacy declarations ("data not collected", no
+tracking) MUST match this text and the privacy manifest in the build.
 
-#### Scenario: Ревьюер открывает указанный URL
+#### Scenario: A reviewer opens the given URL
 
-- **WHEN** ревьюер открывает URL политики из App Store Connect
-- **THEN** страница доступна публично и без авторизации, и содержит текст политики
+- **WHEN** a reviewer opens the policy URL from App Store Connect
+- **THEN** the page is publicly available without authentication and contains the
+  policy text
 
-#### Scenario: Декларации сверены с поведением
+#### Scenario: Declarations are checked against behavior
 
-- **WHEN** сверяются анкета App Privacy, текст политики и манифест приватности сборки
-- **THEN** все три говорят одно и то же: данные не собираются и трекинга нет
+- **WHEN** the App Privacy questionnaire, the policy text and the build's privacy
+  manifest are compared
+- **THEN** all three say the same thing: no data is collected and there is no tracking
 
-### Requirement: Настройки показывают версию и ссылку на политику
+### Requirement: Settings show the version and a link to the policy
 
-Экран настроек SHALL содержать раздел «О приложении», показывающий версию приложения и
-номер сборки в том виде, в каком они попали в бинарник, и ссылку на политику
-конфиденциальности, открывающуюся во внешнем браузере. Обе подписи MUST существовать в
-`ru` и `en`.
+The settings screen SHALL contain an About section showing the app version and build
+number as they ended up in the binary, and a link to the privacy policy that opens in an
+external browser. Both labels MUST exist in `ru` and `en`.
 
-#### Scenario: Пользователь смотрит версию
+#### Scenario: The user checks the version
 
-- **WHEN** пользователь открывает настройки и доходит до раздела «О приложении»
-- **THEN** он видит версию и номер сборки, совпадающие с загруженной сборкой
+- **WHEN** the user opens settings and scrolls to the About section
+- **THEN** they see the version and build number matching the uploaded build
 
-#### Scenario: Пользователь открывает политику
+#### Scenario: The user opens the policy
 
-- **WHEN** пользователь нажимает на ссылку политики конфиденциальности
-- **THEN** политика открывается во внешнем браузере, а приложение остаётся в том же
-  состоянии при возврате
+- **WHEN** the user taps the privacy policy link
+- **THEN** the policy opens in an external browser, and the app is in the same state on
+  return
 
-#### Scenario: Переключён язык
+#### Scenario: The language is switched
 
-- **WHEN** в настройках выбран английский
-- **THEN** раздел «О приложении» и его подписи показаны на английском
+- **WHEN** English is selected in settings
+- **THEN** the About section and its labels are shown in English
 
-### Requirement: Порядок выпуска задокументирован
+### Requirement: The release order is documented
 
-Репозиторий SHALL содержать документ, описывающий выпуск релиза от начала до конца:
-что бампится, чем собирается, чем отправляется, что заполняется в App Store Connect
-руками и какие внешние учётные записи для этого нужны. Документ MUST описывать то, что
-лежит в репозитории, и MUST обновляться в том же коммите, что и изменение порядка
-выпуска.
+The repository SHALL contain a document describing a release end to end: what gets
+bumped, what builds it, what submits it, what is filled in by hand in App Store Connect,
+and which external accounts this requires. The document MUST describe what is in the
+repository and MUST be updated in the same commit as a change to the release order.
 
-#### Scenario: Выпуск по документу
+#### Scenario: Releasing from the document
 
-- **WHEN** релиз выпускается впервые после перерыва, по одному только документу
-- **THEN** ни один шаг не требует сведений, которых нет ни в документе, ни в
-  репозитории, кроме учётных данных Apple
+- **WHEN** a release is shipped for the first time after a break, from the document alone
+- **THEN** no step requires information that is in neither the document nor the
+  repository, other than Apple credentials
 
-### Requirement: Релизная сборка проходит приёмку перед отправкой
+### Requirement: The release build passes acceptance before submission
 
-Релизная сборка SHALL быть проверена на устройстве до отправки: чистая установка,
-холодный старт, запуск по тапу на уведомление, экспорт и импорт бэкапа, обе темы, оба
-языка. Сборка MUST NOT содержать следов разработки, видимых пользователю — отладочных
-наложений, тестовых данных при первом запуске, ссылок на локальный Metro.
+The release build SHALL be checked on a device before submission: clean install, cold
+start, launch from a notification tap, backup export and import, both themes, both
+languages. The build MUST NOT contain traces of development visible to the user: debug
+overlays, test data on first launch, references to a local Metro.
 
-#### Scenario: Первый запуск после чистой установки
+#### Scenario: First launch after a clean install
 
-- **WHEN** релизная сборка установлена на устройство без прежних данных приложения и
-  запущена
-- **THEN** приложение открывается на пустом состоянии, без ошибок и без обращений к
-  локальному серверу разработки
+- **WHEN** a release build is installed on a device with no previous app data and
+  launched
+- **THEN** the app opens on the empty state, without errors and without calls to the
+  local development server
 
-#### Scenario: Приёмка не пройдена
+#### Scenario: Acceptance fails
 
-- **WHEN** какой-либо пункт приёмки на релизной сборке падает
-- **THEN** сборка не отправляется, а номер сборки поднимается для следующей попытки
+- **WHEN** any acceptance item fails on the release build
+- **THEN** the build is not submitted, and the build number is bumped for the next attempt

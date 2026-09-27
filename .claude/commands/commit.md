@@ -1,91 +1,92 @@
 ---
-description: Разбить текущие изменения на осмысленные коммиты и запушить в текущую ветку
-argument-hint: "[подсказка по группировке, напр. «всё одним коммитом» или «доки отдельно»]"
+description: Split the current changes into meaningful commits and push to the current branch
+argument-hint: "[grouping hint, e.g. \"everything in one commit\" or \"docs separately\"]"
 allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git add:*), Bash(git reset:*), Bash(git commit:*), Bash(git push:*), Bash(git branch:*), Bash(git rev-parse:*), Bash(git show:*), Read, Grep, Glob
 ---
 
-## Контекст
+## Context
 
-- Ветка: !`git rev-parse --abbrev-ref HEAD`
-- Статус: !`git status --short`
-- Последние коммиты (образец стиля): !`git log --format='%s' -12`
+- Branch: !`git rev-parse --abbrev-ref HEAD`
+- Status: !`git status --short`
+- Recent commits (style reference): !`git log --format='%s' -12`
 
-Дополнительное пожелание пользователя по группировке: $ARGUMENTS
+The user's extra wish about grouping: $ARGUMENTS
 
-## Задача
+## Task
 
-Разложить незакоммиченные изменения по смыслу, закоммитить каждую группу отдельно и
-запушить текущую ветку.
+Split the uncommitted changes by meaning, commit each group separately and push the
+current branch.
 
-### 1. Разобраться, что изменилось
+### 1. Understand what changed
 
-Прочитать `git diff` и `git diff --cached` целиком — не полагаться на имена файлов.
-Для новых файлов посмотреть содержимое. Нужно понимать **зачем** сделано каждое
-изменение, иначе не выйдет ни сгруппировать, ни написать сообщение.
+Read `git diff` and `git diff --cached` in full; do not rely on file names. For new
+files, look at their contents. You need to understand **why** each change was made,
+otherwise you can neither group it nor write the message.
 
-### 2. Сгруппировать
+### 2. Group
 
-Одна группа = одно изменение, которое объясняется **одним предложением «зачем»**.
-Не по директориям и не по типам файлов: правка схемы, миграция, репозиторий, IPC-канал
-и экран одной фичи — это **один** коммит, а не пять. И наоборот: рефакторинг, попавший
-в те же файлы, но не относящийся к фиче, — отдельный коммит.
+One group = one change that is explained by **one sentence of "why"**. Not by directory
+and not by file type: the schema edit, migration, repository, store and screen of one
+feature are **one** commit, not five. And the other way round: a refactor that landed in
+the same files but has nothing to do with the feature is a separate commit.
 
-Признаки, что группу надо разделить: в сообщении появляется «и» между несвязанными
-вещами; часть изменений можно откатить, не сломав остальные; правка попала в дифф
-случайно (отладочный вывод, переформатирование, чужой мусор).
+Signs that a group should be split: the message grows an "and" between unrelated things;
+part of the changes could be reverted without breaking the rest; an edit got into the
+diff by accident (debug output, reformatting, someone else's junk).
 
-Если пользователь дал пожелание в `$ARGUMENTS` — оно главнее этих правил.
+If the user gave a wish in `$ARGUMENTS`, it overrides these rules.
 
-### 3. Проверить перед коммитом
+### 3. Check before committing
 
-- Секреты, ключи, токены, локальные пути, отладочные `console.log` и закомментированный
-  код — в коммит не идут.
-- Файлы, изменения которых пользователь не заказывал и не упоминал (особенно **удаления**
-  и правки конфигов) — **спросить**, а не включать молча.
-- Ничего из `.gitignore`, ничего из `node_modules/`, `out/`, `release/`.
-- Не запускать проверки и тесты — это делает не эта команда; но если в диффе видна явная
-  поломка, сказать об этом до коммита.
+- Secrets, keys, tokens, local paths, debug `console.log` and commented-out code do not
+  go into a commit.
+- Files whose changes the user did not ask for and did not mention (especially
+  **deletions** and config edits): **ask**, do not include them silently.
+- Nothing from `.gitignore`, nothing from `node_modules/`, `out/`, `release/`.
+- Do not run checks and tests, that is not this command's job; but if the diff shows an
+  obvious breakage, say so before committing.
 
-### 4. Закоммитить
+### 4. Commit
 
-Для каждой группы:
+For each group:
 
 ```
-git add <точные пути>          # никогда не `git add -A` и не `git add .`
-git diff --cached --stat        # убедиться, что в индексе ровно задуманное
+git add <exact paths>           # never `git add -A` or `git add .`
+git diff --cached --stat        # make sure the index holds exactly what was intended
 git commit -m "$(cat <<'EOF'
-…сообщение…
+…message…
 EOF
 )"
 ```
 
-Формат сообщения — как в истории репозитория, по-русски:
+Message format, in English (older history is in Russian; new commits are English only):
 
-- Заголовок `Область: суть` (`UI:`, `Импорт:`, `Тесты:`, `Сборка:`, `Аудит:`, `Солвер:`,
-  `Доки:`), до ~70 знаков, без точки в конце. Область — из существующих в `git log`,
-  новую заводить только если ни одна не подходит.
-- Пустая строка, затем тело, перенос по ~72 колонки. Тело отвечает на «почему»: что было
-  не так до изменения и почему сделано именно так. Что именно поменялось, видно из диффа —
-  пересказывать дифф не нужно. Для мелких очевидных правок тело можно опустить.
-- Если сессия задаёт строку атрибуции (`Claude-Session:` и т.п.) — она идёт последней
-  строкой, отделённая пустой. Ничего другого в футер не добавлять.
+- Subject `Scope: summary` (`Habits:`, `Expenses:`, `Stats:`, `Backup:`, `Reminders:`,
+  `UI:`, `i18n:`, `Store:`, `Build:`, `Tests:`, `Docs:`), up to ~70 characters, no
+  trailing period. Take the scope from the existing ones; introduce a new one only if
+  none fits.
+- A blank line, then the body, wrapped at ~72 columns. The body answers "why": what was
+  wrong before the change and why it was done this way. What exactly changed is visible
+  in the diff; do not retell the diff. For small obvious edits the body can be omitted.
+- If the session defines an attribution line (`Claude-Session:` and the like), it goes
+  last, separated by a blank line. Add nothing else to the footer.
 
-Не использовать `--amend`, `--no-verify`, `--force`; не трогать уже существующие коммиты.
-Если сработал хук и коммит не прошёл — разобраться и починить причину, а не обойти хук.
+Do not use `--amend`, `--no-verify`, `--force`; do not touch existing commits. If a hook
+fires and the commit fails, find and fix the cause instead of bypassing the hook.
 
-### 5. Запушить
+### 5. Push
 
-Пушить **в текущую ветку**, как есть — не создавать новую и не переключаться, даже если
-это `master`: так задумано.
+Push **to the current branch**, as is: do not create a new one and do not switch, even if
+it is `master`. This is intended.
 
 ```
-git push          # если апстрима нет: git push -u origin <текущая ветка>
+git push          # if there is no upstream: git push -u origin <current branch>
 ```
 
-Если пуш отклонён (ветка ушла вперёд) — не форсить: сказать пользователю и предложить
-`git pull --rebase`.
+If the push is rejected (the branch moved ahead), do not force: tell the user and
+suggest `git pull --rebase`.
 
-### 6. Отчитаться
+### 6. Report
 
-Коротко: какие коммиты созданы (хеш + заголовок), что осталось незакоммиченным и почему,
-результат пуша.
+Briefly: which commits were created (hash + subject), what was left uncommitted and why,
+the result of the push.
