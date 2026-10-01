@@ -102,8 +102,9 @@ the App Store limits (name and subtitle: 30 characters, keywords field: 100 char
 ### Requirement: Screenshots are taken reproducibly
 
 The repository SHALL contain a set of listing screenshots and a way to retake it with
-one command. The set MUST cover the size required for iPhone, 6.9″ (1320 × 2868), and
-show the app's main screens (habits, expenses, statistics) on predictable demo data that
+one command. The set MUST include a size the iPhone tab of App Store Connect accepts,
+6.5″ (1284 × 2778), scaled from a 6.9″ (1320 × 2868) capture, and MUST show the app's
+main screens (habits, expenses, statistics) on predictable demo data that
 is the same from run to run. Screenshots MUST NOT contain debug overlays, empty
 placeholder screens or data that does not match the listing description.
 
@@ -121,11 +122,12 @@ placeholder screens or data that does not match the listing description.
 ### Requirement: The privacy policy is published and matches the app's behavior
 
 The app SHALL have a privacy policy available at a public URL, which is set in App Store
-Connect. The policy text MUST exist in Russian and English and MUST match actual
-behavior: the app works offline, has no accounts, sends no data to servers and uses no
-tracking; the only way data leaves the device is a backup file that the user exports
-and sends wherever they choose. The App Privacy declarations ("data not collected", no
-tracking) MUST match this text and the privacy manifest in the build.
+Connect. It MAY be the publisher's general policy covering all of their apps. Whatever it
+says about data collection and tracking MUST hold for this app: the app works offline,
+has no accounts, sends no data to servers and uses no tracking; the only way data leaves
+the device is a backup file that the user exports and sends wherever they choose. The
+App Privacy declarations ("data not collected", no tracking) MUST match this text and the
+privacy manifest in the build.
 
 #### Scenario: A reviewer opens the given URL
 

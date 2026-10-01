@@ -8,7 +8,7 @@
  * fixed names, and a seeded PRNG for amounts and gaps. Two runs on the same day produce
  * byte-identical tables.
  *
- * The schema is a transcription of db/migrations.ts at user_version 3, and the file is
+ * The schema is a transcription of db/migrations.ts at user_version 5, and the file is
  * stamped with that version, so the app opens it and `migrate()` returns immediately.
  * A new migration means updating this script too — a mismatch shows up as an empty
  * screen, not as an error.
@@ -88,6 +88,14 @@ const WEEKDAYS = 0b0011111; // Mon-Fri
 const HISTORY_DAYS = 365;
 
 /**
+ * The day expense periods start on, picked so that today falls about two weeks into one
+ * (1..28, the range lib/period.ts allows). A fixed 1 would make every set shot early in a
+ * month show a period that has barely begun: a near-empty spending bar and a budget
+ * nobody has touched.
+ */
+const PERIOD_START_DAY = ((new Date().getDate() + 13) % 28) + 1;
+
+/**
  * `rate` is how often the habit gets done on a day it is scheduled; `recentStreak` is how
  * many of the most recent scheduled days are forced to done, so the streak cards show a
  * number instead of a zero.
@@ -163,7 +171,8 @@ CREATE TABLE expenses (
   date TEXT NOT NULL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  note TEXT
+  note TEXT,
+  time TEXT
 );
 CREATE INDEX idx_expenses_date ON expenses(date);
 CREATE INDEX idx_expenses_category ON expenses(category_id);
@@ -173,7 +182,50 @@ CREATE TABLE expense_budgets (
   amount INTEGER NOT NULL CHECK (amount > 0),
   updated_at TEXT NOT NULL
 );
+
+CREATE TABLE expense_incomes (
+  id TEXT PRIMARY KEY NOT NULL,
+  amount INTEGER NOT NULL CHECK (amount > 0),
+  date TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX idx_expense_incomes_date ON expense_incomes(date);
 `;
+
+/**
+ * Today's expenses get fixed times, all before 09:41 — the clock the status bar is pinned
+ * to in every frame. A row stamped later than the time above it would read as a mistake.
+ */
+const TODAY_TIMES = ['07:38', '08:05', '08:24', '08:52', '09:17'];
+
+/**
+ * Times for an earlier day, 08:00 to 21:59, ascending. A PRNG of their own, so adding
+ * them left the amounts and categories drawn from the main one exactly as they were.
+ */
+const clock = mulberry32(11);
+function dayTimes(count) {
+  return Array.from({ length: count }, () => 8 * 60 + Math.floor(clock() * 14 * 60))
+    .sort((a, b) => a - b)
+    .map((minutes) => {
+      const hh = String(Math.floor(minutes / 60)).padStart(2, '0');
+      const mm = String(minutes % 60).padStart(2, '0');
+      return `${hh}:${mm}`;
+    });
+}
+
+/**
+ * `created_at` for an expense entered at `time` on `day`. The list orders a day by
+ * `created_at DESC`, and with one shared timestamp the rows would come out in whatever
+ * order SQLite keeps them, not latest first. A timestamp, not a date key, so
+ * toISOString() is the right tool here.
+ */
+function enteredAt(day, time) {
+  const at = new Date(day);
+  const [hh, mm] = time.split(':').map(Number);
+  at.setHours(hh, mm, 0, 0);
+  return at.toISOString();
+}
 
 function build() {
   const lines = ['PRAGMA foreign_keys = OFF;', 'BEGIN;', SCHEMA];
@@ -210,10 +262,12 @@ function build() {
   const random = mulberry32(7);
   let expenseIndex = 0;
   for (let back = HISTORY_DAYS; back >= 0; back -= 1) {
-    const date = dateKey(daysAgo(back));
+    const day = daysAgo(back);
+    const date = dateKey(day);
     // Today gets a fuller day than the rest: the expenses tab lists the selected day,
     // and a single row under the budget card reads as an empty app in a screenshot.
     const perDay = back === 0 ? 5 : 1 + Math.floor(random() * 3);
+    const times = back === 0 ? TODAY_TIMES : dayTimes(perDay);
     for (let n = 0; n < perDay; n += 1) {
       // Pick a category by its share, so "Еда" dominates the breakdown the way it would
       // in a real month rather than every slice coming out the same size.
@@ -224,18 +278,21 @@ function build() {
       expenseIndex += 1;
       lines.push(
         `INSERT INTO expenses VALUES ('demo-exp-${expenseIndex}', ${q(category.id)}, ` +
-          `${amount}, ${q(date)}, ${q(TS)}, ${q(TS)}, NULL);`
+          `${amount}, ${q(date)}, ${q(enteredAt(day, times[n]))}, ${q(TS)}, NULL, ` +
+          `${q(times[n])});`
       );
     }
   }
 
-  // One budget, set on the first of the month a year back: the rule in lib/expenses.ts
-  // carries the last budget forward, so every later period inherits it — including the
-  // twelve the statistics screen lists.
+  // One budget, set on the day a period opens thirteen months back: the rule in
+  // lib/expenses.ts carries the last budget forward, so every later period inherits it —
+  // including the twelve the statistics screen lists. Thirteen rather than twelve, because
+  // when today is earlier in the month than PERIOD_START_DAY the current period opened
+  // last month, and twelve months back would miss the oldest listed one.
   const firstOfPeriod = new Date();
   firstOfPeriod.setHours(12, 0, 0, 0);
-  firstOfPeriod.setDate(1);
-  firstOfPeriod.setMonth(firstOfPeriod.getMonth() - 12);
+  firstOfPeriod.setDate(PERIOD_START_DAY);
+  firstOfPeriod.setMonth(firstOfPeriod.getMonth() - 13);
   // A budget about a third above what a month actually costs: the bar has to read as
   // "on track", not as an empty or an overspent one.
   lines.push(
@@ -244,7 +301,9 @@ function build() {
 
   lines.push(`INSERT INTO app_settings VALUES ('theme_mode', 'system');`);
   lines.push(`INSERT INTO app_settings VALUES ('language', ${q(LANGUAGE)});`);
-  lines.push(`INSERT INTO app_settings VALUES ('expense_period_start_day', '1');`);
+  lines.push(
+    `INSERT INTO app_settings VALUES ('expense_period_start_day', '${PERIOD_START_DAY}');`
+  );
   // The currency the amounts are printed with. A missing row would fall back to the
   // ruble sign, but the screenshots must not move the day that default changes.
   lines.push(`INSERT INTO app_settings VALUES ('currency_symbol', ${q(MONEY.symbol)});`);
@@ -255,7 +314,10 @@ function build() {
     `INSERT INTO app_settings VALUES ('last_export_at', ${q(dateKey(daysAgo(3)))});`
   );
 
-  lines.push('PRAGMA user_version = 3;', 'COMMIT;');
+  // No income: it only raises the budget the card counts down from, and the budget above
+  // is already sized for the bar to read as "on track".
+
+  lines.push('PRAGMA user_version = 5;', 'COMMIT;');
   return lines.join('\n');
 }
 

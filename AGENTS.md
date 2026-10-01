@@ -80,13 +80,14 @@ xcrun simctl io booted screenshot out.png
 sips -c H W --cropOffset Y X out.png                   # crop to the area you need
 ```
 
-Synthetic taps **do not work** (neither AppleScript nor CGEvent). State that a deep link
-cannot reach is set in code: a temporarily changed default or an inline `ref`, take the
-screenshot, then `git checkout` the file. Settings that change only by a tap (theme,
+Taps synthesized through AppleScript or CGEvent **do not work**; the iOS Simulator tool
+of the Claude desktop app does deliver them, a second or two late. State that neither a
+tap nor a deep link can reach is set in code: a temporarily changed default or an inline
+`ref`, take the screenshot, then `git checkout` the file. Settings that change only by a tap (theme,
 language, period start day) live in the `app_settings` table of the simulator's database:
 
 ```bash
-xcrun simctl get_app_container booted com.mar1798.habbits-line data
+xcrun simctl get_app_container booted com.dastan.habbitsline data
 # → <container>/Documents/SQLite/habits.db: terminate the app, edit with sqlite3,
 #   launch again, take the screenshot, restore the value
 ```

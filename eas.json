@@ -1,7 +1,8 @@
 {
   "cli": {
     "version": ">= 16.0.1",
-    "appVersionSource": "local"
+    "appVersionSource": "local",
+    "promptToConfigurePushNotifications": false
   },
   "build": {
     "production": {
@@ -13,8 +14,9 @@
   "submit": {
     "production": {
       "ios": {
-        "ascAppId": "REPLACE_WITH_ASC_APP_ID",
-        "appleTeamId": "REPLACE_WITH_APPLE_TEAM_ID"
+        "appName": "Habbits Line: привычки",
+        "language": "ru",
+        "sku": "habbitsline"
       }
     }
   }

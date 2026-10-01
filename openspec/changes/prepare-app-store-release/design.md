@@ -44,6 +44,13 @@ what, from the current state, shapes the solution:
 
 ### Local build, submission via `eas submit`
 
+**Revised:** the publisher builds his other app with EAS Build and submits it with an
+Apple ID login, and that is the usual route here too: `eas build -p ios --profile
+production`, then `eas submit -p ios --latest`. `submit.production.ios` in `eas.json` now
+names the App Store Connect record the first submission creates (name, primary language
+`ru`, SKU) instead of holding `ascAppId` / `appleTeamId`. The local route below stays as
+the fallback that spends no build minutes.
+
 Xcode builds and signs the archive (automatic signing under the Apple Developer
 account), the export yields an `.ipa`, then `npx eas-cli@latest submit -p ios --path <ipa>`.
 
@@ -69,6 +76,9 @@ EAS remote versioning counts numbers by its own builds. There will be no builds 
 so the source of truth is `app.json`, and `ios.buildNumber` is bumped by hand as a step
 of the release order. `autoIncrement` does not apply: it lives in `eas build`.
 
+With EAS Build now in use (see above), `app.json` stays the source of truth anyway: both
+routes then agree on the numbers, and the bump remains a step of the release order.
+
 This is also where the main pitfall of the order comes from: `buildNumber` changes in
 `app.json` but reaches the binary only through `prebuild`. In `docs/release.md` the bump
 and the prebuild are one step, not two.
@@ -83,6 +93,9 @@ covers `*.p8`; that remains a safety net, not the mechanism.
 
 The alternative, an Apple ID with an app-specific password, was rejected: a password in
 the environment and 2FA at every step versus a one-time key.
+
+On the EAS route no key is needed: `eas submit` logs into the Apple ID interactively and
+caches the session. The key remains for uploading an `.ipa` without that login.
 
 ### Metadata: `store.config.json` in the repository, first release by hand
 
@@ -104,6 +117,11 @@ in both, but habits plus expenses are closer to productivity than to fitness.
 The required size is 6.9″, 1320 × 2868; among the installed simulators, iPhone 17 Pro
 Max matches it. iPad is not needed (`TARGETED_DEVICE_FAMILY = 1`).
 
+**Revised on upload:** the iPhone tab of App Store Connect takes only the 6.5″ sizes
+(1242 × 2688 or 1284 × 2778) and refused the 6.9″ frames. No installed simulator shoots
+6.5″, so the script scales each 6.9″ frame evenly to 1284 wide and crops it to 2778,
+losing only rows of background; that `-6.5` set is the one uploaded.
+
 Shooting is reproducible only with fixed data, so the script: terminates the app →
 replaces `Documents/SQLite/habits.db` in the simulator container with a generated demo
 database → launches the app with a deep link to the right screen →
@@ -115,16 +133,20 @@ A limitation accepted deliberately: screens a deep link cannot reach (open sheet
 selected category) are not in the set, since synthetic taps do not work in the
 simulator. The set is built from the root screens of the tabs.
 
-### Privacy policy: markdown in `docs/`, published via GitHub Pages
+### Privacy policy: the publisher's general page
 
-The text lives in the repository in two languages, and GitHub Pages of the same
-repository provides the public URL. This adds zero infrastructure and keeps the text
-next to the code it describes.
+The first plan was markdown in `docs/` in two languages, served by GitHub Pages of this
+repository. It fell through on access, not on the text: enabling Pages takes admin
+rights on `mar1798/habbits-line`, and the app is published from an account whose owner
+does not have them.
 
-The condition: the repository has to be public (Pages on a private repository requires
-a paid plan). This is checked as the first step; if the repository is private, the
-alternative is a public gist with a stable URL. The choice affects only the value of
-`privacyPolicyUrl`, not the text or the other tasks.
+That account already has a public policy written for all of its apps,
+`dastanlo.github.io/become-smarter-daily-privacy/privacy-policy.html`, and a general
+support page next to it. Apple accepts one policy for several apps, and its claims (no
+accounts, no personal data, no analytics, ads or tracking, content on the device, local
+notifications) hold for this one. So both the listing and the link in Settings point
+there: one English page, no infrastructure to add. The app-specific text stays in
+`docs/` unpublished; serving it later changes only the URLs, not the other tasks.
 
 ### About section: `expo-constants`, no new dependency
 
@@ -154,8 +176,8 @@ setting.
   in a project that prides itself on having no network. Mitigation: the decision is
   reversible, the fallback (`altool` with the same key) is described above; what EAS
   leaves in the repository is `eas.json` and `extra.eas.projectId`.
-- **The repository is private, Pages is unavailable** → no URL for the policy.
-  Mitigation: checked as the first step of the task; the fallback is a public gist.
+- **Pages cannot be enabled for this repository** → no URL for the app-specific policy.
+  Handled: the publisher's general policy is used instead (see above).
 - **`eas metadata:push` is in preview** → it may change or break. Mitigation: the file
   stays useful as the source for manual filling; the release order does not depend on
   whether `push` works.

@@ -21,14 +21,16 @@ upload attempt to App Store Connect will hit missing fields.
 - **Release configuration check.** A Release build is installed on the simulator and on
   a device and walks through every screen: cold start, reminder via tap, backup
   export/import, both themes, both languages.
-- **Privacy policy.** Text in Russian and English in `docs/`, published via GitHub Pages,
-  plus a link to it and the version number in an About section on the settings screen.
+- **Privacy policy.** The publisher's general policy, one public page for all of their
+  apps, plus a link to it and the version number in an About section on the settings
+  screen. A more detailed app-specific text in Russian and English stays in `docs/`.
 - **Listing metadata.** `store.config.json` with `ru` and `en-US` localizations: name,
   subtitle, description, keywords, categories, age rating, review contacts, links to the
   policy and support.
 - **Screenshots.** A script that takes a 6.9″ (1320×2868) set from the simulator on a
-  prepared demo database; the result goes into `assets/store/` and is uploaded to App
-  Store Connect by hand (EAS Metadata does not upload screenshots).
+  prepared demo database, plus a 6.5″ (1284×2778) copy, the size App Store Connect's
+  iPhone tab accepts; the result goes into `assets/store/` and is uploaded to App Store
+  Connect by hand (EAS Metadata does not upload screenshots).
 - **Documentation.** `docs/release.md`, the single document describing the release
   order: what gets bumped, what builds it, what submits it, what is filled in by hand.
 
@@ -54,7 +56,7 @@ upload attempt to App Store Connect will hit missing fields.
 - **Native:** a mandatory `expo prebuild --platform ios` after edits to `app.json`;
   `ios/` is in `.gitignore`, so the check goes against the generated `Info.plist`.
 - **External (outside the repository, needs an account):** the paid Apple Developer
-  Program, an app record in App Store Connect with bundle id `com.mar1798.habbits-line`,
-  an App Store Connect API key, GitHub Pages enabled to host the policy.
+  Program, an app record in App Store Connect with bundle id `com.dastan.habbitsline`,
+  an App Store Connect API key, the publisher's public policy and support pages.
 - **Documents:** a new `docs/release.md`; `README.md` and `docs/pitfalls.md` get a link
   to it.

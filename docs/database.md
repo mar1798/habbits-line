@@ -1,9 +1,10 @@
 # Database
 
 SQLite via `expo-sqlite`. It is opened by
-`<SQLiteProvider databaseName="habits.db" onInit={migrate} useSuspense>` inside
-`<Suspense>` in the root `src/app/_layout.tsx`. All SQL lives in `src/db/*-repo.ts`;
-screens and stores never touch the database directly.
+`<SQLiteProvider databaseName="habits.db" onInit={initDatabase} useSuspense>` inside
+`<Suspense>` in the root `src/app/_layout.tsx`; `initDatabase` runs `migrate` and then
+reads the settings, and nothing renders until both are done. All SQL lives in
+`src/db/*-repo.ts`; screens and stores never touch the database directly.
 
 The current schema version is `DATABASE_VERSION` in [`src/db/migrations.ts`](../src/db/migrations.ts).
 
@@ -158,8 +159,9 @@ Index `idx_expense_incomes_date(date)`.
 characters, default `'₽'`; an empty string is a deliberate "no symbol", not a missing
 row), `currency_position` (`'prefix'` / `'suffix'`, default `'suffix'`), `last_export_at`
 (the `YYYY-MM-DD` date key of the last export; no row until the first export). They are
-read by a single `load()` before the splash is hidden, otherwise the chosen theme would
-flash as the system one on the first frame.
+read by a single `load()` in the provider's `onInit`, before the first render: otherwise
+the chosen theme would flash as the system one on the first frame, and the native tab
+bar would keep blank labels (see [pitfalls.md](pitfalls.md)).
 
 A new key here is not a migration: it is a key-value table, and a missing row reads as
 the default. Only a change in the meaning of an already shipped key would need a

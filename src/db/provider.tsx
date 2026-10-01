@@ -1,7 +1,7 @@
 import { Directory, File } from 'expo-file-system';
 import { SymbolView } from 'expo-symbols';
 import * as SplashScreen from 'expo-splash-screen';
-import { defaultDatabaseDirectory, SQLiteProvider } from 'expo-sqlite';
+import { defaultDatabaseDirectory, SQLiteProvider, type SQLiteDatabase } from 'expo-sqlite';
 import { Component, useEffect, useState, type PropsWithChildren, type ReactNode } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 
@@ -10,10 +10,28 @@ import { Text } from '@/components/ui/text';
 import { spacing } from '@/constants/design-tokens';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
+import { useSettingsStore } from '@/store/settings-store';
 
 import { migrate } from './migrations';
 
 const DATABASE_NAME = 'habits.db';
+
+/**
+ * Everything that has to be in place before the first frame: the schema, then the stored
+ * settings. The provider suspends until this resolves, so nothing ever renders in a theme
+ * or language the user did not choose. The native tab bar is the part that cannot
+ * recover from it: it takes its labels on its first render, and a label changed right
+ * after that reaches only the selected tab, leaving the other three blank until each is
+ * opened. A failed settings read is not a failed database, so it is logged and the
+ * defaults stand in.
+ */
+async function initDatabase(db: SQLiteDatabase): Promise<void> {
+  await migrate(db);
+  await useSettingsStore
+    .getState()
+    .load(db)
+    .catch((error) => console.warn('Failed to load settings', error));
+}
 
 /**
  * These screens are the one place the language setting cannot have been read yet — the
@@ -25,7 +43,7 @@ export function DatabaseProvider({ children }: PropsWithChildren) {
     <FatalErrorBoundary
       logLabel="Database failed to open"
       fallback={() => <DatabaseErrorScreen />}>
-      <SQLiteProvider databaseName={DATABASE_NAME} onInit={migrate} useSuspense>
+      <SQLiteProvider databaseName={DATABASE_NAME} onInit={initDatabase} useSuspense>
         {/*
           Screens have to live inside the provider, so a crash in any of them would
           otherwise reach the boundary above and be reported as a database failure.

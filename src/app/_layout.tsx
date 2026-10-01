@@ -74,23 +74,15 @@ function RootStack() {
   const { colors } = useTheme();
   const { t } = useI18n();
   const db = useSQLiteContext();
-  const loadSettings = useSettingsStore((state) => state.load);
 
-  // Hidden from here, not from RootLayout: stage 2 wraps this component in
-  // <Suspense><SQLiteProvider useSuspense>, so the effect then runs only once the
-  // database is open and the splash never uncovers an empty frame.
-  //
-  // It also waits on the stored theme and language — until those rows are read the app
-  // renders in the system scheme and in Russian, and a user who chose otherwise would
-  // see a frame of the wrong one. A failed read is not worth holding the splash for:
-  // the defaults are 'system' and Russian.
+  // Hidden from here, not from RootLayout: this component sits inside
+  // <Suspense><SQLiteProvider useSuspense>, so the effect runs only once the database is
+  // open and the stored theme and language are read — DatabaseProvider's init does both
+  // before anything renders. The splash never uncovers an empty frame, or one in the
+  // system scheme and Russian when the user chose otherwise.
   useEffect(() => {
-    loadSettings(db)
-      .catch((error) => console.warn('Failed to load settings', error))
-      .finally(() => {
-        SplashScreen.hideAsync().catch(() => {});
-      });
-  }, [db, loadSettings]);
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
 
   // A tap opens "Today" and the banner's "Mark" button writes the mark instead, from
   // both cold start and background: getLastNotificationResponse covers the cold-start

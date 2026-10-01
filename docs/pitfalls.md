@@ -11,6 +11,15 @@ build only through `npx expo prebuild --platform ios`. This has already cost one
 the wrong name under the icon. **Touched `app.json`? Run prebuild and check
 `ios/HabbitsLine/Info.plist`, not just `expo config`.**
 
+## `pod install` needs a UTF-8 locale
+
+In a shell where `LANG` is not set (Terminal sets it, some non-interactive shells do
+not), prebuild generates `ios/` and then CocoaPods dies in
+`Pod::Config#installation_root` with "Unicode Normalization not appropriate for
+ASCII-8BIT". The project is left without `Pods/`, and Xcode cannot build it.
+`export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8` before `npx expo prebuild` or
+`npx expo run:ios`.
+
 ## `buildNumber` lives in `app.json` but is checked in `Info.plist`
 
 A special case of the pitfall above, listed separately because the cost is different:
@@ -31,11 +40,12 @@ iOS 26 shows a system "Open in app?" dialog for any custom scheme, and
 `xcrun simctl openurl` is no exception. The URL **is delivered** (the app navigates where
 it is told), but the dialog stays as an overlay on top of the screen. There is no way to
 dismiss it: it cannot be tapped, it ignores Escape from the simulator keyboard, and the
-second declared scheme (`com.mar1798.habbits-line://`) behaves the same.
+second declared scheme (`com.dastan.habbitsline://`) behaves the same.
 
 It does not get in the way of checking behavior, since the deep link works. It does get
-in the way of screenshots: the frame is spoiled. There, the tab is set in code via Fast
-Refresh; see [release.md](release.md), step 7.
+in the way of screenshots: the frame is spoiled. There, the tab is switched with a tap in
+the Simulator, or set in code via Fast Refresh where nothing can tap; see
+[release.md](release.md), step 7.
 
 ## A notification button response arrives late and is dated by delivery
 
@@ -148,19 +158,56 @@ the upper bound) and `content_size large` to go back.
 `TextInput`, meanwhile, gets only `fontSize`: with an explicit `lineHeight`, iOS clips
 the field's own text.
 
-## The `expo-notifications` plugin breaks on-device signing
+## `aps-environment` comes back with every prebuild
 
 The `expo-notifications` config plugin adds `aps-environment` to the entitlements, i.e.
-the Push Notifications capability, which we do not have and will not have: reminders
-are local only. A provisioning profile without Push fails the on-device build:
+the Push Notifications capability, which reminders do not need: they are local only. A
+provisioning profile without Push fails the on-device build:
 
 ```
 Provisioning Profile "…" does not support the Push Notifications capability.
 Entitlements file defines the value "aps-environment" which is not registered for profile
 ```
 
-So the plugin is not in `plugins` in `app.json`. The package itself and local
-notifications do not suffer: on iOS the plugin is only responsible for
-`aps-environment`, custom sounds and `remote-notification`. If `aps-environment` has
-already landed in `ios/HabbitsLine/HabbitsLine.entitlements`, prebuild will not remove
-it; the key has to be deleted by hand.
+Keeping the plugin out of `plugins` in `app.json` does not stop it: `expo-notifications`
+is one of the packages prebuild configures on its own once it is installed
+(`versionedExpoSDKPackages` in `@expo/prebuild-config`), so the key is back in
+`ios/HabbitsLine/HabbitsLine.entitlements` after every `npx expo prebuild --clean`.
+
+With a paid developer account this does no harm: automatic signing in Xcode, like EAS
+Build when it syncs capabilities, turns Push Notifications on for the App ID, and the
+release build carries a capability it never uses. A free personal team cannot have Push at all; there the key is deleted from the
+entitlements by hand before an on-device build, and again after each prebuild.
+
+## A prebuilt Expo module drops its privacy manifest
+
+SDK 57 installs some Expo modules as prebuilt XCFrameworks (`ios/Pods/ExpoFileSystem/`),
+and the `PrivacyInfo.xcprivacy` from the package source never reaches the app:
+`ExpoFileSystem_privacy.bundle` is built empty, and the pod-install step that merges pod
+manifests into the app's own finds nothing to merge. Yet `ExpoFileSystem` calls
+disk-space APIs (`NSFileSystemFreeSize`, `volumeAvailableCapacityForImportantUsage`), and
+so does the SQLite inside the app (`fstatfs`). With no declared reason for that category,
+App Store Connect answers the upload with ITMS-91053 "Missing API declaration" and does
+not accept the build.
+
+So the category is declared in `app.json` under `ios.privacyManifests`, with the reasons
+expo-file-system gives in its own manifest (`E174.1`, `85F4.1`), and prebuild merges it
+into `ios/HabbitsLine/PrivacyInfo.xcprivacy`. After an SDK upgrade or a new native
+dependency, check the built app, not the sources: which manifests actually shipped, and
+which required-reason APIs the binaries import.
+
+```bash
+find <HabbitsLine.app> -name PrivacyInfo.xcprivacy
+nm -u <HabbitsLine.app>/Frameworks/<Name>.framework/<Name> | grep -E 'statfs|FileSystemFreeSize|VolumeAvailableCapacity'
+```
+
+## Native tab labels are taken once, on the first render
+
+The tab bar is native (`NativeTabs`), and a label that changes right after it mounts
+reaches only the selected tab: the other three stay blank until each one is opened. That
+is what every cold start in English looked like while the stored language arrived after
+the first render, in an effect. A switch later on, from Settings, updates all four. So
+the stored settings are read in the database provider's `onInit`, right after
+`migrate`, and nothing renders before them (`initDatabase` in
+[`src/db/provider.tsx`](../src/db/provider.tsx)). Anything else the first frame depends
+on belongs there too, not in an effect.

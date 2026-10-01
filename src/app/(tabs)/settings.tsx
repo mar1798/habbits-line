@@ -91,14 +91,12 @@ const APP_VERSION = Constants.expoConfig?.version ?? '—';
 const APP_BUILD = Constants.expoConfig?.ios?.buildNumber ?? '—';
 
 /**
- * Published from `docs/` via GitHub Pages, one page per UI language: the App Store
- * listing points at the same pair, and a reader who switched the app to English should
- * not land on the Russian text.
+ * The publisher's privacy policy: one English page that covers every app on the developer
+ * account, so there is no per-language pair to pick from. The App Store listing points at
+ * the same URL in both localizations.
  */
-const PRIVACY_POLICY_URL: Record<Language, string> = {
-  ru: 'https://mar1798.github.io/habbits-line/privacy-policy.ru.html',
-  en: 'https://mar1798.github.io/habbits-line/privacy-policy.en.html',
-};
+const PRIVACY_POLICY_URL =
+  'https://dastanlo.github.io/become-smarter-daily-privacy/privacy-policy.html';
 
 /** Message key for a failed import or export — a BackupError carries its own code. */
 function backupErrorKey(error: unknown): MessageKey {
@@ -791,7 +789,7 @@ export default function SettingsScreen() {
                 onPress={() => {
                   // Opening an external browser can be refused (no handler, restricted
                   // device). Nothing on this screen depends on it, so it stays a warning.
-                  Linking.openURL(PRIVACY_POLICY_URL[language]).catch((error) =>
+                  Linking.openURL(PRIVACY_POLICY_URL).catch((error) =>
                     console.warn('Failed to open the privacy policy', error)
                   );
                 }}>

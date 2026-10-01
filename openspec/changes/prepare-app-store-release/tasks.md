@@ -1,16 +1,20 @@
 ## 1. Prerequisites outside the repository
 
-- [ ] 1.1 Check that the Apple Developer Program account is active and note the Team ID,
-      which `eas.json` needs (check: the Team ID is written down).
-- [ ] 1.2 Create the app record in App Store Connect with bundle id
-      `com.mar1798.habbits-line`, default language `ru`, iPhone-only; note the
-      `ascAppId` from App Information (check: the `ascAppId` is written down).
-- [ ] 1.3 Issue an App Store Connect API key with the App Manager role, put the `.p8`
-      outside the repository and note the issuer id and key id (check: `git status` in a
-      clean working copy does not show the `.p8`).
-- [ ] 1.4 Check the visibility of the `mar1798/habbits-line` repository and enable GitHub
-      Pages for `docs/`, or, if the repository is private, choose a public gist
-      (check: the chosen URL opens in a private browser window without authentication).
+- [x] 1.1 Check that the Apple Developer Program account is active (check: the
+      publisher's other app, Become Smarter Daily, is live on the App Store under it).
+- [ ] 1.2 Get the app record in App Store Connect with bundle id
+      `com.dastan.habbitsline`, primary language `ru`, iPhone-only: the first
+      `eas submit` creates it from `eas.json`, or it is created by hand for the Xcode
+      route (check: the record exists in App Store Connect).
+- [ ] 1.3 Only for uploading a local `.ipa` without an Apple ID login: issue an App Store
+      Connect API key with the App Manager role, put the `.p8` outside the repository and
+      note the issuer id and key id (check: `git status` in a clean working copy does not
+      show the `.p8`).
+- [x] 1.4 Choose where the policy is published. GitHub Pages cannot be enabled on
+      `mar1798/habbits-line` without admin rights there, so the app uses the publisher's
+      general pages: `dastanlo.github.io/become-smarter-daily-privacy/privacy-policy.html`
+      and, for support, `dastanlo.github.io/support-page/support.html` (check: both URLs
+      open without authentication).
 
 ## 2. App configuration
 
@@ -43,12 +47,16 @@
 
 ## 4. Privacy policy
 
-- [ ] 4.1 Write `docs/privacy-policy.ru.md` and `docs/privacy-policy.en.md`: offline, no
-      accounts and no network, no tracking and no analytics; data leaves the device only
-      as a backup file the user exports themselves; a contact (check: every claim is
-      confirmed by the code; compare with `src/lib/backup.ts` and
-      `src/lib/notifications.ts`, no third-party SDKs in `package.json`).
-- [ ] 4.2 Publish using the method chosen in 1.4 and put the resulting URL into the
+- [x] 4.1 Check the publisher's general policy (chosen in 1.4) against the app: no
+      accounts, no personal data, no analytics, ads or tracking, content kept on the
+      device, local notifications only, and the publisher's email as the contact. Its
+      one inexact line, "this data never leaves your device", does not mention the
+      backup file the user exports themselves. `docs/privacy-policy.ru.md` and
+      `docs/privacy-policy.en.md` keep a more detailed app-specific text that is not
+      published (check: every claim is confirmed by the code; compare with
+      `src/lib/backup.ts` and `src/lib/notifications.ts`, no third-party SDKs in
+      `package.json`).
+- [x] 4.2 Publish using the method chosen in 1.4 and put the resulting URL into the
       constant the About section refers to (check: tapping the link in the simulator
       opens the published page).
 - [x] 4.3 Compare the policy text with `PrivacyInfo.xcprivacy` and with the App Privacy
@@ -59,17 +67,19 @@
 
 - [ ] 5.1 Run `npx eas-cli@latest init` to link the project (check: `app.json` gained
       `extra.eas.projectId`, `npm run typecheck` is green).
-- [ ] 5.2 Create `eas.json`: `cli.appVersionSource: "local"`, a `production` build
-      profile and `submit.production.ios` with `ascAppId` and `appleTeamId` from step 1;
-      the key is passed via the `EXPO_ASC_API_KEY_*` variables, do not write
-      `ascApiKeyPath` (check: `npx eas-cli@latest config` reads the file without errors,
+- [x] 5.2 Create `eas.json`: `cli.appVersionSource: "local"`,
+      `cli.promptToConfigurePushNotifications: false`, a `production` build profile and
+      `submit.production.ios` with the app name, primary language `ru` and SKU for the
+      record the first `eas submit` creates; do not write `ascApiKeyPath` (check:
+      eas-cli's own `@expo/eas-json` accepts the build and submit profiles,
       `grep -r "\-\-\-\-\-BEGIN" eas.json` is empty).
 - [x] 5.3 Check that `.gitignore` covers `*.p8` and add `AuthKey_*.p8` if the pattern
       does not cover the key's name (check: `git check-ignore -v AuthKey_TEST.p8` prints
       the rule).
-- [ ] 5.4 Build the release archive in Xcode (`ios/HabbitsLine.xcworkspace`, Release
-      scheme, Archive → Distribute → App Store Connect → Export) and get the `.ipa`
-      (check: the `.ipa` exists and lies outside the repository or in an ignored
+- [ ] 5.4 Build the release: `npx eas-cli@latest build -p ios --profile production`, or
+      the archive in Xcode (`ios/HabbitsLine.xcworkspace`, Release scheme, Archive →
+      Distribute → App Store Connect) (check: the build page on expo.dev shows a
+      finished iOS build, or the `.ipa` lies outside the repository or in an ignored
       directory).
 
 ## 6. Release build acceptance
@@ -111,9 +121,10 @@
 
 ## 8. Submission
 
-- [ ] 8.1 Submit the build: `EXPO_ASC_API_KEY_* … npx eas-cli@latest submit -p ios
-      --path <ipa>` (check: the build appeared in App Store Connect and was processed
-      without "Missing Compliance").
+- [ ] 8.1 Submit the build: `npx eas-cli@latest submit -p ios --latest`, or
+      `EXPO_ASC_API_KEY_* … npx eas-cli@latest submit -p ios --path <ipa>` for a local
+      archive (check: the build appeared in App Store Connect and was processed without
+      "Missing Compliance").
 - [ ] 8.2 Fill in the listing in App Store Connect by copying from `store.config.json`,
       upload the screenshots, set the policy URL, answer the App Privacy questionnaire
       "Data Not Collected" (check: App Store Connect shows no unfilled required fields).
